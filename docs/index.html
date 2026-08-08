@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CircuitDojo Manual - build software like this yourself</title>
+    <link rel="stylesheet" href="assets/manual.css" />
+  </head>
+  <body>
+    <div class="layout">
+      <nav class="sidebar">
+        <a class="brand" href="index.html">
+          <svg width="20" height="20" viewBox="0 0 18 18" fill="none">
+            <path d="M1.5 12.5h3.5V6h4v6.5h3.5" stroke="#0f7a3d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+            <circle cx="9" cy="6" r="2.1" fill="#8b1a1a" />
+          </svg>
+          <span><strong>CircuitDojo</strong><span>The Manual</span></span>
+        </a>
+      </nav>
+
+      <main>
+        <div class="hero">
+          <p class="eyebrow">Beginner → industry level</p>
+          <h1>Build software<br />like this yourself.</h1>
+          <p class="sub">
+            This manual takes someone who can program a little, but has never touched JavaScript, React, a database
+            or a design system, and walks them all the way to being able to build an application of this complexity
+            on their own, from an empty folder.
+          </p>
+        </div>
+
+        <h2 id="promise">What you will be able to do</h2>
+        <p>By the end you should be able to sit down with an empty folder and:</p>
+        <ul>
+          <li>Set up a modern front-end project from scratch and understand every file in it.</li>
+          <li>Write JavaScript fluently: closures, modules, immutability, async, and know <em>why</em> each idiom exists.</li>
+          <li>Build a React application with real state: undo/redo, keyboard control, canvas interaction.</li>
+          <li>Design a data model, write the SQL, and secure it so a browser can talk to the database directly.</li>
+          <li>Make it look like someone with taste built it, and explain every decision you made.</li>
+          <li>Test it, debug it, and ship it to the public internet.</li>
+        </ul>
+
+        <div class="why">
+          <strong>How to read this</strong>
+          <p>
+            Straight through, in order, with the project open in an editor beside you. Every concept is introduced with
+            the smallest possible example, then shown again <em>as it actually appears in CircuitDojo</em>, because
+            seeing a hook in a 5-line demo teaches you the syntax, and seeing it in a 400-line canvas component teaches
+            you the judgement.
+          </p>
+        </div>
+
+        <h2 id="map">The chapters</h2>
+        <div class="chapter-cards">
+          <a class="chapter-card" href="01-foundations.html">
+            <span class="n">Chapter 01</span>
+            <h3>Foundations</h3>
+            <p>How the web works, what a browser really does, HTML and CSS in one sitting, and the tools on your machine: terminal, Node, npm, git.</p>
+          </a>
+          <a class="chapter-card" href="02-javascript.html">
+            <span class="n">Chapter 02</span>
+            <h3>JavaScript</h3>
+            <p>The whole language you need: values, functions, closures, objects, arrays, destructuring, modules, classes, async, errors, immutability.</p>
+          </a>
+          <a class="chapter-card" href="03-react.html">
+            <span class="n">Chapter 03</span>
+            <h3>React</h3>
+            <p>Rendering as a function of state. JSX, props, hooks in depth, reducers, refs, context, performance, and the anti-patterns to avoid.</p>
+          </a>
+          <a class="chapter-card" href="04-tooling.html">
+            <span class="n">Chapter 04</span>
+            <h3>Tooling</h3>
+            <p>Vite, npm scripts, bundling, environment variables, DevTools debugging, automated tests, git workflow, undoing a change you regret, and deployment.</p>
+          </a>
+          <a class="chapter-card" href="05-backend.html">
+            <span class="n">Chapter 05</span>
+            <h3>Backend &amp; data</h3>
+            <p>Client/server basics, REST, relational modelling, SQL you will actually write, auth, and row-level security with Supabase.</p>
+          </a>
+          <a class="chapter-card" href="06-design.html">
+            <span class="n">Chapter 06</span>
+            <h3>Design</h3>
+            <p>Type scales, spacing rhythm, colour discipline, glass and depth, motion with intent, game-menu layout, accessibility. The "awwwards feel", decomposed into rules you can apply.</p>
+          </a>
+          <a class="chapter-card" href="07-architecture.html">
+            <span class="n">Chapter 07</span>
+            <h3>Architecture</h3>
+            <p>How this app is actually built: the engine/UI split, union-find netlists, a declarative rules DSL, and state machines for overlays.</p>
+          </a>
+          <a class="chapter-card" href="08-recipes.html">
+            <span class="n">Chapter 08</span>
+            <h3>Recipes</h3>
+            <p>Copy-paste patterns with the reasoning attached: glass surfaces, undo stacks, keyboard maps, seeded randomness, canvas pan/zoom, RLS policies.</p>
+          </a>
+        </div>
+
+        <h2 id="stack">Everything used to build CircuitDojo</h2>
+        <p>Nothing here is hidden. This is the complete list, with the chapter that teaches it.</p>
+        <table>
+          <tr><th>Technology</th><th>What it does here</th><th>Taught in</th></tr>
+          <tr><td><strong>HTML5</strong></td><td>One <code>index.html</code> that loads the app</td><td>01</td></tr>
+          <tr><td><strong>CSS3</strong></td><td>Glass surfaces, keyframe animations, clip-path wipes, fluid type</td><td>01, 06</td></tr>
+          <tr><td><strong>JavaScript (ES2022)</strong></td><td>The whole application, plain JS with ES modules, no TypeScript</td><td>02</td></tr>
+          <tr><td><strong>React 18</strong></td><td>UI rendering, hooks, reducers for editor state</td><td>03</td></tr>
+          <tr><td><strong>JSX</strong></td><td>The markup-in-JavaScript syntax React uses</td><td>03</td></tr>
+          <tr><td><strong>Vite 5</strong></td><td>Dev server with hot reload, production bundler (Rollup)</td><td>04</td></tr>
+          <tr><td><strong>Tailwind CSS 3</strong></td><td>Utility-first styling plus the design tokens</td><td>04, 06</td></tr>
+          <tr><td><strong>PostCSS + Autoprefixer</strong></td><td>CSS pipeline Tailwind runs on</td><td>04</td></tr>
+          <tr><td><strong>Node.js 22</strong></td><td>Runs the tooling, the tests and the sync script</td><td>01, 04</td></tr>
+          <tr><td><strong>npm</strong></td><td>Dependency management and script runner</td><td>01, 04</td></tr>
+          <tr><td><strong>node:test</strong></td><td>The test runner: built into Node, no framework</td><td>04</td></tr>
+          <tr><td><strong>SVG</strong></td><td>The schematic canvas, every symbol, every icon</td><td>03, 07</td></tr>
+          <tr><td><strong>Canvas 2D</strong></td><td>The confetti particle system</td><td>08</td></tr>
+          <tr><td><strong>Supabase</strong></td><td>Hosted Postgres, auth, auto-generated REST API</td><td>05</td></tr>
+          <tr><td><strong>PostgreSQL</strong></td><td>The database: tables, jsonb columns, triggers</td><td>05</td></tr>
+          <tr><td><strong>SQL + RLS</strong></td><td>Schema migration and per-row security policies</td><td>05</td></tr>
+          <tr><td><strong>Web APIs</strong></td><td>Pointer Events, KeyboardEvent, localStorage, IntersectionObserver, matchMedia, requestAnimationFrame</td><td>02, 03, 08</td></tr>
+          <tr><td><strong>Chrome DevTools</strong></td><td>Debugging: console, elements, network, performance</td><td>04</td></tr>
+          <tr><td><strong>git</strong></td><td>Version control and deployment trigger</td><td>04</td></tr>
+        </table>
+
+        <h2 id="changelog">Manual changelog</h2>
+        <p>
+          This manual is kept in step with the application. Every time the app gains a technology, a pattern or a design
+          decision, the relevant chapter is updated and the change is listed here.
+        </p>
+        <div class="card">
+          <h4>Revision 2 - placement, menus and the iris wipe</h4>
+          <ul>
+            <li><strong>New:</strong> chapter 06 gains "Designing a game menu" (safe areas, fluid type, menu rows, locked viewports).</li>
+            <li><strong>New:</strong> chapter 06 gains "Motion that means something", including the <code>clip-path</code> iris wipe and why it had to become a keyframe animation.</li>
+            <li><strong>New:</strong> chapter 07 gains "Overlay state machines" and the single-mount rule for transitions.</li>
+            <li><strong>New:</strong> chapter 08 gains recipes for a full-screen menu shell, a re-entrant transition, and provisional-state modelling (the level placement system).</li>
+            <li><strong>Updated:</strong> chapter 03's effects section now covers the StrictMode double-invoke and cleanup discipline.</li>
+          </ul>
+          <h4>Revision 1 - first edition</h4>
+          <ul>
+            <li>Chapters 01-08 written: foundations, JavaScript, React, tooling, backend, design, architecture, recipes.</li>
+          </ul>
+        </div>
+
+        <h2 id="how">Reading order if you are in a hurry</h2>
+        <div class="grid-2">
+          <div class="card">
+            <h4>"I want to build a UI this week"</h4>
+            <p>01 → 02 (skim the async section) → 03 → 06. Come back for 05 when you need to save data.</p>
+          </div>
+          <div class="card">
+            <h4>"I want to understand this codebase"</h4>
+            <p>07 first, then 03 for the UI layer and 02 for any syntax that stops you.</p>
+          </div>
+          <div class="card">
+            <h4>"I want my work to look designed"</h4>
+            <p>06 end to end, then 08's design recipes. Chapter 06 assumes no design background.</p>
+          </div>
+          <div class="card">
+            <h4>"I want to ship something real"</h4>
+            <p>04 → 05, then the deployment section at the end of 04.</p>
+          </div>
+        </div>
+      </main>
+    </div>
+    <script type="module" src="assets/nav.js"></script>
+  </body>
+</html>

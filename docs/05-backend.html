@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>05 · Backend &amp; data - CircuitDojo Manual</title>
+    <link rel="stylesheet" href="assets/manual.css" />
+  </head>
+  <body>
+    <div class="layout">
+      <nav class="sidebar">
+        <a class="brand" href="index.html">
+          <svg width="20" height="20" viewBox="0 0 18 18" fill="none">
+            <path d="M1.5 12.5h3.5V6h4v6.5h3.5" stroke="#0f7a3d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+            <circle cx="9" cy="6" r="2.1" fill="#8b1a1a" />
+          </svg>
+          <span><strong>CircuitDojo</strong><span>The Manual</span></span>
+        </a>
+      </nav>
+
+      <main>
+        <p class="eyebrow">Chapter 05</p>
+        <h1>Backend &amp; data</h1>
+        <p class="lead">
+          How data outlives a page refresh. The client/server model, relational modelling, the SQL you will actually
+          write, authentication, and the security model that makes it safe for a browser to talk to a database directly.
+        </p>
+
+        <h2 id="model">The client/server model</h2>
+        <p>
+          Your JavaScript runs on someone else's computer, inside a browser you do not control. Anything it can do, a
+          hostile user can do too, by opening DevTools and calling your functions themselves. Therefore:
+        </p>
+        <div class="warn-box">
+          <strong>The only rule that matters</strong>
+          <p>
+            <strong>Never trust the client.</strong> Every access rule must be enforced somewhere the user cannot edit:
+            a server, or the database itself. Client-side checks are for user experience, not for security.
+          </p>
+        </div>
+        <p>Three ways to persist data, in increasing order of power:</p>
+        <table>
+          <tr><th>Approach</th><th>Good for</th><th>Limits</th></tr>
+          <tr><td><code>localStorage</code></td><td>Preferences, drafts, guest progress</td><td>One browser, ~5MB, plain text, user can edit it</td></tr>
+          <tr><td>Backend-as-a-service (Supabase, Firebase)</td><td>Real accounts and shared data with no server to run</td><td>You must configure its security model correctly</td></tr>
+          <tr><td>Your own server (Express, Fastify)</td><td>Custom logic, secrets, third-party integrations</td><td>You operate, secure and scale it</td></tr>
+        </table>
+        <p>CircuitDojo uses the first two, and deliberately not the third.</p>
+
+        <h2 id="localstorage">Local first</h2>
+        <pre data-label="src/lib/storage.js"><code><span class="k">const</span> KEYS = { progress: <span class="s">'circuitdojo.progress.v1'</span>, mastery: <span class="s">'circuitdojo.mastery.v1'</span>, ... };
+
+<span class="k">function</span> <span class="f">read</span>(key, fallback) {
+  <span class="k">try</span> {
+    <span class="k">const</span> raw = localStorage.<span class="f">getItem</span>(key);
+    <span class="k">return</span> raw ? <span class="f">JSON.parse</span>(raw) : fallback;
+  } <span class="k">catch</span> {
+    <span class="k">return</span> fallback;      <span class="c">// private mode, quota, or corrupt JSON</span>
+  }
+}</code></pre>
+        <div class="note">
+          <strong>Two habits worth copying</strong>
+          <p>
+            <strong>Version your keys</strong> (<code>.v1</code>). When the shape changes you can write a migration or
+            ignore the old key instead of crashing on data written by an older build.
+            <strong>Wrap it once</strong>: no caller should ever have to remember that <code>localStorage</code> throws
+            in private mode or that it stores strings only.
+          </p>
+        </div>
+
+        <h2 id="relational">Relational modelling</h2>
+        <p>
+          A relational database stores <em>tables</em> of <em>rows</em>. Design is mostly about answering one question per
+          table: what makes a row unique?
+        </p>
+        <ul>
+          <li><strong>Primary key</strong>: the column(s) that uniquely identify a row.</li>
+          <li><strong>Foreign key</strong>: a column that must point at a real row in another table.</li>
+          <li><strong>Index</strong>: a lookup structure that makes a query fast.</li>
+          <li><strong>Normalisation</strong>: store each fact once; reference it from everywhere else.</li>
+        </ul>
+
+        <h3>The three tables in this app</h3>
+        <pre data-label="supabase/migrations/0001_init.sql"><code><span class="k">create table if not exists</span> public.challenges (
+  id                  <span class="t">uuid</span> <span class="k">primary key default</span> <span class="f">gen_random_uuid</span>(),
+  template_id         <span class="t">text</span> <span class="k">not null unique</span>,      <span class="c">-- matches the id in code</span>
+  topic               <span class="t">text</span> <span class="k">not null</span>,
+  difficulty_tier     <span class="t">int</span>  <span class="k">not null check</span> (difficulty_tier <span class="k">between</span> <span class="n">1</span> <span class="k">and</span> <span class="n">8</span>),
+  title               <span class="t">text</span> <span class="k">not null</span>,
+  brief               <span class="t">jsonb</span> <span class="k">not null default</span> <span class="s">'{}'</span>::<span class="t">jsonb</span>,
+  requirements_schema <span class="t">jsonb</span> <span class="k">not null default</span> <span class="s">'{}'</span>::<span class="t">jsonb</span>,
+  created_at          <span class="t">timestamptz</span> <span class="k">not null default</span> <span class="f">now</span>()
+);</code></pre>
+        <div class="why">
+          <strong>Why a <code>jsonb</code> column instead of more tables</strong>
+          <p>
+            A challenge's requirements are a nested tree of checks whose shape evolves as the engine gains check kinds.
+            Modelling that relationally would need four tables and a join for every read, and every new check kind would
+            need a migration. <code>jsonb</code> is the right call when the data is genuinely document-shaped and only
+            ever read as a whole. Use real columns for anything you filter, sort or join on, which is why
+            <code>topic</code> and <code>difficulty_tier</code> are columns, not JSON fields.
+          </p>
+        </div>
+
+        <pre data-label="sql"><code><span class="c">-- Composite primary key: one row per (user, skill).</span>
+<span class="k">create table if not exists</span> public.user_progress (
+  user_id  <span class="t">uuid</span> <span class="k">not null references</span> auth.users (id) <span class="k">on delete cascade</span>,
+  topic    <span class="t">text</span> <span class="k">not null</span>,
+  mastery  <span class="t">numeric</span>(<span class="n">4</span>,<span class="n">3</span>) <span class="k">not null default</span> <span class="n">0</span> <span class="k">check</span> (mastery &gt;= <span class="n">0</span> <span class="k">and</span> mastery &lt;= <span class="n">1</span>),
+  attempts <span class="t">int</span> <span class="k">not null default</span> <span class="n">0</span>,
+  <span class="k">primary key</span> (user_id, topic)
+);
+
+<span class="k">create index if not exists</span> attempts_user_created_idx
+  <span class="k">on</span> public.attempts (user_id, created_at <span class="k">desc</span>);</code></pre>
+        <p>Constraints are documentation the database enforces:</p>
+        <ul>
+          <li><code>not null</code>: this fact is required.</li>
+          <li><code>check</code>: the range of values that make sense (mastery is a 0-1 fraction).</li>
+          <li><code>on delete cascade</code>: delete the user, delete their rows. No orphans.</li>
+          <li><code>unique</code>: no duplicate template ids, ever.</li>
+        </ul>
+        <div class="note">
+          <strong>A pragmatic modelling decision from this project</strong>
+          <p>
+            Level tracking needed per-<em>concept</em> mastery after the table already stored per-<em>topic</em> rows.
+            Instead of a migration, concept rows use the same table with a prefixed key:
+            <code>topic = 'concept:ohms_law'</code>. One table, two key spaces, documented in
+            <code>SCHEMA.md</code>. Not textbook-pure, but the alternative was a migration and a second query on every
+            load, for no functional gain.
+          </p>
+        </div>
+
+        <h2 id="sql">The SQL you will actually write</h2>
+        <pre data-label="sql"><code><span class="c">-- read</span>
+<span class="k">select</span> topic, mastery <span class="k">from</span> user_progress <span class="k">where</span> user_id = <span class="s">'...'</span> <span class="k">order by</span> mastery <span class="k">desc</span>;
+
+<span class="c">-- write</span>
+<span class="k">insert into</span> attempts (user_id, result) <span class="k">values</span> (<span class="s">'...'</span>, <span class="s">'pass'</span>);
+
+<span class="c">-- write-or-update (idempotent, no read-modify-write race)</span>
+<span class="k">insert into</span> user_progress (user_id, topic, mastery) <span class="k">values</span> (<span class="s">'...'</span>, <span class="s">'passives'</span>, <span class="n">0.34</span>)
+<span class="k">on conflict</span> (user_id, topic) <span class="k">do update set</span> mastery = <span class="k">excluded</span>.mastery;
+
+<span class="c">-- join</span>
+<span class="k">select</span> a.result, c.title
+<span class="k">from</span> attempts a <span class="k">join</span> challenges c <span class="k">on</span> c.template_id = a.challenge_template_id
+<span class="k">where</span> a.user_id = <span class="s">'...'</span>;
+
+<span class="c">-- aggregate</span>
+<span class="k">select</span> topic, <span class="f">count</span>(*) <span class="k">as</span> n, <span class="f">avg</span>(mastery) <span class="k">from</span> user_progress <span class="k">group by</span> topic;</code></pre>
+
+        <h3>Triggers: rules that live with the data</h3>
+        <pre data-label="sql"><code><span class="k">create or replace function</span> public.<span class="f">touch_updated_at</span>()
+<span class="k">returns</span> <span class="t">trigger</span> <span class="k">language</span> plpgsql <span class="k">as</span> $$
+<span class="k">begin</span>
+  <span class="k">new</span>.updated_at = <span class="f">now</span>();
+  <span class="k">return new</span>;
+<span class="k">end</span>;
+$$;
+
+<span class="k">create trigger</span> user_progress_touch <span class="k">before update on</span> public.user_progress
+  <span class="k">for each row execute function</span> public.<span class="f">touch_updated_at</span>();</code></pre>
+        <p>
+          Now <code>updated_at</code> is correct no matter which client wrote the row, including you poking at it in the
+          SQL editor. Rules that must always hold belong as close to the data as possible.
+        </p>
+
+        <h2 id="rls">Row Level Security - the important chapter</h2>
+        <p>
+          Supabase exposes your tables over HTTP. Without RLS, anyone with the public anon key could read every row in
+          your database. RLS attaches a rule to each table that Postgres applies to every query, no matter who sends it.
+        </p>
+        <pre data-label="sql"><code><span class="k">alter table</span> public.user_progress <span class="k">enable row level security</span>;
+
+<span class="k">create policy</span> <span class="s">"read own progress"</span>
+  <span class="k">on</span> public.user_progress <span class="k">for select</span>
+  <span class="k">using</span> (<span class="f">auth.uid</span>() = user_id);
+
+<span class="k">create policy</span> <span class="s">"write own progress"</span>
+  <span class="k">on</span> public.user_progress <span class="k">for insert</span>
+  <span class="k">with check</span> (<span class="f">auth.uid</span>() = user_id);
+
+<span class="k">create policy</span> <span class="s">"update own progress"</span>
+  <span class="k">on</span> public.user_progress <span class="k">for update</span>
+  <span class="k">using</span> (<span class="f">auth.uid</span>() = user_id)
+  <span class="k">with check</span> (<span class="f">auth.uid</span>() = user_id);</code></pre>
+        <table>
+          <tr><th>Clause</th><th>Applies to</th><th>Means</th></tr>
+          <tr><td><code>using</code></td><td>select, update, delete</td><td>Which existing rows this user may see or touch</td></tr>
+          <tr><td><code>with check</code></td><td>insert, update</td><td>Which rows this user is allowed to create or leave behind</td></tr>
+        </table>
+        <p>
+          <code>auth.uid()</code> comes from the JWT Supabase attaches to the request. The client cannot forge it: it is
+          signed. So <code>select * from user_progress</code> from a browser returns that user's rows and nothing else,
+          because the database refuses to return anything else.
+        </p>
+        <div class="warn-box">
+          <strong>Two keys, two very different powers</strong>
+          <p>
+            The <strong>anon key</strong> is public by design and always subject to RLS: shipping it in your bundle is
+            fine and expected. The <strong>service role key</strong> bypasses RLS entirely. It belongs only in a terminal
+            or a server process, and never in any file that gets committed or bundled.
+          </p>
+        </div>
+        <p>Read-only reference data gets a policy too, just a permissive one:</p>
+        <pre data-label="sql"><code><span class="k">create policy</span> <span class="s">"challenges are readable by everyone"</span>
+  <span class="k">on</span> public.challenges <span class="k">for select using</span> (<span class="k">true</span>);
+<span class="c">-- No insert/update policy exists, so nobody can write it through the API.</span>
+<span class="c">-- The sync script uses the service role key from a terminal instead.</span></code></pre>
+        <div class="why">
+          <strong>A security decision worth understanding</strong>
+          <p>
+            <code>attempts.user_id</code> is nullable, so guest attempts <em>could</em> be stored. There is deliberately
+            no anonymous-insert policy: an anon-writable table with a null owner is an open spam target and buys nothing,
+            because guest progress lives in <code>localStorage</code> until sign-up. If anonymous telemetry were needed
+            later, the right answer is Supabase's anonymous sign-in, which still produces a real
+            <code>auth.uid()</code>: not a relaxed policy.
+          </p>
+        </div>
+
+        <h2 id="auth">Authentication</h2>
+        <pre data-label="src/state/useProfile.js"><code><span class="c">// Current session, plus a subscription to changes (sign-in, sign-out, refresh).</span>
+<span class="f">useEffect</span>(() =&gt; {
+  <span class="k">if</span> (!isSupabaseConfigured) <span class="k">return</span> <span class="k">undefined</span>;
+  <span class="k">let</span> cancelled = <span class="k">false</span>;
+
+  supabase.auth.<span class="f">getSession</span>().<span class="f">then</span>(({ data }) =&gt; {
+    <span class="k">if</span> (!cancelled) <span class="f">setUser</span>(data.session?.user ?? <span class="k">null</span>);
+  });
+
+  <span class="k">const</span> { data: sub } = supabase.auth.<span class="f">onAuthStateChange</span>((_event, session) =&gt; {
+    <span class="f">setUser</span>(session?.user ?? <span class="k">null</span>);
+  });
+
+  <span class="k">return</span> () =&gt; { cancelled = <span class="k">true</span>; sub.subscription.<span class="f">unsubscribe</span>(); };
+}, []);</code></pre>
+        <p>Sign-up and sign-in are one call each, and both return <code>{ data, error }</code> rather than throwing:</p>
+        <pre data-label="js"><code><span class="k">const</span> { data, error } = <span class="k">await</span> supabase.auth.<span class="f">signUp</span>({ email, password });
+<span class="k">const</span> { data, error } = <span class="k">await</span> supabase.auth.<span class="f">signInWithPassword</span>({ email, password });
+<span class="k">await</span> supabase.auth.<span class="f">signOut</span>();</code></pre>
+        <div class="note">
+          <strong>Guest-to-account migration</strong>
+          <p>
+            A user who has already solved ten challenges as a guest must not lose them by creating an account. On
+            successful sign-up, the local snapshot is upserted into the new user's rows. It is twenty lines, and it is the
+            difference between "sign up" being an obvious yes and a risk.
+          </p>
+        </div>
+        <pre data-label="src/state/useProfile.js"><code><span class="k">if</span> (migrateGuestProgress &amp;&amp; data.session?.user) {
+  <span class="k">const</span> snapshot = localStore.<span class="f">snapshot</span>();
+  <span class="k">const</span> rows = [
+    ...Object.<span class="f">entries</span>(snapshot.progress).<span class="f">map</span>(([topic, p]) =&gt; ({ user_id: ..., topic, mastery: p.mastery, ... })),
+    ...Object.<span class="f">entries</span>(snapshot.mastery).<span class="f">map</span>(([id, m]) =&gt; ({ user_id: ..., topic: <span class="s">`concept:</span>${id}<span class="s">`</span>, ... })),
+  ];
+  <span class="k">if</span> (rows.length) <span class="k">await</span> supabase.<span class="f">from</span>(<span class="s">'user_progress'</span>).<span class="f">upsert</span>(rows, { onConflict: <span class="s">'user_id,topic'</span> });
+}</code></pre>
+
+        <h2 id="client">Query patterns with the Supabase client</h2>
+        <pre data-label="js"><code><span class="c">// select with filters, ordering and a limit</span>
+<span class="k">const</span> { data, error } = <span class="k">await</span> supabase
+  .<span class="f">from</span>(<span class="s">'attempts'</span>)
+  .<span class="f">select</span>(<span class="s">'id, result, created_at'</span>)   <span class="c">// name columns; avoid select('*')</span>
+  .<span class="f">eq</span>(<span class="s">'user_id'</span>, user.id)
+  .<span class="f">order</span>(<span class="s">'created_at'</span>, { ascending: <span class="k">false</span> })
+  .<span class="f">limit</span>(<span class="n">50</span>);
+
+<span class="c">// insert</span>
+<span class="k">await</span> supabase.<span class="f">from</span>(<span class="s">'attempts'</span>).<span class="f">insert</span>({ user_id: user.id, result: <span class="s">'pass'</span>, feedback });
+
+<span class="c">// upsert many rows in one round trip</span>
+<span class="k">await</span> supabase.<span class="f">from</span>(<span class="s">'user_progress'</span>).<span class="f">upsert</span>(rows, { onConflict: <span class="s">'user_id,topic'</span> });</code></pre>
+        <ul>
+          <li><strong>Always check <code>error</code>.</strong> A failed query returns data <code>null</code>, not an exception.</li>
+          <li><strong>Name your columns.</strong> <code>select('*')</code> ships columns you do not need and breaks silently when the table grows.</li>
+          <li><strong>Batch writes.</strong> One <code>upsert</code> with ten rows beats ten round trips.</li>
+        </ul>
+
+        <h2 id="offline">Designing for "no backend configured"</h2>
+        <p>
+          The most-copied idea in this chapter: make the local path a first-class feature rather than an error state.
+        </p>
+        <pre data-label="src/state/useProfile.js"><code><span class="k">if</span> (user &amp;&amp; isSupabaseConfigured) {
+  <span class="k">await</span> supabase.<span class="f">from</span>(<span class="s">'attempts'</span>).<span class="f">insert</span>({ ... });
+  <span class="k">await</span> supabase.<span class="f">from</span>(<span class="s">'user_progress'</span>).<span class="f">upsert</span>(rows, { onConflict: <span class="s">'user_id,topic'</span> });
+} <span class="k">else</span> {
+  localStore.<span class="f">setProgress</span>(nextProgress);
+  localStore.<span class="f">setMastery</span>(nextMastery);
+  localStore.<span class="f">addAttempt</span>(attempt);
+}</code></pre>
+        <p>
+          One branch, at the single place that writes. Everything above it: the level model, the UI, the challenge
+          selector: has no idea whether there is a database. That is what makes the feature cheap: the decision is made
+          once, at the edge.
+        </p>
+
+        <h2 id="checklist">Data-layer checklist</h2>
+        <div class="card">
+          <ul>
+            <li>Is RLS enabled on every table with user data, with policies for select, insert <em>and</em> update?</li>
+            <li>Does every query check <code>error</code>?</li>
+            <li>Are there indexes on the columns you filter and sort by?</li>
+            <li>Are constraints (<code>not null</code>, <code>check</code>, foreign keys) expressing your invariants?</li>
+            <li>Is the service role key absent from every committed file?</li>
+            <li>Does the app still work with no credentials at all?</li>
+            <li>Is the migration file the source of truth: could you rebuild the database from an empty project?</li>
+          </ul>
+        </div>
+      </main>
+    </div>
+    <script type="module" src="assets/nav.js"></script>
+  </body>
+</html>

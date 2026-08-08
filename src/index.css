@@ -1,0 +1,620 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===========================================================================
+   THEME TOKENS
+
+   Two axes, set as attributes on <html>: `data-theme` (light | dark) and
+   `data-accent`. Everything visual resolves through the properties below, so
+   switching either one repaints the whole app without a single component
+   knowing a theme exists.
+
+   ## Why the neutral ramp is inverted rather than replaced
+
+   The app uses zinc semantically and consistently: `zinc-900` is ink,
+   `zinc-200` is the page, `zinc-900/[0.06]` is a subtle raised surface. Because
+   that discipline held, the dark theme is the *same ramp read backwards*:
+   `--zinc-900` becomes near-white, `--zinc-200` becomes near-black, and all
+   228 existing `zinc-*` classes flip correctly on their own. The alternative,
+   rewriting every component to semantic class names, would have been a
+   thousand edits for the same result.
+
+   Three things that ramp cannot express, and so are separate tokens:
+
+   - `--on-solid` / `--on-accent`, text sitting *on* an ink or accent surface.
+     Both of those surfaces flip from dark to light between themes, so hardcoded
+     `text-white` on top of them would vanish.
+   - `--panel-*`: the flat surface tones. Elevation here is a change of tone,
+     not an overlay, so a panel needs its own colour rather than an alpha over
+     the page.
+   - `--elev-*`: shadows, which deepen on a dark ground rather than simply
+     restating the same rgba.
+   =========================================================================== */
+:root {
+  color-scheme: light;
+
+  --zinc-25: 252 252 253;
+  --zinc-50: 250 250 250;
+  --zinc-100: 244 244 245;
+  --zinc-150: 236 236 238;
+  --zinc-200: 228 228 231;
+  --zinc-300: 212 212 216;
+  --zinc-400: 161 161 170;
+  --zinc-500: 113 113 122;
+  --zinc-600: 82 82 91;
+  --zinc-700: 63 63 70;
+  --zinc-800: 39 39 42;
+  --zinc-850: 31 31 35;
+  --zinc-900: 24 24 27;
+  --zinc-950: 9 9 11;
+
+  --on-solid: 255 255 255;
+
+  --good: 21 128 61;
+  --warn: 180 83 9;
+  --bad: 190 18 60;
+
+  /* ----------------------------------------------------------- flat surfaces
+     Solid tones, no gradient and no translucency. Panels separate from the
+     ground by *tone* first and a soft shadow second: the Material approach:
+     rather than by a specular edge and a blur, which is the Apple one. */
+  --panel: 255 255 255;
+  --panel-2: 244 244 245; /* recessed: tab strips, filled fields, key caps */
+  --panel-3: 236 236 238; /* pressed / deeper recess */
+  --outline: rgba(24, 24, 27, 0.09); /* dividers only, never decoration */
+
+  /* Text on a filled accent. Every accent in light mode is dark enough for
+     white; in dark mode they lift and this flips with them. */
+  --on-accent: 255 255 255;
+
+  --elev-1: 0 1px 2px rgba(24, 24, 27, 0.06), 0 1px 3px rgba(24, 24, 27, 0.07);
+  --elev-2: 0 2px 4px rgba(24, 24, 27, 0.06), 0 6px 16px -8px rgba(24, 24, 27, 0.16);
+  --elev-3: 0 8px 20px -6px rgba(24, 24, 27, 0.18), 0 18px 44px -18px rgba(24, 24, 27, 0.22);
+
+  /* --------------------------------------------------------------- schematic
+     The sheet is SVG, so its colours cannot ride on Tailwind classes, the
+     canvas and SymbolView read these properties directly. Light values follow
+     EDA convention so a schematic drawn here looks like one drawn in KiCad.
+
+     Each hue is stored as a triplet and also composed into a ready colour: the
+     triplet is what lets Tailwind write `bg-sch-wire/[0.10]`, the composed
+     value is what SVG presentation attributes need. One source, two shapes. */
+  --sheet: #fbfaf7;
+  --grid-dot: rgba(24, 24, 27, 0.18);
+
+  --sch-wire-rgb: 15 122 61;
+  --sch-body-rgb: 139 26 26;
+  --sch-label-rgb: 13 110 110;
+  --sch-selected-rgb: 29 111 242;
+  --sch-nc-rgb: 190 18 60;
+
+  --sch-wire: rgb(var(--sch-wire-rgb));
+  --sch-body: rgb(var(--sch-body-rgb));
+  --sch-label: rgb(var(--sch-label-rgb));
+  --sch-selected: rgb(var(--sch-selected-rgb));
+  --sch-nc: rgb(var(--sch-nc-rgb));
+  --sch-body-fill: #fff8e6;
+  --sch-pin-num: #8a6d3b;
+  --sch-pin-free: #c2410c; /* an unconnected pin end */
+  --sch-cursor: rgba(24, 24, 27, 0.4);
+  --sch-pin-open: rgb(var(--sch-selected-rgb));
+
+  /* Accent: Graphite, the neutral default. Overridden by [data-accent]. */
+  --accent: 63 63 70;
+  --accent-soft: 113 113 122;
+  --accent-deep: 39 39 42;
+  --accent-tint: 37 99 235;
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  --zinc-25: 35 35 39;
+  --zinc-50: 32 32 36;
+  --zinc-100: 28 28 32;
+  --zinc-150: 21 21 24;
+  --zinc-200: 18 18 21;
+  --zinc-300: 63 63 70;
+  --zinc-400: 108 108 116;
+  --zinc-500: 138 138 146;
+  --zinc-600: 165 165 174;
+  --zinc-700: 212 212 216;
+  --zinc-800: 228 228 231;
+  --zinc-850: 236 236 238;
+  --zinc-900: 244 244 245;
+  --zinc-950: 250 250 250;
+
+  --on-solid: 24 24 27;
+
+  /* Lifted so they still carry on a dark ground. */
+  --good: 74 222 128;
+  --warn: 251 191 36;
+  --bad: 251 113 133;
+
+  /* Tonal elevation: on a dark ground a raised surface gets *lighter*, because
+     a shadow has nothing left to darken. */
+  --panel: 28 28 32;
+  --panel-2: 35 35 39;
+  --panel-3: 43 43 48;
+  --outline: rgba(255, 255, 255, 0.11);
+
+  --on-accent: 24 24 27;
+
+  --elev-1: 0 1px 2px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
+  --elev-2: 0 2px 4px rgba(0, 0, 0, 0.4), 0 6px 16px -8px rgba(0, 0, 0, 0.55);
+  --elev-3: 0 8px 20px -6px rgba(0, 0, 0, 0.6), 0 18px 44px -18px rgba(0, 0, 0, 0.7);
+
+  /* A matte, slightly cool sheet. The symbol palette lifts to match: the same
+     EDA hues, raised in lightness so they carry on a dark ground. */
+  --sheet: #14161a;
+  --grid-dot: rgba(255, 255, 255, 0.14);
+
+  --sch-wire-rgb: 62 207 125;
+  --sch-body-rgb: 231 145 128;
+  --sch-label-rgb: 69 194 194;
+  --sch-selected-rgb: 90 163 255;
+  --sch-nc-rgb: 255 107 129;
+
+  --sch-body-fill: rgba(255, 248, 230, 0.06);
+  --sch-pin-num: #cda76d;
+  --sch-pin-free: #f0895c;
+  --sch-cursor: rgba(255, 255, 255, 0.45);
+
+  --accent: 212 212 216;
+  --accent-soft: 161 161 170;
+  --accent-deep: 244 244 245;
+  --accent-tint: 90 163 255;
+}
+
+/* ------------------------------------------------------------------ accents
+   Graphite is the absence of an accent and lives in the blocks above, so it is
+   deliberately not listed here: defining it would override the dark ramp.
+   These sit after [data-theme] so they win at equal specificity. */
+[data-accent='cobalt'] {
+  --accent: 37 99 235;
+  --accent-soft: 96 145 246;
+  --accent-deep: 29 78 216;
+}
+[data-accent='emerald'] {
+  --accent: 15 122 61;
+  --accent-soft: 52 168 96;
+  --accent-deep: 6 95 46;
+}
+[data-accent='violet'] {
+  --accent: 124 58 237;
+  --accent-soft: 160 110 246;
+  --accent-deep: 91 33 182;
+}
+[data-accent='amber'] {
+  --accent: 180 83 9;
+  --accent-soft: 217 129 45;
+  --accent-deep: 146 64 14;
+}
+[data-accent='rose'] {
+  --accent: 190 18 60;
+  --accent-soft: 225 78 114;
+  --accent-deep: 159 18 57;
+}
+
+/* Each accent lifts in dark mode: a hue chosen to read on white is usually a
+   step too dark on near-black. */
+[data-theme='dark'][data-accent='cobalt'] {
+  --accent: 96 145 246;
+  --accent-soft: 140 176 250;
+  --accent-deep: 176 202 253;
+}
+[data-theme='dark'][data-accent='emerald'] {
+  --accent: 62 207 125;
+  --accent-soft: 110 224 158;
+  --accent-deep: 163 236 194;
+}
+[data-theme='dark'][data-accent='violet'] {
+  --accent: 167 122 250;
+  --accent-soft: 192 160 252;
+  --accent-deep: 216 195 253;
+}
+[data-theme='dark'][data-accent='amber'] {
+  --accent: 245 168 65;
+  --accent-soft: 249 195 121;
+  --accent-deep: 252 218 165;
+}
+[data-theme='dark'][data-accent='rose'] {
+  --accent: 251 113 133;
+  --accent-soft: 253 154 168;
+  --accent-deep: 254 194 202;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-zinc-200 text-zinc-900 antialiased;
+  overscroll-behavior: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* The schematic sheet. In light mode it keeps the traditional near-white paper
+   of an EDA tool; in dark mode it goes matte and the symbol palette lifts with
+   it.
+   Every piece of chrome sits above it as a flat panel. */
+.sheet {
+  background-color: var(--sheet);
+}
+
+@layer components {
+  /* ------------------------------------------------------------------
+     Flat panels
+
+     One solid tone, one soft shadow, no border and no gradient. A panel is
+     legible because it is a different *tone* from the ground, not because it
+     has a lit edge, which is the whole difference between this and the
+     translucent-glass treatment it replaces.
+     ------------------------------------------------------------------ */
+  .panel {
+    @apply rounded-widget;
+    background-color: rgb(var(--panel));
+    box-shadow: var(--elev-1);
+  }
+
+  /* The horizontal bars: toolbars, the wordmark, the widget switchboard. Same
+     surface, slightly tighter corner, because a 44px-tall bar at the panel
+     radius starts to look like a capsule again. */
+  .panel-pill {
+    @apply rounded-bar;
+    background-color: rgb(var(--panel));
+    box-shadow: var(--elev-1);
+  }
+
+  /* Floating over the sheet, so it earns one more step of elevation. */
+  .panel-float {
+    box-shadow: var(--elev-2);
+  }
+
+  .widget-title {
+    @apply text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-500;
+  }
+
+  /* Recessed tones for things that sit *inside* a panel: tab strips, filled
+     fields, key caps. Numbered by depth, not by opacity. */
+  .surface-1 {
+    background-color: rgb(var(--panel-2));
+  }
+  .surface-2 {
+    background-color: rgb(var(--panel-2));
+  }
+  .surface-solid {
+    background-color: rgb(var(--panel));
+  }
+
+  /* ------------------------------------------------------------- controls */
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-control px-3 py-1.5 text-[13px] font-medium
+      transition-all duration-200 ease-smooth active:scale-[0.97]
+      disabled:pointer-events-none disabled:opacity-35;
+  }
+  .btn-ghost {
+    @apply btn text-zinc-600 hover:bg-zinc-900/[0.06] hover:text-zinc-900;
+  }
+  /* Tonal button: a recessed fill, no border, no inset highlight. */
+  .btn-quiet {
+    @apply btn text-zinc-800;
+    background-color: rgb(var(--panel-2));
+  }
+  .btn-quiet:hover {
+    background-color: rgb(var(--panel-3));
+  }
+  /* The filled action. This is where the accent earns its keep: a flat block
+     of the user's colour, with the label flipping via --on-accent. */
+  .btn-primary {
+    @apply btn bg-accent text-on-accent hover:bg-accent-soft;
+  }
+  .btn-tool {
+    @apply flex h-9 items-center gap-1.5 rounded-control px-3 text-[13px] font-medium text-zinc-600
+      transition-all duration-200 ease-smooth hover:bg-zinc-900/[0.06] hover:text-zinc-900 active:scale-[0.96];
+  }
+  .btn-tool-active {
+    @apply bg-accent text-on-accent hover:bg-accent-soft hover:text-on-accent;
+  }
+  .icon-btn {
+    @apply flex h-8 w-8 items-center justify-center rounded-full text-zinc-500
+      transition-all duration-200 ease-smooth hover:bg-zinc-900/[0.07] hover:text-zinc-900 active:scale-[0.94];
+  }
+
+  /* Filled field, Material-style: a tonal container rather than a boxed
+     outline. Focus is announced by the accent, not by a heavier border. */
+  .field {
+    @apply w-full rounded-control border border-transparent px-2.5 py-1.5 text-[13px] text-zinc-900
+      transition-colors placeholder:text-zinc-400
+      focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25;
+    background-color: rgb(var(--panel-2));
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-chip px-2 py-0.5 text-[11px] font-medium;
+  }
+
+  /* Attention treatment for unmet requirements. Tonal fill, no outline. */
+  .alert-card {
+    @apply bg-bad/[0.10];
+  }
+}
+
+/* Quiet, thin scrollbars: the workspace should feel calm. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(24, 24, 27, 0.18) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(24, 24, 27, 0.18);
+  border-radius: 999px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.no-select {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Declared here as well as in the Tailwind config, because the menu rows stagger
+   their entrance with an inline `animation` shorthand rather than a utility
+   class: Tailwind only emits keyframes for utilities it can see. */
+@keyframes riseIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Canvas error markers: an expanding ring plus a steady halo. */
+@keyframes ping-soft {
+  0% {
+    r: 7;
+    opacity: 0.9;
+  }
+  100% {
+    r: 26;
+    opacity: 0;
+  }
+}
+.highlight-pulse {
+  animation: ping-soft 1.5s ease-out infinite;
+}
+
+/* ---------------------------------------------------------------------------
+   Lives
+   ---------------------------------------------------------------------------
+   A life is a closed circuit. Alive, current runs round the loop and the loop
+   breathes; lost, the trace opens and the charge drains away. That is the whole
+   metaphor, and it is why the heart is routed in straight runs and 45° mitres
+   rather than drawn as a curve: it should read as copper, not as a valentine.
+
+   The loss is the only moment that matters, so it is the only one that is loud:
+   a surge, a collapse past its resting size, and a settle. Everything else is
+   slow enough to live at the bottom of the screen for an hour. */
+
+/* Resting: a heartbeat you have to look for. */
+@keyframes lifePulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  42% {
+    transform: scale(1.07);
+  }
+  60% {
+    transform: scale(1);
+  }
+}
+.life-pulse {
+  animation: lifePulse 2.6s cubic-bezier(0.32, 0.72, 0, 1) infinite;
+  transform-origin: center;
+}
+
+/* The loss. Surge, break, collapse, settle: in that order, in 720ms. */
+@keyframes lifeLost {
+  0% {
+    transform: scale(1) rotate(0deg);
+  }
+  14% {
+    transform: scale(1.28) rotate(-5deg);
+  }
+  30% {
+    transform: scale(0.82) rotate(4deg);
+  }
+  46% {
+    transform: scale(1.06) rotate(-2deg);
+  }
+  70% {
+    transform: scale(0.96) rotate(0deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+}
+.life-lost {
+  animation: lifeLost 0.72s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+  transform-origin: center;
+}
+
+/* The charge draining out of the body of the heart. */
+@keyframes lifeDrain {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+}
+.life-drain {
+  animation: lifeDrain 0.72s cubic-bezier(0.32, 0.72, 0, 1) both;
+  transform-origin: center;
+}
+
+/* The arc across the break, at the instant it opens. */
+@keyframes lifeArc {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  10%,
+  26% {
+    opacity: 1;
+  }
+  18% {
+    opacity: 0.35;
+  }
+}
+.life-arc {
+  animation: lifeArc 0.72s steps(1, end) both;
+}
+
+/* The full-screen loss: the heart falls out of the frame once it has broken.
+   Delayed to start as the break settles, so the two read as one movement. */
+@keyframes lifeFall {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(90px) scale(0.86) rotate(9deg);
+  }
+}
+.life-fall {
+  animation: lifeFall 0.42s cubic-bezier(0.6, 0, 0.9, 0.4) 0.62s both;
+}
+
+/* Current running the loop of a healthy life. Offset equals the dash period. */
+@keyframes lifeFlow {
+  to {
+    stroke-dashoffset: -64;
+  }
+}
+.life-flow {
+  animation: lifeFlow 2.4s linear infinite;
+}
+
+/* ---------------------------------------------------------------------------
+   The reference sheet
+   ---------------------------------------------------------------------------
+   The answer draws itself: parts arrive first, then the wires run between them,
+   then the junction dots land. That is the order the circuit would actually be
+   built in, and watching it assemble tells you more about the topology than the
+   finished picture does. The whole sequence is under a second: it is a reveal,
+   not a performance.
+
+   `drawIn` only declares its end state. The starting dash offset is set inline
+   per wire from that wire's own length, so every run draws at its own pace
+   instead of short stubs finishing instantly and long ones lagging. */
+@keyframes drawIn {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.sol-wire {
+  animation: drawIn 0.5s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+@keyframes solFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.sol-part,
+.sol-dot {
+  animation: solFade 0.34s ease-out both;
+}
+
+/* Iris wipe: a circular mask that closes over the screen and opens again on the
+   next challenge.
+
+   Driven by keyframe ANIMATIONS rather than a transition on a custom property.
+   That is deliberate: `clip-path: circle(var(--iris))` does not interpolate
+   reliably: the substituted value changes discretely, so the wipe jumps
+   instead of sweeping. A keyframe animation also starts on the frame the
+   element first paints, which removes the need to force a reflow before
+   changing state, and makes the wipe feel immediate.
+
+   z-index sits above every overlay, and pointer-events stay ON so the wipe
+   swallows input for its whole duration: a click on a half-covered screen is a
+   click on something the user cannot see. */
+/* Note the direction of the clip: this element is the *cover*, so a large
+   circle means "screen hidden" and a zero circle means "screen visible".
+   Closing the iris therefore GROWS the circle, and opening it shrinks it. Having
+   these the wrong way round is what made the first version look broken. */
+.iris {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  pointer-events: auto;
+  touch-action: none;
+  /* Flat, and the page's own colour. It was a light radial gradient with the
+     tones baked in, which meant the wipe flashed white on every transition in
+     dark mode. */
+  background-color: rgb(var(--zinc-200));
+  clip-path: circle(0% at 50% 50%);
+  will-change: clip-path;
+}
+
+@keyframes irisClose {
+  from {
+    clip-path: circle(0% at 50% 50%);
+  }
+  to {
+    clip-path: circle(150% at 50% 50%);
+  }
+}
+@keyframes irisOpen {
+  from {
+    clip-path: circle(150% at 50% 50%);
+  }
+  to {
+    clip-path: circle(0% at 50% 50%);
+  }
+}
+
+.iris-closing {
+  animation: irisClose 700ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+.iris-covered {
+  clip-path: circle(150% at 50% 50%);
+}
+.iris-opening {
+  /* Must equal OPEN_MS in IrisTransition.jsx: the component schedules the
+     'complete' callback off that number, and a mismatch either cuts the reveal
+     short or leaves an invisible cover swallowing clicks. */
+  animation: irisOpen 560ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+/* Everyone gets the information; only the motion is optional. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

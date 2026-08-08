@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>08 · Recipes - CircuitDojo Manual</title>
+    <link rel="stylesheet" href="assets/manual.css" />
+  </head>
+  <body>
+    <div class="layout">
+      <nav class="sidebar">
+        <a class="brand" href="index.html">
+          <svg width="20" height="20" viewBox="0 0 18 18" fill="none">
+            <path d="M1.5 12.5h3.5V6h4v6.5h3.5" stroke="#0f7a3d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+            <circle cx="9" cy="6" r="2.1" fill="#8b1a1a" />
+          </svg>
+          <span><strong>CircuitDojo</strong><span>The Manual</span></span>
+        </a>
+      </nav>
+
+      <main>
+        <p class="eyebrow">Chapter 08</p>
+        <h1>Recipes</h1>
+        <p class="lead">
+          Patterns to lift straight into your next project, each with the reasoning attached, because a snippet you do
+          not understand is a bug you have not met yet.
+        </p>
+
+        <h2 id="glass">1 · A glass surface</h2>
+        <pre data-label="css"><code><span class="f">.glass</span> {
+  <span class="k">position</span>: <span class="n">relative</span>;
+  <span class="k">border-radius</span>: <span class="n">24px</span>;
+  <span class="k">border</span>: <span class="n">1px</span> <span class="n">solid</span> rgba(<span class="n">255</span>,<span class="n">255</span>,<span class="n">255</span>,<span class="n">0.45</span>);
+  <span class="k">background-image</span>: <span class="n">linear-gradient</span>(<span class="n">165deg</span>, rgba(<span class="n">255</span>,<span class="n">255</span>,<span class="n">255</span>,<span class="n">.78</span>), rgba(<span class="n">244</span>,<span class="n">244</span>,<span class="n">245</span>,<span class="n">.58</span>));
+  <span class="k">backdrop-filter</span>: <span class="n">blur</span>(<span class="n">24px</span>) <span class="n">saturate</span>(<span class="n">150%</span>);
+  <span class="k">box-shadow</span>:
+    <span class="n">0 1px 0 0</span> rgba(<span class="n">255</span>,<span class="n">255</span>,<span class="n">255</span>,<span class="n">.65</span>) <span class="k">inset</span>,
+    <span class="n">0 10px 34px -12px</span> rgba(<span class="n">24</span>,<span class="n">24</span>,<span class="n">27</span>,<span class="n">.22</span>);
+}
+<span class="f">.glass::before</span> {                      <span class="c">/* the specular bloom */</span>
+  <span class="k">content</span>: <span class="s">''</span>; <span class="k">position</span>: <span class="n">absolute</span>; <span class="k">inset</span>: <span class="n">0</span>; <span class="k">border-radius</span>: <span class="n">inherit</span>; <span class="k">pointer-events</span>: <span class="n">none</span>;
+  <span class="k">background</span>: <span class="n">radial-gradient</span>(<span class="n">120% 80%</span> <span class="k">at</span> <span class="n">12% -10%</span>, rgba(<span class="n">255</span>,<span class="n">255</span>,<span class="n">255</span>,<span class="n">.85</span>), transparent <span class="n">70%</span>);
+}
+<span class="f">.glass &gt; *</span> { <span class="k">position</span>: <span class="n">relative</span>; <span class="k">z-index</span>: <span class="n">1</span>; }   <span class="c">/* content above the gloss */</span></code></pre>
+        <div class="note">
+          <strong>Requires</strong>
+          <p>Something visually interesting behind it. Glass over a flat colour just looks like a tinted box: put an image, a gradient or ambient shapes behind it, and use it on a handful of persistent panels only (<code>backdrop-filter</code> is expensive).</p>
+        </div>
+
+        <h2 id="menu">2 · A full-screen menu shell</h2>
+        <pre data-label="jsx"><code><span class="k">export default function</span> <span class="f">MenuShell</span>({ children }) {
+  <span class="k">return</span> (
+    <span class="c">// Locked viewport: nothing scrolls, nothing shifts.</span>
+    &lt;div <span class="f">className</span>=<span class="s">"fixed inset-0 z-40 overflow-hidden bg-zinc-150"</span>&gt;
+      &lt;AmbientBackground /&gt;
+      &lt;div
+        <span class="f">className</span>=<span class="s">"relative z-10 flex h-full w-full flex-col justify-center"</span>
+        <span class="f">style</span>={{
+          <span class="c">// A safe area that scales with the viewport: never cramped, never lost.</span>
+          paddingInline: <span class="s">'clamp(2.5rem, 8vw, 10rem)'</span>,
+          paddingBlock:  <span class="s">'clamp(2rem, 7vh, 5.5rem)'</span>,
+        }}
+      &gt;
+        {children}
+      &lt;/div&gt;
+    &lt;/div&gt;
+  );
+}</code></pre>
+        <p>Use for: onboarding, title screens, briefs, empty states, anything that should feel like an app rather than a page.</p>
+
+        <h2 id="menurow">3 · A game-style menu row</h2>
+        <pre data-label="jsx"><code>&lt;button <span class="f">className</span>=<span class="s">"group flex w-full items-center gap-5 border-b border-zinc-900/[0.07] py-4 text-left
+  transition-all duration-300 ease-smooth hover:border-zinc-900/20 focus-visible:border-zinc-900/20"</span>&gt;
+
+  &lt;span <span class="f">className</span>=<span class="s">"relative h-[2px] w-6 overflow-hidden rounded-full bg-zinc-900/15"</span>&gt;
+    &lt;span <span class="f">className</span>=<span class="s">"absolute inset-y-0 left-0 w-0 bg-zinc-900 transition-all duration-300
+      ease-smooth group-hover:w-full group-focus-visible:w-full"</span> /&gt;
+  &lt;/span&gt;
+
+  &lt;span <span class="f">className</span>=<span class="s">"flex-1 font-semibold tracking-[-0.02em] transition-transform
+    duration-300 ease-smooth group-hover:translate-x-1"</span>
+    <span class="f">style</span>={{ fontSize: <span class="s">'clamp(1.15rem, 2.1vw, 1.7rem)'</span> }}&gt;{label}&lt;/span&gt;
+
+  &lt;svg <span class="f">className</span>=<span class="s">"-translate-x-1 opacity-0 transition-all duration-300 ease-smooth
+    group-hover:translate-x-0 group-hover:opacity-100"</span>&gt;...&lt;/svg&gt;
+&lt;/button&gt;</code></pre>
+        <p>
+          Three coordinated micro-movements on one hover, mirrored on <code>focus-visible</code> so the keyboard gets the
+          same affordance. Add <code>↑ ↓ Enter</code> handling and it is a console menu.
+        </p>
+
+        <h2 id="transition">4 · A re-entrant full-screen transition</h2>
+        <pre data-label="jsx"><code><span class="k">const</span> CLOSE = <span class="n">700</span>, HOLD = <span class="n">260</span>, OPEN = <span class="n">700</span>;
+
+<span class="k">export default function</span> <span class="f">Transition</span>({ run, onMidpoint, onComplete }) {
+  <span class="k">const</span> [phase, setPhase] = <span class="f">useState</span>(<span class="s">'closing'</span>);
+  <span class="k">const</span> busy = <span class="f">useRef</span>(<span class="k">false</span>);
+  <span class="k">const</span> timers = <span class="f">useRef</span>([]);
+
+  <span class="f">useEffect</span>(() =&gt; {
+    <span class="k">if</span> (!run || busy.current) <span class="k">return</span> <span class="k">undefined</span>;   <span class="c">// ignore double-clicks</span>
+    busy.current = <span class="k">true</span>;
+
+    <span class="k">if</span> (window.<span class="f">matchMedia</span>?.(<span class="s">'(prefers-reduced-motion: reduce)'</span>).matches) {
+      onMidpoint?.(); onComplete?.(); busy.current = <span class="k">false</span>; <span class="k">return</span> <span class="k">undefined</span>;
+    }
+
+    <span class="k">const</span> <span class="f">at</span> = (ms, fn) =&gt; timers.current.<span class="f">push</span>(<span class="f">setTimeout</span>(fn, ms));
+    <span class="f">setPhase</span>(<span class="s">'closing'</span>);
+    <span class="f">at</span>(CLOSE, () =&gt; { <span class="f">setPhase</span>(<span class="s">'covered'</span>); onMidpoint?.(); });  <span class="c">// swap state here</span>
+    <span class="f">at</span>(CLOSE + HOLD, () =&gt; <span class="f">setPhase</span>(<span class="s">'opening'</span>));
+    <span class="f">at</span>(CLOSE + HOLD + OPEN, () =&gt; { busy.current = <span class="k">false</span>; onComplete?.(); });
+
+    <span class="k">return</span> () =&gt; { timers.current.<span class="f">forEach</span>(clearTimeout); timers.current = []; busy.current = <span class="k">false</span>; };
+  }, [run]);
+
+  <span class="k">if</span> (!run) <span class="k">return null</span>;
+  <span class="k">return</span> &lt;div <span class="f">className</span>={<span class="s">`iris iris-</span>${phase}<span class="s">`</span>} <span class="f">aria-hidden</span>=<span class="s">"true"</span> /&gt;;
+}</code></pre>
+        <pre data-label="css"><code><span class="c">/* Keyframes, NOT a transition on a var: var-substituted values do not
+   interpolate. Note the clip direction: this element is the cover, so a large
+   circle hides the screen. */</span>
+<span class="f">.iris</span> { <span class="k">position</span>: <span class="n">fixed</span>; <span class="k">inset</span>: <span class="n">0</span>; <span class="k">z-index</span>: <span class="n">120</span>; <span class="k">pointer-events</span>: <span class="n">auto</span>;
+        <span class="k">clip-path</span>: <span class="n">circle</span>(<span class="n">0%</span> <span class="k">at</span> <span class="n">50% 50%</span>); <span class="k">will-change</span>: <span class="k">clip-path</span>; }
+<span class="k">@keyframes</span> irisClose { <span class="k">from</span> { <span class="k">clip-path</span>: <span class="n">circle</span>(<span class="n">0%</span> <span class="k">at</span> <span class="n">50% 50%</span>); } <span class="k">to</span> { <span class="k">clip-path</span>: <span class="n">circle</span>(<span class="n">150%</span> <span class="k">at</span> <span class="n">50% 50%</span>); } }
+<span class="f">.iris-closing</span> { <span class="k">animation</span>: irisClose <span class="n">700ms</span> <span class="n">cubic-bezier</span>(<span class="n">.32</span>,<span class="n">.72</span>,<span class="n">0</span>,<span class="n">1</span>) forwards; }
+<span class="f">.iris-covered</span> { <span class="k">clip-path</span>: <span class="n">circle</span>(<span class="n">150%</span> <span class="k">at</span> <span class="n">50% 50%</span>); }</code></pre>
+        <div class="warn-box">
+          <strong>Mount it once, above the thing that changes</strong>
+          <p>
+            If the transition lives inside the view it swaps, the swap unmounts it and it replays. Render it as a sibling
+            of the view switch, not a child of a branch.
+          </p>
+        </div>
+
+        <h2 id="undo">5 · Undo/redo in fifteen lines</h2>
+        <pre data-label="js"><code><span class="c">// Requires: every edit is a pure function returning a NEW document.</span>
+<span class="k">function</span> <span class="f">commit</span>(state, nextDoc, selection = state.selection) {
+  <span class="k">if</span> (nextDoc === state.doc) <span class="k">return</span> state;
+  <span class="k">return</span> { doc: nextDoc, past: [...state.past, state.doc].<span class="f">slice</span>(-<span class="n">80</span>), future: [], selection };
+}
+
+<span class="k">function</span> <span class="f">reducer</span>(state, action) {
+  <span class="k">switch</span> (action.type) {
+    <span class="k">case</span> <span class="s">'edit'</span>: <span class="k">return</span> <span class="f">commit</span>(state, <span class="f">applyEdit</span>(state.doc, action));
+    <span class="k">case</span> <span class="s">'undo'</span>:
+      <span class="k">if</span> (!state.past.length) <span class="k">return</span> state;
+      <span class="k">return</span> { doc: state.past.<span class="f">at</span>(-<span class="n">1</span>), past: state.past.<span class="f">slice</span>(<span class="n">0</span>, -<span class="n">1</span>),
+               future: [state.doc, ...state.future], selection: [] };
+    <span class="k">case</span> <span class="s">'redo'</span>: {
+      <span class="k">if</span> (!state.future.length) <span class="k">return</span> state;
+      <span class="k">const</span> [next, ...rest] = state.future;
+      <span class="k">return</span> { doc: next, past: [...state.past, state.doc], future: rest, selection: [] };
+    }
+    <span class="k">default</span>: <span class="k">return</span> state;
+  }
+}</code></pre>
+        <p>Works whenever your state is JSON-serialisable and reasonably small. Cap the history length so memory stays bounded.</p>
+
+        <h2 id="shortcuts">6 · A keyboard map with one source of truth</h2>
+        <pre data-label="js"><code><span class="c">// lib/shortcuts.js: the table, used by BOTH the dispatcher and the help sheet.</span>
+<span class="k">export const</span> SHORTCUT_GROUPS = [
+  { group: <span class="s">'Place'</span>, items: [
+    { keys: [<span class="s">'A'</span>], action: <span class="s">'add_component'</span>, label: <span class="s">'Add a component'</span> },
+    { keys: [<span class="s">'W'</span>], action: <span class="s">'tool_wire'</span>,     label: <span class="s">'Draw wires'</span> },
+  ]},
+];
+
+<span class="k">export function</span> <span class="f">resolveShortcut</span>(event) {
+  <span class="k">const</span> typing = [<span class="s">'INPUT'</span>, <span class="s">'TEXTAREA'</span>, <span class="s">'SELECT'</span>].<span class="f">includes</span>(event.target.tagName)
+    || event.target.isContentEditable;
+  <span class="k">if</span> (typing) <span class="k">return null</span>;                 <span class="c">// never steal keys from a field</span>
+
+  <span class="k">const</span> ctrl = event.ctrlKey || event.metaKey;   <span class="c">// metaKey = ⌘ on macOS</span>
+  <span class="k">if</span> (ctrl &amp;&amp; event.key.<span class="f">toLowerCase</span>() === <span class="s">'z'</span>) <span class="k">return</span> event.shiftKey ? <span class="s">'redo'</span> : <span class="s">'undo'</span>;
+
+  <span class="k">switch</span> (event.key.<span class="f">toLowerCase</span>()) {
+    <span class="k">case</span> <span class="s">'a'</span>: <span class="k">return</span> <span class="s">'add_component'</span>;
+    <span class="k">case</span> <span class="s">'w'</span>: <span class="k">return</span> <span class="s">'tool_wire'</span>;
+    <span class="k">default</span>: <span class="k">return null</span>;
+  }
+}</code></pre>
+        <p>Then one listener dispatches on the action id, and the help panel renders from the same array. The documentation cannot drift from the behaviour.</p>
+
+        <h2 id="seeded">7 · Seeded random generation</h2>
+        <pre data-label="js"><code><span class="c">// mulberry32: small, fast, good enough for content generation (NOT for crypto).</span>
+<span class="k">export function</span> <span class="f">makeRng</span>(seed) {
+  <span class="k">let</span> a = (seed &gt;&gt;&gt; <span class="n">0</span>) || <span class="n">1</span>;
+  <span class="k">const</span> <span class="f">next</span> = () =&gt; {
+    a += <span class="n">0x6d2b79f5</span>;
+    <span class="k">let</span> t = a;
+    t = Math.<span class="f">imul</span>(t ^ (t &gt;&gt;&gt; <span class="n">15</span>), t | <span class="n">1</span>);
+    t ^= t + Math.<span class="f">imul</span>(t ^ (t &gt;&gt;&gt; <span class="n">7</span>), t | <span class="n">61</span>);
+    <span class="k">return</span> ((t ^ (t &gt;&gt;&gt; <span class="n">14</span>)) &gt;&gt;&gt; <span class="n">0</span>) / <span class="n">4294967296</span>;
+  };
+  <span class="k">return</span> {
+    next,
+    <span class="f">int</span>: (min, max) =&gt; Math.<span class="f">floor</span>(<span class="f">next</span>() * (max - min + <span class="n">1</span>)) + min,
+    <span class="f">pick</span>: (list) =&gt; list[Math.<span class="f">floor</span>(<span class="f">next</span>() * list.length)],
+  };
+}</code></pre>
+        <p>
+          Store <code>(templateId, seed)</code> and you can regenerate any piece of content exactly: bug reports become
+          reproducible, and your database stores two columns instead of a blob.
+        </p>
+
+        <h2 id="panzoom">8 · Pan and zoom on SVG</h2>
+        <pre data-label="jsx"><code><span class="k">const</span> [view, setView] = <span class="f">useState</span>({ x: <span class="n">0</span>, y: <span class="n">0</span>, zoom: <span class="n">1</span> });
+
+<span class="c">// Screen → world</span>
+<span class="k">const</span> <span class="f">toWorld</span> = (e) =&gt; {
+  <span class="k">const</span> r = svgRef.current.<span class="f">getBoundingClientRect</span>();
+  <span class="k">return</span> { x: (e.clientX - r.left - view.x) / view.zoom, y: (e.clientY - r.top - view.y) / view.zoom };
+};
+
+<span class="c">// Zoom toward the pointer: keep the world point under the cursor fixed.</span>
+<span class="k">const</span> <span class="f">onWheel</span> = (e) =&gt; {
+  e.<span class="f">preventDefault</span>();
+  <span class="k">const</span> r = svgRef.current.<span class="f">getBoundingClientRect</span>();
+  <span class="k">const</span> sx = e.clientX - r.left, sy = e.clientY - r.top;
+  <span class="f">setView</span>((v) =&gt; {
+    <span class="k">const</span> zoom = Math.<span class="f">min</span>(<span class="n">6</span>, Math.<span class="f">max</span>(<span class="n">0.35</span>, v.zoom * Math.<span class="f">exp</span>(-e.deltaY * <span class="n">0.0015</span>)));
+    <span class="k">const</span> k = zoom / v.zoom;
+    <span class="k">return</span> { zoom, x: sx - (sx - v.x) * k, y: sy - (sy - v.y) * k };
+  });
+};
+
+<span class="c">// Wheel must be a non-passive NATIVE listener to allow preventDefault.</span>
+<span class="f">useEffect</span>(() =&gt; {
+  <span class="k">const</span> el = svgRef.current;
+  el.<span class="f">addEventListener</span>(<span class="s">'wheel'</span>, onWheel, { passive: <span class="k">false</span> });
+  <span class="k">return</span> () =&gt; el.<span class="f">removeEventListener</span>(<span class="s">'wheel'</span>, onWheel);
+}, [onWheel]);</code></pre>
+
+        <h2 id="pointer">9 · Robust pointer drags</h2>
+        <pre data-label="jsx"><code><span class="c">// Pointer capture keeps the drag alive when the cursor leaves the element.</span>
+<span class="k">const</span> <span class="f">capturePointer</span> = (event) =&gt; {
+  <span class="k">try</span> { svgRef.current?.<span class="f">setPointerCapture</span>(event.pointerId); }
+  <span class="k">catch</span> { <span class="c">/* already released, or a synthetic event */</span> }
+};
+
+&lt;svg
+  <span class="f">onPointerDown</span>={onDown}
+  <span class="f">onPointerMove</span>={onMove}
+  <span class="f">onPointerUp</span>={onUp}
+  <span class="f">onPointerLeave</span>={onUp}                       <span class="c">/* never leave a drag stuck */</span>
+  <span class="f">onContextMenu</span>={(e) =&gt; e.<span class="f">preventDefault</span>()}      <span class="c">/* right-drag to pan */</span>
+  <span class="f">className</span>=<span class="s">"touch-none"</span>                        <span class="c">/* stop the browser scrolling instead */</span>
+/&gt;</code></pre>
+        <p>Pointer Events cover mouse, touch and pen in one API: there is no reason to write separate mouse and touch handlers any more.</p>
+
+        <h2 id="storage">10 · Safe local persistence</h2>
+        <pre data-label="js"><code><span class="k">const</span> KEYS = { settings: <span class="s">'app.settings.v1'</span> };     <span class="c">// version your keys</span>
+
+<span class="k">function</span> <span class="f">read</span>(key, fallback) {
+  <span class="k">try</span> { <span class="k">const</span> raw = localStorage.<span class="f">getItem</span>(key); <span class="k">return</span> raw ? <span class="f">JSON.parse</span>(raw) : fallback; }
+  <span class="k">catch</span> { <span class="k">return</span> fallback; }                    <span class="c">// private mode, quota, bad JSON</span>
+}
+<span class="k">function</span> <span class="f">write</span>(key, value) {
+  <span class="k">try</span> { localStorage.<span class="f">setItem</span>(key, <span class="f">JSON.stringify</span>(value)); } <span class="k">catch</span> {}
+}
+
+<span class="c">// Always merge with defaults, so a new setting appears for existing users.</span>
+<span class="k">export const</span> store = {
+  <span class="f">getSettings</span>: () =&gt; ({ ...DEFAULT_SETTINGS, ...<span class="f">read</span>(KEYS.settings, {}) }),
+  <span class="f">setSettings</span>: (s) =&gt; <span class="f">write</span>(KEYS.settings, s),
+};</code></pre>
+
+        <h2 id="rls">11 · A safe Supabase table</h2>
+        <pre data-label="sql"><code><span class="k">create table</span> public.notes (
+  id         <span class="t">uuid</span> <span class="k">primary key default</span> <span class="f">gen_random_uuid</span>(),
+  user_id    <span class="t">uuid</span> <span class="k">not null references</span> auth.users (id) <span class="k">on delete cascade</span>,
+  body       <span class="t">text</span> <span class="k">not null</span>,
+  created_at <span class="t">timestamptz</span> <span class="k">not null default</span> <span class="f">now</span>()
+);
+
+<span class="k">create index on</span> public.notes (user_id, created_at <span class="k">desc</span>);
+<span class="k">alter table</span> public.notes <span class="k">enable row level security</span>;
+
+<span class="k">create policy</span> <span class="s">"read own"</span>   <span class="k">on</span> public.notes <span class="k">for select using</span> (<span class="f">auth.uid</span>() = user_id);
+<span class="k">create policy</span> <span class="s">"insert own"</span> <span class="k">on</span> public.notes <span class="k">for insert with check</span> (<span class="f">auth.uid</span>() = user_id);
+<span class="k">create policy</span> <span class="s">"update own"</span> <span class="k">on</span> public.notes <span class="k">for update using</span> (<span class="f">auth.uid</span>() = user_id)
+                                                  <span class="k">with check</span> (<span class="f">auth.uid</span>() = user_id);
+<span class="k">create policy</span> <span class="s">"delete own"</span> <span class="k">on</span> public.notes <span class="k">for delete using</span> (<span class="f">auth.uid</span>() = user_id);</code></pre>
+        <p>Four policies, one per operation. Miss one and that operation is simply denied, which is the correct failure direction.</p>
+
+        <h2 id="optional">12 · An optional backend</h2>
+        <pre data-label="js"><code><span class="k">const</span> url = <span class="k">import</span>.meta.env?.VITE_SUPABASE_URL;
+<span class="k">const</span> key = <span class="k">import</span>.meta.env?.VITE_SUPABASE_ANON_KEY;
+
+<span class="k">export const</span> isConfigured = <span class="f">Boolean</span>(url &amp;&amp; key);
+<span class="k">export const</span> supabase = isConfigured ? <span class="f">createClient</span>(url, key) : <span class="k">null</span>;
+
+<span class="c">// One branch, at the single place that writes.</span>
+<span class="k">if</span> (user &amp;&amp; isConfigured) <span class="k">await</span> supabase.<span class="f">from</span>(<span class="s">'notes'</span>).<span class="f">insert</span>(row);
+<span class="k">else</span> store.<span class="f">addNote</span>(row);</code></pre>
+        <p><code>git clone &amp;&amp; npm install &amp;&amp; npm run dev</code> then works with no setup. Everyone who tries your project succeeds on the first attempt.</p>
+
+        <h2 id="provisional">13 · Provisional state (claimed vs earned)</h2>
+        <pre data-label="js"><code><span class="c">// Let the user assert something, act on it, and let reality settle it.</span>
+<span class="k">export function</span> <span class="f">claim</span>(state, ids) {
+  <span class="k">const</span> next = { ...state };
+  <span class="k">for</span> (<span class="k">const</span> id <span class="k">of</span> ids) {
+    <span class="k">if</span> (next[id]?.attempts &gt; <span class="n">0</span>) <span class="k">continue</span>;      <span class="c">// never overwrite real evidence</span>
+    next[id] = { value: THRESHOLD + <span class="n">0.05</span>, attempts: <span class="n">0</span>, self: <span class="k">true</span> };
+  }
+  <span class="k">return</span> next;
+}
+
+<span class="k">export function</span> <span class="f">observe</span>(state, ids, passed) {
+  <span class="k">const</span> next = { ...state };
+  <span class="k">for</span> (<span class="k">const</span> id <span class="k">of</span> ids) {
+    <span class="k">const</span> prev = next[id] ?? { value: <span class="n">0</span>, attempts: <span class="n">0</span>, self: <span class="k">false</span> };
+    <span class="k">const</span> value = passed ? Math.<span class="f">min</span>(<span class="n">1</span>, prev.value + (<span class="n">1</span> - prev.value) * <span class="n">0.34</span>)
+                        : prev.self ? <span class="n">0.2</span>                       <span class="c">// claim refuted</span>
+                        : Math.<span class="f">max</span>(<span class="n">0</span>, prev.value * <span class="n">0.7</span> - <span class="n">0.05</span>);
+    next[id] = { value, attempts: prev.attempts + <span class="n">1</span>, self: <span class="k">false</span> };
+  }
+  <span class="k">return</span> next;
+}</code></pre>
+        <div class="why">
+          <strong>Where else this applies</strong>
+          <p>
+            Any onboarding that asks "how experienced are you?", any recommender that needs a cold start, any form that
+            pre-fills from a guess. Acting on a claim and correcting it from behaviour is almost always better UX than an
+            up-front test, and it is a much smaller feature.
+          </p>
+        </div>
+
+        <h2 id="confetti">14 · Themed confetti (canvas particles)</h2>
+        <pre data-label="js"><code><span class="k">function</span> <span class="f">runConfetti</span>(canvas) {
+  <span class="k">const</span> ctx = canvas.<span class="f">getContext</span>(<span class="s">'2d'</span>);
+  <span class="k">const</span> dpr = Math.<span class="f">min</span>(window.devicePixelRatio || <span class="n">1</span>, <span class="n">2</span>);   <span class="c">// crisp, but capped</span>
+  <span class="k">const</span> <span class="f">resize</span> = () =&gt; {
+    canvas.width = canvas.clientWidth * dpr;
+    canvas.height = canvas.clientHeight * dpr;
+    ctx.<span class="f">setTransform</span>(dpr, <span class="n">0</span>, <span class="n">0</span>, dpr, <span class="n">0</span>, <span class="n">0</span>);            <span class="c">// draw in CSS pixels</span>
+  };
+  <span class="f">resize</span>();
+
+  <span class="k">const</span> particles = [];
+  <span class="k">const</span> <span class="f">spawn</span> = (x, y, angle, spread, count, power) =&gt; { <span class="c">/* push particles */</span> };
+
+  <span class="k">let</span> raf = <span class="n">0</span>, stopped = <span class="k">false</span>;
+  <span class="k">const</span> <span class="f">frame</span> = () =&gt; {
+    <span class="k">if</span> (stopped) <span class="k">return</span>;
+    ctx.<span class="f">clearRect</span>(<span class="n">0</span>, <span class="n">0</span>, canvas.clientWidth, canvas.clientHeight);
+    <span class="k">for</span> (<span class="k">let</span> i = particles.length - <span class="n">1</span>; i &gt;= <span class="n">0</span>; i--) {
+      <span class="k">const</span> p = particles[i];
+      p.vy += <span class="n">0.24</span>;              <span class="c">// gravity</span>
+      p.vx *= <span class="n">0.988</span>; p.vy *= <span class="n">0.988</span>; <span class="c">// drag</span>
+      p.x += p.vx; p.y += p.vy; p.rot += p.vrot;
+      <span class="k">if</span> (p.y &gt; canvas.clientHeight + <span class="n">60</span>) { particles.<span class="f">splice</span>(i, <span class="n">1</span>); <span class="k">continue</span>; }
+      ctx.<span class="f">save</span>(); ctx.<span class="f">translate</span>(p.x, p.y); ctx.<span class="f">rotate</span>(p.rot);
+      <span class="f">drawGlyph</span>(ctx, p);        <span class="c">// ← draw YOUR subject, not paper squares</span>
+      ctx.<span class="f">restore</span>();
+    }
+    <span class="k">if</span> (!particles.length) { stopped = <span class="k">true</span>; <span class="k">return</span>; }   <span class="c">// stop on its own</span>
+    raf = <span class="f">requestAnimationFrame</span>(frame);
+  };
+  raf = <span class="f">requestAnimationFrame</span>(frame);
+
+  <span class="k">return</span> () =&gt; { stopped = <span class="k">true</span>; <span class="f">cancelAnimationFrame</span>(raf); };   <span class="c">// cleanup</span>
+}</code></pre>
+        <div class="note">
+          <strong>The design move</strong>
+          <p>
+            This app's confetti are tiny resistors, capacitors, LEDs, chips and lightning bolts in the schematic palette.
+            Generic confetti says "a library did this"; subject-matter confetti says "someone made this for you". Same
+            code, one different <code>drawGlyph</code>.
+          </p>
+        </div>
+
+        <h2 id="invariant">15 · Invariant tests over a whole dataset</h2>
+        <pre data-label="js"><code><span class="f">test</span>(<span class="s">'every symbol is well formed and on-grid'</span>, () =&gt; {
+  <span class="k">for</span> (<span class="k">const</span> symbol <span class="k">of</span> SYMBOLS) {
+    <span class="k">for</span> (<span class="k">const</span> unit <span class="k">of</span> symbol.units) {
+      <span class="k">for</span> (<span class="k">const</span> pin <span class="k">of</span> unit.pins) {
+        <span class="c">// (-30 % 10) is -0 in JS, so compare the magnitude.</span>
+        assert.<span class="f">ok</span>(Math.<span class="f">abs</span>(pin.x % GRID) === <span class="n">0</span>,
+          <span class="s">`</span>${symbol.id}.${unit.id} pin ${pin.num}: x=${pin.x} is off-grid<span class="s">`</span>);
+        assert.<span class="f">ok</span>(PIN_TYPES.<span class="f">has</span>(pin.type),
+          <span class="s">`</span>${symbol.id} pin ${pin.num}: unknown type "${pin.type}"<span class="s">`</span>);
+      }
+    }
+  }
+});
+
+<span class="f">test</span>(<span class="s">'every id referenced by content exists in the library'</span>, () =&gt; {
+  <span class="k">const</span> problems = [];
+  <span class="k">for</span> (<span class="k">const</span> template <span class="k">of</span> TEMPLATES) { <span class="c">/* collect selectors, verify each */</span> }
+  assert.<span class="f">deepEqual</span>(problems, [], <span class="s">`mismatches:\n</span>${problems.<span class="f">join</span>(<span class="s">'\n'</span>)}<span class="s">`</span>);
+});</code></pre>
+        <p>
+          These two tests found two real bugs on their first run. Any project with a content library: game items, form
+          schemas, product catalogues: should have their equivalent. Assert properties of the <em>whole set</em>, and put
+          the identifying detail in the message.
+        </p>
+
+        <h2 id="antipatterns">Anti-patterns to avoid</h2>
+        <table>
+          <tr><th>Do not</th><th>Because</th><th>Instead</th></tr>
+          <tr><td>Hoist all state to the root</td><td>Every change re-renders everything</td><td>Keep fast-changing state local</td></tr>
+          <tr><td>Mutate state objects</td><td>React cannot detect it</td><td>Return new objects</td></tr>
+          <tr><td>Use array index as <code>key</code></td><td>Breaks on reorder</td><td>A stable id from the data</td></tr>
+          <tr><td>Derive state in an effect</td><td>Extra render, easy to desync</td><td>Compute during render</td></tr>
+          <tr><td>Skip effect cleanup</td><td>Leaks listeners and timers</td><td>Always return a teardown</td></tr>
+          <tr><td>Transition a property through a CSS var</td><td>It will not interpolate</td><td><code>@keyframes</code> with literal values</td></tr>
+          <tr><td>Ship rules only on the client</td><td>Users can edit the client</td><td>Enforce in the database (RLS) too</td></tr>
+          <tr><td>Animate <code>width</code>/<code>top</code></td><td>Forces layout every frame</td><td><code>transform</code>, <code>opacity</code>, <code>clip-path</code></td></tr>
+          <tr><td><code>outline: none</code> with no replacement</td><td>Unusable by keyboard</td><td>A visible <code>focus-visible</code> style</td></tr>
+        </table>
+
+        <h2 id="starting">Starting your own project tomorrow</h2>
+        <pre data-label="shell"><code>npm create vite@latest my-app -- --template react
+cd my-app &amp;&amp; npm install
+npm install -D tailwindcss postcss autoprefixer &amp;&amp; npx tailwindcss init -p
+git init &amp;&amp; git add -A &amp;&amp; git commit -m <span class="s">"Scaffold"</span></code></pre>
+        <p>Then, in this order:</p>
+        <ol>
+          <li>Write the design tokens (chapter 06) before any component.</li>
+          <li>Write the domain model as plain data and pure functions, no React.</li>
+          <li>Write a test for the first invariant that matters.</li>
+          <li>Build the UI on top, one component at a time.</li>
+          <li>Add persistence last, behind one branch, with the local path working first.</li>
+        </ol>
+        <p>
+          That order is not arbitrary: it is the order that keeps you able to change your mind. And being able to change
+          your mind cheaply is what separates a project you finish from one you abandon.
+        </p>
+      </main>
+    </div>
+    <script type="module" src="assets/nav.js"></script>
+  </body>
+</html>

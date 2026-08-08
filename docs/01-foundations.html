@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>01 · Foundations - CircuitDojo Manual</title>
+    <link rel="stylesheet" href="assets/manual.css" />
+  </head>
+  <body>
+    <div class="layout">
+      <nav class="sidebar">
+        <a class="brand" href="index.html">
+          <svg width="20" height="20" viewBox="0 0 18 18" fill="none">
+            <path d="M1.5 12.5h3.5V6h4v6.5h3.5" stroke="#0f7a3d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+            <circle cx="9" cy="6" r="2.1" fill="#8b1a1a" />
+          </svg>
+          <span><strong>CircuitDojo</strong><span>The Manual</span></span>
+        </a>
+      </nav>
+
+      <main>
+        <p class="eyebrow">Chapter 01</p>
+        <h1>Foundations</h1>
+        <p class="lead">
+          Before any framework: what a browser actually does when it loads a page, the three languages it speaks, and
+          the four tools on your machine that every professional project depends on.
+        </p>
+
+        <h2 id="model">The mental model: three languages, one runtime</h2>
+        <p>
+          A web application is a program that runs inside a browser. The browser gives you exactly three languages, and
+          each has one job:
+        </p>
+        <table>
+          <tr><th>Language</th><th>Job</th><th>Analogy</th></tr>
+          <tr><td><strong>HTML</strong></td><td>Structure and content</td><td>The skeleton</td></tr>
+          <tr><td><strong>CSS</strong></td><td>Appearance and layout</td><td>The skin and clothes</td></tr>
+          <tr><td><strong>JavaScript</strong></td><td>Behaviour over time</td><td>The nervous system</td></tr>
+        </table>
+        <p>
+          Everything else: React, Tailwind, Vite: is a tool that eventually produces those three things. Nothing you
+          learn later replaces this layer; frameworks only make it easier to generate.
+        </p>
+
+        <h3>What happens when you open a page</h3>
+        <ol>
+          <li>The browser asks a server for a URL over <strong>HTTP</strong> and gets back HTML text.</li>
+          <li>It parses that HTML into the <strong>DOM</strong>: a tree of objects, one per element.</li>
+          <li>It finds <code>&lt;link&gt;</code> and <code>&lt;script&gt;</code> tags and fetches those files too.</li>
+          <li>It applies CSS to the tree, works out geometry (<em>layout</em>), then paints pixels.</li>
+          <li>It runs your JavaScript, which can change the DOM, and any change can trigger layout and paint again.</li>
+        </ol>
+        <div class="note">
+          <strong>Why this matters</strong>
+          <p>
+            "Layout then paint" is why some CSS properties are cheap to animate and others are expensive.
+            <code>transform</code> and <code>opacity</code> can be handled by the compositor without re-running layout;
+            animating <code>width</code> or <code>top</code> forces layout on every frame. Chapter 06 leans on this
+            constantly.
+          </p>
+        </div>
+
+        <h2 id="html">HTML in one sitting</h2>
+        <p>HTML is a tree of <em>elements</em>. An element is a tag, optional attributes, and children.</p>
+        <pre data-label="html"><code>&lt;<span class="t">article</span> <span class="f">class</span>=<span class="s">"card"</span> <span class="f">id</span>=<span class="s">"intro"</span>&gt;
+  &lt;<span class="t">h2</span>&gt;A heading&lt;/<span class="t">h2</span>&gt;
+  &lt;<span class="t">p</span>&gt;Some text with &lt;<span class="t">strong</span>&gt;emphasis&lt;/<span class="t">strong</span>&gt;.&lt;/<span class="t">p</span>&gt;
+  &lt;<span class="t">button</span> <span class="f">type</span>=<span class="s">"button"</span>&gt;Do the thing&lt;/<span class="t">button</span>&gt;
+&lt;/<span class="t">article</span>&gt;</code></pre>
+        <p>The whole of CircuitDojo's HTML is this, twelve lines:</p>
+        <pre data-label="index.html"><code>&lt;!<span class="k">doctype</span> <span class="t">html</span>&gt;
+&lt;<span class="t">html</span> <span class="f">lang</span>=<span class="s">"en"</span>&gt;
+  &lt;<span class="t">head</span>&gt;
+    &lt;<span class="t">meta</span> <span class="f">charset</span>=<span class="s">"UTF-8"</span> /&gt;
+    &lt;<span class="t">meta</span> <span class="f">name</span>=<span class="s">"viewport"</span> <span class="f">content</span>=<span class="s">"width=device-width, initial-scale=1.0"</span> /&gt;
+    &lt;<span class="t">title</span>&gt;CircuitDojo&lt;/<span class="t">title</span>&gt;
+  &lt;/<span class="t">head</span>&gt;
+  &lt;<span class="t">body</span>&gt;
+    &lt;<span class="t">div</span> <span class="f">id</span>=<span class="s">"root"</span>&gt;&lt;/<span class="t">div</span>&gt;
+    &lt;<span class="t">script</span> <span class="f">type</span>=<span class="s">"module"</span> <span class="f">src</span>=<span class="s">"/src/main.jsx"</span>&gt;&lt;/<span class="t">script</span>&gt;
+  &lt;/<span class="t">body</span>&gt;
+&lt;/<span class="t">html</span>&gt;</code></pre>
+        <div class="why">
+          <strong>Why so little</strong>
+          <p>
+            This is a <em>single-page application</em>. The server sends one nearly-empty page; JavaScript builds the
+            entire interface into <code>#root</code> at runtime. The trade: much richer interaction, at the cost of
+            needing JavaScript to run at all. For a schematic editor that is obviously the right trade. For a blog it
+            would be the wrong one.
+          </p>
+        </div>
+        <p>Attributes worth knowing immediately:</p>
+        <ul>
+          <li><code>id</code>: unique name, used by JS and by <code>#anchor</code> links.</li>
+          <li><code>class</code>: a label you can style or select many elements with. Tailwind uses these heavily.</li>
+          <li><code>data-*</code>: your own metadata. CircuitDojo uses <code>data-prop-field="value"</code> so a keyboard shortcut can find and focus the right input.</li>
+          <li><code>aria-*</code> and <code>role</code>, accessibility information for screen readers.</li>
+        </ul>
+
+        <h2 id="css">CSS in one sitting</h2>
+        <p>A CSS rule is a <em>selector</em> plus <em>declarations</em>.</p>
+        <pre data-label="css"><code><span class="f">.card</span> {              <span class="c">/* every element with class="card" */</span>
+  <span class="k">padding</span>: <span class="n">1rem</span>;
+  <span class="k">border-radius</span>: <span class="n">18px</span>;
+  <span class="k">background</span>: <span class="n">rgba</span>(<span class="n">255</span>, <span class="n">255</span>, <span class="n">255</span>, <span class="n">0.78</span>);
+}</code></pre>
+
+        <h3>The box model</h3>
+        <p>Every element is a box: content, then <code>padding</code>, then <code>border</code>, then <code>margin</code>.</p>
+        <pre data-label="css"><code><span class="c">/* Set this once, globally, and stop fighting sizes forever. */</span>
+* { <span class="k">box-sizing</span>: <span class="n">border-box</span>; }</code></pre>
+        <div class="note">
+          <strong>Why</strong>
+          <p>
+            With <code>border-box</code>, <code>width: 300px</code> means the box is 300px <em>including</em> padding
+            and border. Without it, padding is added on top and every layout becomes arithmetic. Both this manual and
+            Tailwind's reset set it.
+          </p>
+        </div>
+
+        <h3>Layout: flex and grid</h3>
+        <p>Two systems. Learn both; you will use them daily.</p>
+        <pre data-label="css"><code><span class="c">/* Flexbox: one dimension. "Put these in a row, spaced out." */</span>
+<span class="f">.toolbar</span> { <span class="k">display</span>: <span class="n">flex</span>; <span class="k">align-items</span>: <span class="n">center</span>; <span class="k">gap</span>: <span class="n">0.5rem</span>; }
+
+<span class="c">/* Grid: two dimensions. "Sidebar of 280px, then everything else." */</span>
+<span class="f">.layout</span> { <span class="k">display</span>: <span class="n">grid</span>; <span class="k">grid-template-columns</span>: <span class="n">280px</span> <span class="n">minmax</span>(<span class="n">0</span>, <span class="n">1fr</span>); }</code></pre>
+        <p>
+          <code>minmax(0, 1fr)</code> is the single most useful incantation in CSS grid: "take the remaining space, but
+          you are allowed to be narrower than your content". Without the <code>0</code>, a long line of code inside the
+          column makes the whole page scroll sideways. CircuitDojo's layouts use it everywhere.
+        </p>
+
+        <h3>Positioning and stacking</h3>
+        <table>
+          <tr><th>Value</th><th>Behaviour</th><th>Used in this app for</th></tr>
+          <tr><td><code>static</code></td><td>Normal flow (default)</td><td>Most content</td></tr>
+          <tr><td><code>relative</code></td><td>Normal flow, but offsettable and a positioning parent</td><td>Glass cards with a gloss layer</td></tr>
+          <tr><td><code>absolute</code></td><td>Removed from flow, positioned inside nearest positioned ancestor</td><td>Floating widgets over the canvas</td></tr>
+          <tr><td><code>fixed</code></td><td>Positioned relative to the viewport</td><td>Full-screen overlays, the iris wipe</td></tr>
+          <tr><td><code>sticky</code></td><td>Normal until it hits an offset, then fixed</td><td>This manual's sidebar</td></tr>
+        </table>
+        <p>
+          <code>z-index</code> decides who covers whom, but only among positioned elements. CircuitDojo keeps a written
+          ladder so overlays never fight: widgets <code>z-20</code>, modals <code>z-50</code>, brief <code>z-60</code>,
+          celebration <code>z-70</code>, iris wipe <code>z-120</code>.
+        </p>
+        <div class="warn-box">
+          <strong>Trap</strong>
+          <p>
+            A parent with <code>overflow: hidden</code> clips absolutely-positioned children, and a parent with a
+            <code>transform</code> becomes the containing block for <code>position: fixed</code> descendants. Most
+            "why is my modal cut off?" bugs are one of those two.
+          </p>
+        </div>
+
+        <h3>Custom properties (CSS variables)</h3>
+        <pre data-label="css"><code><span class="f">:root</span> { <span class="k">--zinc-900</span>: <span class="n">#18181b</span>; <span class="k">--s4</span>: <span class="n">1rem</span>; }
+<span class="f">.card</span> { <span class="k">color</span>: <span class="n">var</span>(<span class="k">--zinc-900</span>); <span class="k">padding</span>: <span class="n">var</span>(<span class="k">--s4</span>); }</code></pre>
+        <p>
+          Variables cascade like any other property, which makes them perfect for design tokens: one definition, used
+          everywhere, overridable per-section.
+        </p>
+        <div class="warn-box">
+          <strong>Learned the hard way, in this project</strong>
+          <p>
+            A CSS variable inside an animatable property does <em>not</em> interpolate reliably.
+            <code>clip-path: circle(var(--iris))</code> plus a <code>transition</code> produced a wipe that jumped
+            straight to its end state. The fix was to use <code>@keyframes</code> with literal values. Chapter 06 tells
+            the whole story.
+          </p>
+        </div>
+
+        <h2 id="tools">The four tools on your machine</h2>
+
+        <h3>1 · The terminal</h3>
+        <p>A prompt where you type commands. You need about eight:</p>
+        <pre data-label="shell"><code>pwd                 <span class="c"># where am I</span>
+ls                  <span class="c"># what is here</span>
+cd my-project       <span class="c"># go into a folder</span>
+cd ..               <span class="c"># go up one</span>
+mkdir new-folder    <span class="c"># make a folder</span>
+code .              <span class="c"># open this folder in VS Code</span>
+npm install         <span class="c"># install dependencies</span>
+npm run dev         <span class="c"># start the dev server</span></code></pre>
+        <p>On Windows, <code>PowerShell</code> is the default. It is not the same shell as macOS/Linux: <code>&amp;&amp;</code>
+        does not chain commands in older versions, and it has its own cmdlet names. If a tutorial's commands fail, that
+        difference is usually why.</p>
+
+        <h3>2 · Node.js</h3>
+        <p>
+          JavaScript, running outside a browser. It is what lets JS be used for tooling: your bundler, your test runner
+          and your scripts are all Node programs.
+        </p>
+        <pre data-label="shell"><code>node --version      <span class="c"># v22.x</span>
+node script.mjs     <span class="c"># run a file</span>
+node --test tests/  <span class="c"># run the built-in test runner</span></code></pre>
+
+        <h3>3 · npm</h3>
+        <p>Node's package manager, and the script runner every project uses as its front door.</p>
+        <pre data-label="package.json"><code>{
+  <span class="f">"scripts"</span>: {
+    <span class="f">"dev"</span>: <span class="s">"vite"</span>,
+    <span class="f">"build"</span>: <span class="s">"vite build"</span>,
+    <span class="f">"test"</span>: <span class="s">"node --test tests/*.test.js"</span>
+  },
+  <span class="f">"dependencies"</span>:    { <span class="f">"react"</span>: <span class="s">"^18.3.1"</span> },   <span class="c">// ships to the browser</span>
+  <span class="f">"devDependencies"</span>: { <span class="f">"vite"</span>: <span class="s">"^5.4.8"</span> }     <span class="c">// build-time only</span>
+}</code></pre>
+        <table>
+          <tr><th>File</th><th>What it is</th><th>Commit it?</th></tr>
+          <tr><td><code>package.json</code></td><td>Your declared dependencies and scripts</td><td>Yes</td></tr>
+          <tr><td><code>package-lock.json</code></td><td>The exact resolved versions, so installs are reproducible</td><td>Yes</td></tr>
+          <tr><td><code>node_modules/</code></td><td>The downloaded code itself: huge, regenerable</td><td>No</td></tr>
+        </table>
+        <p>
+          <code>^18.3.1</code> means "18.3.1 or any later 18.x". The caret is why a lock file exists: without it, two
+          people installing on different days can get different code.
+        </p>
+
+        <h3>4 · git</h3>
+        <p>Version control. The five commands that cover 95% of solo work:</p>
+        <pre data-label="shell"><code>git init                         <span class="c"># start tracking this folder</span>
+git status                       <span class="c"># what changed</span>
+git add -A                       <span class="c"># stage everything</span>
+git commit -m <span class="s">"Add iris wipe"</span>   <span class="c"># save a checkpoint</span>
+git log --oneline                <span class="c"># history</span></code></pre>
+        <p>
+          Commit in small, meaningful units, and write the message as "what this changes and why". Your future self
+          reading <code>git log</code> during a bug hunt is the audience.
+        </p>
+        <p>A <code>.gitignore</code> keeps generated and secret files out of history:</p>
+        <pre data-label=".gitignore"><code>node_modules
+dist
+.env</code></pre>
+        <div class="warn-box">
+          <strong>Never commit</strong>
+          <p>
+            <code>.env</code> files, API secrets, or anything with the word "service role" in it. Once a secret is in git
+            history it is effectively public: rotating the key is the only real fix.
+          </p>
+        </div>
+
+        <h2 id="anatomy">Anatomy of this project</h2>
+        <pre data-label="tree"><code>CircuitDojo/
+├─ index.html            <span class="c"># the single page</span>
+├─ package.json          <span class="c"># dependencies + scripts</span>
+├─ vite.config.js        <span class="c"># dev server + build config</span>
+├─ tailwind.config.js    <span class="c"># design tokens</span>
+├─ postcss.config.js     <span class="c"># CSS pipeline</span>
+├─ src/
+│  ├─ main.jsx           <span class="c"># entry point: mount React into #root</span>
+│  ├─ App.jsx            <span class="c"># top-level component, owns the view state</span>
+│  ├─ index.css          <span class="c"># Tailwind + component classes</span>
+│  ├─ components/        <span class="c"># UI</span>
+│  ├─ state/             <span class="c"># hooks that own state</span>
+│  ├─ engine/            <span class="c"># pure logic, no React</span>
+│  ├─ schematic/         <span class="c"># domain model</span>
+│  ├─ challenges/        <span class="c"># content + generation</span>
+│  └─ lib/               <span class="c"># small shared utilities</span>
+├─ supabase/migrations/  <span class="c"># SQL</span>
+├─ tests/                <span class="c"># node:test suites</span>
+└─ docs/                 <span class="c"># this manual</span></code></pre>
+        <p>The entry point is four lines of real work:</p>
+        <pre data-label="src/main.jsx"><code><span class="k">import</span> React <span class="k">from</span> <span class="s">'react'</span>;
+<span class="k">import</span> { createRoot } <span class="k">from</span> <span class="s">'react-dom/client'</span>;
+<span class="k">import</span> App <span class="k">from</span> <span class="s">'./App.jsx'</span>;
+<span class="k">import</span> <span class="s">'./index.css'</span>;
+
+<span class="f">createRoot</span>(document.<span class="f">getElementById</span>(<span class="s">'root'</span>)).<span class="f">render</span>(
+  &lt;React.StrictMode&gt;&lt;App /&gt;&lt;/React.StrictMode&gt;
+);</code></pre>
+        <div class="why">
+          <strong>Why folders by role, not by feature</strong>
+          <p>
+            <code>engine/</code> contains no React and no DOM; <code>components/</code> contains no electrical rules.
+            That boundary is the single most valuable structural decision in the project: it means the entire grading
+            engine can be tested in Node in milliseconds, with no browser and no mocking. Chapter 07 develops this idea
+            properly.
+          </p>
+        </div>
+
+        <h2 id="next">Before you continue</h2>
+        <p>Make sure you can run all four of these successfully:</p>
+        <pre data-label="shell"><code>node --version
+npm --version
+git --version
+npm run dev     <span class="c"># inside the project, then open http://localhost:5173</span></code></pre>
+        <p>If those work, you have a functioning professional front-end environment. Chapter 02 starts on the language.</p>
+      </main>
+    </div>
+    <script type="module" src="assets/nav.js"></script>
+  </body>
+</html>

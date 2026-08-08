@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>04 · Tooling - CircuitDojo Manual</title>
+    <link rel="stylesheet" href="assets/manual.css" />
+  </head>
+  <body>
+    <div class="layout">
+      <nav class="sidebar">
+        <a class="brand" href="index.html">
+          <svg width="20" height="20" viewBox="0 0 18 18" fill="none">
+            <path d="M1.5 12.5h3.5V6h4v6.5h3.5" stroke="#0f7a3d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+            <circle cx="9" cy="6" r="2.1" fill="#8b1a1a" />
+          </svg>
+          <span><strong>CircuitDojo</strong><span>The Manual</span></span>
+        </a>
+      </nav>
+
+      <main>
+        <p class="eyebrow">Chapter 04</p>
+        <h1>Tooling</h1>
+        <p class="lead">
+          The machinery around your code: the dev server, the bundler, the styling pipeline, the debugger, the tests and
+          the deploy. Every one of these is a tool you should be able to reason about, not a black box you copy from a
+          starter template.
+        </p>
+
+        <h2 id="why-build">Why a build step exists at all</h2>
+        <p>
+          Browsers can load ES modules natively, so in principle you need no tooling. In practice you want four things
+          they will not do for you:
+        </p>
+        <ol>
+          <li><strong>Transform</strong> code the browser cannot read: JSX is not JavaScript.</li>
+          <li><strong>Bundle</strong> hundreds of module files into a few requests for production.</li>
+          <li><strong>Optimise</strong>: minify, tree-shake unused exports, hash filenames for caching.</li>
+          <li><strong>Iterate fast</strong>: apply an edit without a full reload and without losing state.</li>
+        </ol>
+
+        <h2 id="vite">Vite</h2>
+        <pre data-label="vite.config.js"><code><span class="k">import</span> { defineConfig } <span class="k">from</span> <span class="s">'vite'</span>;
+<span class="k">import</span> react <span class="k">from</span> <span class="s">'@vitejs/plugin-react'</span>;
+
+<span class="k">export default</span> <span class="f">defineConfig</span>({
+  plugins: [<span class="f">react</span>()],           <span class="c">// JSX transform + fast refresh</span>
+  server: { port: <span class="n">5173</span>, open: <span class="k">true</span> },
+});</code></pre>
+        <p>Vite behaves completely differently in the two modes, and knowing that explains most of its behaviour:</p>
+        <table>
+          <tr><th></th><th><code>npm run dev</code></th><th><code>npm run build</code></th></tr>
+          <tr><td>Strategy</td><td>Serves your ES modules directly to the browser</td><td>Bundles everything with Rollup</td></tr>
+          <tr><td>Speed</td><td>Instant start; only the edited file is re-processed</td><td>Seconds; whole-project optimisation</td></tr>
+          <tr><td>Output</td><td>Nothing on disk</td><td><code>dist/</code> with hashed assets</td></tr>
+        </table>
+
+        <h3>Hot module replacement</h3>
+        <p>
+          When you save, Vite pushes just that module to the browser and React's fast refresh swaps the component while
+          keeping its state. That is why editing a widget does not reset the schematic you were drawing.
+        </p>
+        <div class="warn-box">
+          <strong>When HMR lies to you</strong>
+          <p>
+            If you change the <em>shape</em> of a component's hooks, add a <code>useEffect</code>, reorder
+            <code>useState</code> calls: React cannot reconcile the old instance with the new code and the component can
+            crash or behave oddly. This happened during development of this project and looked like a real bug in the
+            profile modal. <strong>Rule: after editing hooks, do a hard reload before you believe a bug.</strong>
+          </p>
+        </div>
+
+        <h3>Environment variables</h3>
+        <pre data-label=".env"><code>VITE_SUPABASE_URL=https://xyz.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJhbGci...</code></pre>
+        <pre data-label="src/lib/supabase.js"><code><span class="k">const</span> url = <span class="k">import</span>.meta.env?.VITE_SUPABASE_URL;
+<span class="k">const</span> anonKey = <span class="k">import</span>.meta.env?.VITE_SUPABASE_ANON_KEY;
+
+<span class="c">// Optional by design: no credentials means guest mode, not a crash at import.</span>
+<span class="k">export const</span> isSupabaseConfigured = <span class="f">Boolean</span>(url &amp;&amp; anonKey &amp;&amp; !url.<span class="f">includes</span>(<span class="s">'your-project-ref'</span>));
+<span class="k">export const</span> supabase = isSupabaseConfigured ? <span class="f">createClient</span>(url, anonKey, ...) : <span class="k">null</span>;</code></pre>
+        <div class="warn-box">
+          <strong>Only <code>VITE_</code> variables reach the browser</strong>
+          <p>
+            That prefix is a safety rail: anything without it stays server-side and cannot leak into the bundle. Never
+            put a secret in a <code>VITE_</code> variable: the bundle is public. The anon key is fine because it is
+            designed to be public and the database enforces access itself (chapter 05).
+          </p>
+        </div>
+        <div class="why">
+          <strong>Design decision: graceful degradation</strong>
+          <p>
+            <code>supabase</code> is <code>null</code> rather than throwing when unconfigured, and every call site checks
+            <code>isSupabaseConfigured</code>. The result: <code>git clone &amp;&amp; npm install &amp;&amp; npm run dev</code>
+            works on a fresh machine with no accounts, no keys and no setup. Make the zero-configuration path work, and
+            everyone who tries your project succeeds on the first attempt.
+          </p>
+        </div>
+
+        <h2 id="tailwind">Tailwind CSS</h2>
+        <p>
+          Tailwind gives you tiny single-purpose classes and generates only the ones you actually use. It feels wrong for
+          about a day and then becomes hard to give up.
+        </p>
+        <pre data-label="jsx"><code>&lt;div <span class="f">className</span>=<span class="s">"flex items-center gap-2 rounded-full px-4 py-2 text-[13px] text-zinc-700"</span>&gt;</code></pre>
+        <table>
+          <tr><th>Pattern</th><th>Meaning</th></tr>
+          <tr><td><code>p-4</code>, <code>px-4</code>, <code>mt-2</code></td><td>Padding/margin on the 0.25rem scale</td></tr>
+          <tr><td><code>text-[13px]</code></td><td>Arbitrary value, the escape hatch</td></tr>
+          <tr><td><code>hover:</code>, <code>focus-visible:</code>, <code>disabled:</code></td><td>State variants</td></tr>
+          <tr><td><code>md:</code>, <code>lg:</code></td><td>Responsive, min-width based</td></tr>
+          <tr><td><code>bg-zinc-900/[0.06]</code></td><td>Colour with an arbitrary opacity</td></tr>
+        </table>
+
+        <h3>Tokens live in the config</h3>
+        <pre data-label="tailwind.config.js"><code><span class="k">export default</span> {
+  content: [<span class="s">'./index.html'</span>, <span class="s">'./src/**/*.{js,jsx}'</span>],   <span class="c">// where to scan</span>
+  theme: {
+    extend: {
+      colors: { zinc: { <span class="n">150</span>: <span class="s">'#ececee'</span>, ... }, good: <span class="s">'#15803d'</span>, bad: <span class="s">'#be123c'</span> },
+      borderRadius: { widget: <span class="s">'24px'</span>, control: <span class="s">'14px'</span> },
+      boxShadow: { glass: <span class="s">'0 1px 0 0 rgba(255,255,255,.65) inset, ...'</span> },
+      transitionTimingFunction: { smooth: <span class="s">'cubic-bezier(0.32, 0.72, 0, 1)'</span> },
+      keyframes: { irisClose: { ... } },
+    },
+  },
+};</code></pre>
+        <div class="note">
+          <strong>The content array is not optional</strong>
+          <p>
+            Tailwind scans those files as <em>text</em> and emits only the classes it finds. Two consequences: a class
+            built by string concatenation (<code>'text-' + colour</code>) will not exist in the output, and a file
+            outside the glob gets no styles at all. Write complete class names, or map them explicitly.
+          </p>
+        </div>
+
+        <h3>When to leave Tailwind</h3>
+        <pre data-label="src/index.css"><code><span class="k">@layer</span> components {
+  <span class="c">/* A named, reusable surface. Used by ~10 components, so it earns a class. */</span>
+  <span class="f">.glass</span> {
+    <span class="k">@apply</span> relative rounded-widget border border-white/45 shadow-glass backdrop-blur-2xl;
+    <span class="k">background-image</span>: <span class="n">linear-gradient</span>(<span class="n">165deg</span>, rgba(<span class="n">255</span>,<span class="n">255</span>,<span class="n">255</span>,.<span class="n">78</span>), rgba(<span class="n">244</span>,<span class="n">244</span>,<span class="n">245</span>,.<span class="n">58</span>));
+  }
+  <span class="c">/* The specular highlight needs a pseudo-element: utilities cannot express it. */</span>
+  <span class="f">.glass::before</span> { <span class="k">content</span>: <span class="s">''</span>; <span class="k">position</span>: <span class="n">absolute</span>; <span class="k">inset</span>: <span class="n">0</span>; <span class="k">background</span>: <span class="n">radial-gradient</span>(...); }
+}</code></pre>
+        <p>
+          Rule of thumb: utilities for one-off layout, a component class when the same combination appears three or more
+          times or when you need something utilities cannot express (pseudo-elements, complex keyframes).
+        </p>
+
+        <h2 id="devtools">Debugging with DevTools</h2>
+        <table>
+          <tr><th>Panel</th><th>Use it for</th></tr>
+          <tr><td><strong>Console</strong></td><td>Errors, and <code>console.log</code> while you are thinking</td></tr>
+          <tr><td><strong>Elements</strong></td><td>What the DOM actually is; live-edit CSS to test an idea</td></tr>
+          <tr><td><strong>Network</strong></td><td>Requests, status codes, response bodies, timing</td></tr>
+          <tr><td><strong>Performance</strong></td><td>Record an interaction; find the long frames</td></tr>
+          <tr><td><strong>Application</strong></td><td>Inspect and clear <code>localStorage</code></td></tr>
+        </table>
+        <p>Console techniques worth more than <code>console.log</code>:</p>
+        <pre data-label="devtools console"><code>console.<span class="f">table</span>(netlist.nets);          <span class="c">// arrays of objects, readably</span>
+console.<span class="f">dir</span>(element);                 <span class="c">// the object, not the rendered node</span>
+<span class="f">copy</span>(JSON.<span class="f">stringify</span>(doc));            <span class="c">// straight to the clipboard</span>
+$0                                    <span class="c">// the element selected in Elements</span>
+<span class="f">getEventListeners</span>($0);               <span class="c">// what is bound to it</span></code></pre>
+        <div class="note">
+          <strong>How the bugs in this project were actually found</strong>
+          <p>
+            The iris wipe "not animating" was diagnosed by sampling
+            <code>getComputedStyle(el).clipPath</code> every 120ms during the transition and printing the series. The
+            values never changed, which pointed straight at the CSS variable, not at React. Measure the thing you are
+            unsure about; do not reason about it in the abstract.
+          </p>
+        </div>
+
+        <h2 id="testing">Testing</h2>
+        <p>Node has a test runner built in. No Jest, no config, no dependencies.</p>
+        <pre data-label="tests/engine.test.js"><code><span class="k">import</span> { test } <span class="k">from</span> <span class="s">'node:test'</span>;
+<span class="k">import</span> assert <span class="k">from</span> <span class="s">'node:assert/strict'</span>;
+<span class="k">import</span> { extractNetlist } <span class="k">from</span> <span class="s">'../src/schematic/netlist.js'</span>;
+
+<span class="f">test</span>(<span class="s">'crossing wires without a junction are separate nets'</span>, () =&gt; {
+  <span class="k">const</span> doc = <span class="f">createDocument</span>();
+  <span class="f">wire</span>(doc, <span class="n">0</span>, <span class="n">0</span>, <span class="n">100</span>, <span class="n">0</span>);
+  <span class="f">wire</span>(doc, <span class="n">50</span>, -<span class="n">50</span>, <span class="n">50</span>, <span class="n">50</span>);
+  assert.<span class="f">equal</span>(<span class="f">extractNetlist</span>(doc).nets.length, <span class="n">2</span>, <span class="s">'a plain crossing must not connect'</span>);
+});</code></pre>
+        <pre data-label="shell"><code>npm test        <span class="c"># node --test tests/*.test.js</span></code></pre>
+        <div class="why">
+          <strong>Why this project can test its core so easily</strong>
+          <p>
+            Because <code>engine/</code> and <code>schematic/</code> import no React and touch no DOM. Testing the
+            grading logic needs no browser, no rendering library and no mocks: just data in, data out. That is the
+            practical payoff of the architecture in chapter 07, and it is the reason to keep pure logic out of
+            components even when it feels convenient to inline.
+          </p>
+        </div>
+
+        <h3>Test the invariants, not the implementation</h3>
+        <p>
+          The highest-value suite here is <code>tests/symbols.test.js</code>, which checks properties of the whole
+          library rather than individual behaviour:
+        </p>
+        <pre data-label="tests/symbols.test.js"><code><span class="f">test</span>(<span class="s">'every symbol is well formed and on-grid'</span>, () =&gt; {
+  <span class="k">for</span> (<span class="k">const</span> symbol <span class="k">of</span> SYMBOLS) {
+    <span class="k">for</span> (<span class="k">const</span> unit <span class="k">of</span> symbol.units) {
+      <span class="k">for</span> (<span class="k">const</span> pin <span class="k">of</span> unit.pins) {
+        <span class="c">// Note: (-30 % 10) is -0 in JavaScript, so compare the magnitude.</span>
+        assert.<span class="f">ok</span>(Math.<span class="f">abs</span>(pin.x % GRID) === <span class="n">0</span>,
+          <span class="s">`</span>${symbol.id} pin ${pin.num}: x=${pin.x} is off-grid<span class="s">`</span>);
+      }
+    }
+  }
+});
+
+<span class="f">test</span>(<span class="s">'every symbol type and pin referenced by a challenge exists'</span>, () =&gt; { ... });</code></pre>
+        <p>
+          These two tests found two genuine bugs on their first run: capacitor pins were off-grid (so wiring to them
+          after a rotation could silently fail) and an H-bridge pin was off-grid. Neither would have been caught by
+          testing a component's rendering.
+        </p>
+        <div class="note">
+          <strong>Assertion messages are the deliverable</strong>
+          <p>
+            <code>assert.ok(cond, 'C.A pin 1: x=-25 is off-grid')</code> tells you the file, the part and the number.
+            A bare <code>assert.ok(cond)</code> tells you a line number. Write the message you would want at 1am.
+          </p>
+        </div>
+
+        <h2 id="scripts">npm scripts as your project's front door</h2>
+        <pre data-label="package.json"><code>{
+  <span class="f">"scripts"</span>: {
+    <span class="f">"dev"</span>: <span class="s">"vite"</span>,
+    <span class="f">"build"</span>: <span class="s">"vite build"</span>,
+    <span class="f">"preview"</span>: <span class="s">"vite preview"</span>,
+    <span class="f">"test"</span>: <span class="s">"node --test tests/*.test.js"</span>
+  }
+}</code></pre>
+        <p>
+          Anyone: including you in a year: should be able to work out how to run your project from
+          <code>package.json</code> alone. Standalone Node scripts belong in <code>scripts/</code>:
+        </p>
+        <pre data-label="scripts/sync-challenges.mjs"><code><span class="c">// Uses the SERVICE ROLE key, so it runs in a terminal and never in a browser.</span>
+<span class="k">const</span> url = process.env.SUPABASE_URL;
+<span class="k">const</span> key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+<span class="k">if</span> (!url || !key) { console.<span class="f">error</span>(<span class="s">'Set SUPABASE_URL and ...'</span>); process.<span class="f">exit</span>(<span class="n">1</span>); }</code></pre>
+
+        <h2 id="origin">The dev server's port is part of your data</h2>
+        <p>
+          Browser storage, <code>localStorage</code>, <code>sessionStorage</code>, IndexedDB, cookies: is scoped to
+          the <strong>origin</strong>, and an origin is scheme + host + <em>port</em>. So
+          <code>http://localhost:5174</code> is a different website from <code>http://localhost:5173</code>, with its
+          own separate, empty store.
+        </p>
+        <p>
+          This is a trap during development, because Vite's default is to move out of the way when a port is busy:
+        </p>
+        <pre data-label="shell"><code><span class="c"># a stale `npm run dev` is still holding 5173...</span>
+Port 5173 is in use, trying another one...
+  ➜  Local:   http://localhost:5174/     <span class="c"># ← every saved profile just "vanished"</span></code></pre>
+        <p>Nothing was deleted. You are simply looking at a different origin. Turn the silent move off:</p>
+        <pre data-label="vite.config.js"><code><span class="f">server</span>: { <span class="f">port</span>: <span class="n">5173</span>, <span class="f">strictPort</span>: <span class="k">true</span> }</code></pre>
+        <div class="warn-box">
+          <strong>Prefer a loud failure to a quiet one</strong>
+          <p>
+            "Port 5173 is already in use" looks like the worse outcome and is the better one: it is one stale process
+            away from fixed, and it costs nobody their data. A silent port change costs a user their progress and
+            presents as data loss: you will go looking for the bug in your storage code, where it is not.
+          </p>
+        </div>
+        <div class="why">
+          <strong>Give local-only data a way out</strong>
+          <p>
+            Even on a fixed origin, browser storage is not durable: clearing site data, private windows and storage
+            pressure all take it, and none of them ask. Anything you keep only in the browser should have an export:
+            a JSON download and a matching import is an afternoon's work and it is the difference between a bad day
+            and starting over. Cloud sync is the real answer; a file is the one you can ship before you have accounts.
+          </p>
+        </div>
+
+        <h2 id="git">Git workflow for one person</h2>
+        <pre data-label="shell"><code>git switch -c feature/iris-wipe     <span class="c"># branch for a change</span>
+<span class="c"># ...work...</span>
+git add -A &amp;&amp; git commit -m <span class="s">"Fix iris wipe: keyframes, not var transition"</span>
+git switch main &amp;&amp; git merge feature/iris-wipe
+git push</code></pre>
+        <p>
+          Commit messages that help future-you: say what changed and why it needed to. "Fix bug" is worthless; "Fix iris
+          wipe: CSS vars do not interpolate, use keyframes" is a note to yourself that saves an hour next time.
+        </p>
+        <p>
+          CircuitDojo itself became a repository on 2 August 2026, later than it should have. The first commit contains
+          the whole app plus a <code>.ui-snapshots/</code> folder holding all three UI designs the project has had; the
+          second commit deletes that folder. Both designs that are no longer live are therefore still reachable, which
+          is the point of the next section.
+        </p>
+
+        <h2 id="undo">Undoing a change</h2>
+        <p>
+          Most git tutorials teach you to save work. The reason you actually save work is to be able to throw some of it
+          away. Four commands cover nearly every "I want yesterday's version back":
+        </p>
+        <pre data-label="shell"><code>git log --oneline                  <span class="c"># what is undoable, newest first</span>
+git reset --hard HEAD              <span class="c"># bin uncommitted edits, back to last commit</span>
+git revert HEAD                    <span class="c"># undo the last commit, as a new commit</span>
+git checkout HEAD~1 -- src/        <span class="c"># take one folder back a step, leave the rest</span></code></pre>
+        <table>
+          <tr><th>Command</th><th>What it touches</th><th>Reach for it when</th></tr>
+          <tr><td><code>reset --hard</code></td><td>Uncommitted work only</td><td>An experiment went nowhere and was never committed</td></tr>
+          <tr><td><code>revert</code></td><td>Adds a commit that undoes one</td><td>A change was committed and you want it gone, with a record that it happened</td></tr>
+          <tr><td><code>checkout &lt;ref&gt; -- &lt;path&gt;</code></td><td>Just the paths you name</td><td>Only part of a change was wrong: take the UI back, keep the bug fix</td></tr>
+        </table>
+        <div class="warn-box">
+          <strong><code>reset --hard</code> destroys uncommitted work permanently</strong>
+          <p>
+            It is the one command here with no undo of its own. Anything you have not committed is gone. If you are not
+            sure, commit first: a commit you later revert costs nothing, and a commit you never made costs everything.
+          </p>
+        </div>
+        <p>
+          Restoring a file must give you the <em>same bytes</em> you had before, and on Windows that is not automatic.
+          Git defaults to <code>core.autocrlf=true</code>, which rewrites line endings when it writes files into your
+          working tree: restore an old version and every line reports as changed. This project ships a
+          <code>.gitattributes</code> containing <code>* -text</code>, which turns that conversion off.
+        </p>
+
+        <div class="why">
+          <strong>Initialise the repository first, not later</strong>
+          <p>
+            CircuitDojo's UI was rewritten twice and rejected twice before the project had any version control. Getting
+            the earlier design back meant reconstructing it by hand from editor history and backups: an hour of
+            archaeology, dependent on logs nobody had promised to keep, to recover something a single command would
+            have made free.
+          </p>
+          <p>
+            If you ever find yourself in that position, two things make the reconstruction survivable. Treat the files
+            on disk as the truth and <em>undo</em> later edits backwards from them rather than replaying forward from
+            nothing, except where a file was rewritten wholesale since the date you want, in which case replay forward
+            from its last full write instead, because undoing backwards silently leaves the newer content in place. And
+            check the result: every import should resolve, and files untouched since the target date should already
+            match what is on disk.
+          </p>
+          <p>
+            All of which is avoidable. <code>git init</code> takes a second, and it is the cheapest insurance in
+            software.
+          </p>
+        </div>
+
+        <h2 id="deploy">Deployment</h2>
+        <pre data-label="shell"><code>npm run build          <span class="c"># → dist/  (static HTML, JS, CSS)</span>
+npm run preview        <span class="c"># serve dist/ locally to check it</span></code></pre>
+        <p>
+          The output is static files. Any static host serves them: Vercel, Netlify, Cloudflare Pages, GitHub Pages, S3.
+          The whole deploy is:
+        </p>
+        <ol>
+          <li>Connect the git repository to the host.</li>
+          <li>Build command <code>npm run build</code>, output directory <code>dist</code>.</li>
+          <li>Set <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code> in the host's environment settings.</li>
+          <li>Push. The host builds and publishes.</li>
+        </ol>
+        <div class="warn-box">
+          <strong>Single-page app routing</strong>
+          <p>
+            If you later add client-side routes, the host must serve <code>index.html</code> for unknown paths, or a
+            refresh on <code>/settings</code> returns 404. Every host has a setting for this ("SPA fallback", a
+            <code>_redirects</code> file, or a rewrite rule). CircuitDojo keeps everything on one URL, so it does not
+            need one.
+          </p>
+        </div>
+
+        <h3>What to check before you call it shipped</h3>
+        <div class="card">
+          <ul>
+            <li><code>npm run build</code> succeeds with no warnings you have not read.</li>
+            <li><code>npm test</code> passes.</li>
+            <li>The production build works from <code>npm run preview</code>, not just in dev.</li>
+            <li>No secrets in the bundle: search <code>dist/</code> for anything that looks like a key.</li>
+            <li>It works in a fresh private window (no leftover <code>localStorage</code>).</li>
+            <li>Keyboard-only navigation reaches everything important.</li>
+            <li>It behaves with <code>prefers-reduced-motion</code> enabled.</li>
+          </ul>
+        </div>
+      </main>
+    </div>
+    <script type="module" src="assets/nav.js"></script>
+  </body>
+</html>

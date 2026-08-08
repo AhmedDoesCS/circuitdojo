@@ -1,0 +1,535 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>07 · Architecture - CircuitDojo Manual</title>
+    <link rel="stylesheet" href="assets/manual.css" />
+  </head>
+  <body>
+    <div class="layout">
+      <nav class="sidebar">
+        <a class="brand" href="index.html">
+          <svg width="20" height="20" viewBox="0 0 18 18" fill="none">
+            <path d="M1.5 12.5h3.5V6h4v6.5h3.5" stroke="#0f7a3d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+            <circle cx="9" cy="6" r="2.1" fill="#8b1a1a" />
+          </svg>
+          <span><strong>CircuitDojo</strong><span>The Manual</span></span>
+        </a>
+      </nav>
+
+      <main>
+        <p class="eyebrow">Chapter 07</p>
+        <h1>Architecture</h1>
+        <p class="lead">
+          How this application is actually put together, and why. Each decision here is transferable: the same shapes
+          solve document editors, level designers, spreadsheet engines and rule-based validators of any kind.
+        </p>
+
+        <h2 id="split">The one decision that mattered most</h2>
+        <p>
+          <strong>The engine imports no React. The UI implements no rules.</strong> Everything else follows from that.
+        </p>
+        <table>
+          <tr><th>Layer</th><th>Folder</th><th>Knows about</th><th>Never imports</th></tr>
+          <tr><td>Domain model</td><td><code>src/schematic/</code></td><td>Symbols, geometry, documents, netlists</td><td>React, DOM</td></tr>
+          <tr><td>Engine</td><td><code>src/engine/</code></td><td>Electrical rules, requirement checks, hints</td><td>React, DOM</td></tr>
+          <tr><td>Content</td><td><code>src/challenges/</code></td><td>Concepts, templates, generation, selection</td><td>React, DOM</td></tr>
+          <tr><td>State</td><td><code>src/state/</code></td><td>Hooks that own and persist state</td><td>Rules, geometry maths</td></tr>
+          <tr><td>UI</td><td><code>src/components/</code></td><td>Rendering and interaction</td><td>Electrical rules</td></tr>
+        </table>
+        <div class="why">
+          <strong>What that boundary buys</strong>
+          <ul>
+            <li>The whole grading engine is testable in Node in ~250ms, with no browser, no rendering library and no mocks.</li>
+            <li>The rules can be reused anywhere: a CLI, a server-side re-check, a batch validator over stored attempts.</li>
+            <li>Bugs are locatable. A wrong verdict is an engine bug; a wrong pixel is a UI bug. You never hunt in both.</li>
+          </ul>
+        </div>
+        <p>
+          The practical discipline: when you feel tempted to put "just a little" domain logic in a component because it is
+          convenient, that is exactly the moment the boundary pays for itself. Push it down.
+        </p>
+
+        <h2 id="pipeline">The pipeline</h2>
+        <pre data-label="data flow"><code>document (JSON)
+   │  extractNetlist()            src/schematic/netlist.js
+   ▼
+netlist  { nets, pins, components, query helpers }
+   │  buildComponentGraph()       src/engine/graph.js
+   ▼
+graph    nets as vertices, two-terminal parts as edges
+   │
+   ├─ runERC(doc, netlist, opts)  src/engine/erc.js       → is it a valid circuit?
+   └─ runCheck(ctx, check) × N    src/engine/checks.js    → is it the asked-for circuit?
+   │
+   ▼
+result   { passed, correct[], errors[], missing[], warnings[], stats }
+   │  generateHints(result, challenge)   src/engine/hints.js
+   ▼
+UI       ResultsPanel, canvas markers, brief badge</code></pre>
+        <p>
+          Every arrow is a pure function. You can stop at any stage, print the intermediate value, and understand exactly
+          what the next stage sees. That property is worth more than any amount of cleverness inside the stages.
+        </p>
+
+        <h2 id="model">The document model</h2>
+        <pre data-label="src/schematic/model.js"><code><span class="k">export function</span> <span class="f">createDocument</span>() {
+  <span class="k">return</span> {
+    version: DOC_VERSION,
+    components: [],   <span class="c">// placed symbol units</span>
+    wires: [],        <span class="c">// straight segments between two grid points</span>
+    junctions: [],    <span class="c">// explicit connection dots</span>
+    labels: [],       <span class="c">// net labels (name a node, supply nothing)</span>
+    noConnects: [],   <span class="c">// "this pin is intentionally open"</span>
+  };
+}</code></pre>
+        <p>Three properties make this model easy to live with:</p>
+        <ul>
+          <li><strong>Flat arrays, not a tree.</strong> Every item is reachable without traversal, and the whole document is one <code>JSON.stringify</code> away from the database.</li>
+          <li><strong>Plain data only.</strong> No class instances, no functions, no DOM nodes. It survives a round trip through <code>jsonb</code> unchanged.</li>
+          <li><strong>Versioned.</strong> <code>version</code> lets a future build migrate old saved documents rather than crash on them.</li>
+        </ul>
+
+        <h3>Coordinates: integers on a grid</h3>
+        <pre data-label="src/schematic/geometry.js"><code><span class="c">/**
+ * Everything internal is in "schematic units" where GRID = 10 units = one grid
+ * pitch. Every symbol pin sits on a multiple of GRID, and every placement is
+ * snapped, so after any 90° rotation or mirror, pins still land exactly on grid
+ * intersections. That exactness is what lets net extraction be a plain
+ * coordinate-key comparison instead of a fuzzy proximity search.
+ */</span>
+<span class="k">export const</span> GRID = <span class="n">10</span>;
+<span class="k">export function</span> <span class="f">key</span>(x, y) { <span class="k">return</span> <span class="s">`</span>${Math.<span class="f">round</span>(x)},${Math.<span class="f">round</span>(y)}<span class="s">`</span>; }</code></pre>
+        <div class="why">
+          <strong>Why this is the load-bearing decision of the whole app</strong>
+          <p>
+            Because coordinates are exact integers, "are these two things connected?" is a string comparison. If pins
+            could land on fractional positions, connectivity would need a tolerance, and tolerances need tuning, produce
+            ambiguity, and eventually produce a bug where two things 0.4 units apart are connected on Tuesday and not on
+            Wednesday. The invariant is enforced by a test over the entire symbol library, and that test found two real
+            violations on its first run.
+          </p>
+        </div>
+
+        <h2 id="unionfind">Netlist extraction with union-find</h2>
+        <p>
+          The problem: given a picture of wires, pins and dots, produce the list of electrical nodes. This is a
+          <em>connected components</em> problem, and union-find (disjoint-set) is its standard answer.
+        </p>
+        <pre data-label="src/schematic/netlist.js"><code><span class="k">class</span> <span class="t">UnionFind</span> {
+  <span class="f">constructor</span>() { <span class="k">this</span>.parent = <span class="k">new</span> <span class="f">Map</span>(); }
+
+  <span class="f">find</span>(k) {                        <span class="c">// which group is k in?</span>
+    <span class="k">let</span> root = k;
+    <span class="k">while</span> (<span class="k">this</span>.parent.<span class="f">get</span>(root) !== root) root = <span class="k">this</span>.parent.<span class="f">get</span>(root);
+    <span class="k">let</span> cur = k;                    <span class="c">// path compression: flatten as we go</span>
+    <span class="k">while</span> (<span class="k">this</span>.parent.<span class="f">get</span>(cur) !== root) {
+      <span class="k">const</span> next = <span class="k">this</span>.parent.<span class="f">get</span>(cur);
+      <span class="k">this</span>.parent.<span class="f">set</span>(cur, root);
+      cur = next;
+    }
+    <span class="k">return</span> root;
+  }
+
+  <span class="f">union</span>(a, b) {                    <span class="c">// these two are the same node</span>
+    <span class="k">const</span> ra = <span class="k">this</span>.<span class="f">find</span>(a), rb = <span class="k">this</span>.<span class="f">find</span>(b);
+    <span class="k">if</span> (ra !== rb) <span class="k">this</span>.parent.<span class="f">set</span>(ra, rb);
+  }
+}</code></pre>
+        <p>The algorithm is then a list of rules, each one line:</p>
+        <pre data-label="src/schematic/netlist.js"><code><span class="c">// (1) Each wire ties its own endpoints together.</span>
+<span class="k">for</span> (<span class="k">const</span> w <span class="k">of</span> doc.wires) uf.<span class="f">union</span>(<span class="f">key</span>(w.x1, w.y1), <span class="f">key</span>(w.x2, w.y2));
+
+<span class="c">// (2) Coincident points share a key, so the key IS the identity.</span>
+<span class="k">for</span> (<span class="k">const</span> p <span class="k">of</span> pins) uf.<span class="f">add</span>(<span class="f">key</span>(p.x, p.y));
+
+<span class="c">// (3) A junction dot binds a point into the interior of any wire crossing it.</span>
+<span class="k">for</span> (<span class="k">const</span> j <span class="k">of</span> doc.junctions) {
+  <span class="k">for</span> (<span class="k">const</span> w <span class="k">of</span> doc.wires) {
+    <span class="k">if</span> (<span class="f">pointOnSegmentInterior</span>(j, a, b)) { uf.<span class="f">union</span>(jk, <span class="f">key</span>(a.x, a.y)); uf.<span class="f">union</span>(jk, <span class="f">key</span>(b.x, b.y)); }
+  }
+}
+
+<span class="c">// (4) Power symbols with the same name are one global net, wherever they sit.</span>
+<span class="c">// (5) Net labels with the same text are one net, but a label is not a supply.</span></code></pre>
+        <div class="note">
+          <strong>Modelling a deliberate trap</strong>
+          <p>
+            Two wires crossing without a junction dot are <em>not</em> connected, and the editor never invents a dot for
+            a plain crossing. That is real EDA behaviour and a genuine teachable mistake, so the model preserves it
+            rather than being "helpful". Domain accuracy sometimes means implementing the sharp edge on purpose, and
+            documenting why, or a future contributor will "fix" it.
+          </p>
+        </div>
+
+        <h3>Give the result a query API, not raw arrays</h3>
+        <pre data-label="src/schematic/netlist.js"><code><span class="k">return</span> {
+  nets, pins, components,
+  <span class="f">netOfPin</span>(ref, pinNum) { ... },
+  <span class="f">groundNets</span>() { <span class="k">return</span> nets.<span class="f">filter</span>((n) =&gt; n.isPower &amp;&amp; n.powerKind === <span class="s">'ground'</span>); },
+  <span class="f">find</span>(type) { <span class="k">return</span> components.<span class="f">filter</span>((c) =&gt; c.symbolId === type || c.tags.<span class="f">includes</span>(type)); },
+  <span class="c">// "exclusive" means the net has no other pins, the definition of series.</span>
+  <span class="f">sharedNets</span>(refA, refB, { exclusive = <span class="k">false</span> } = {}) { ... },
+};</code></pre>
+        <p>
+          Every rule in the ERC and every requirement check is written against this vocabulary. When the internal
+          representation changes, one file changes. Publishing a <em>vocabulary</em> rather than a data dump is what keeps
+          twenty rule implementations from all depending on your field names.
+        </p>
+
+        <h2 id="graph">A second model for a second question</h2>
+        <p>
+          Connectivity cannot answer "is there a DC path from +5V to ground through nothing but a closed switch?" So the
+          engine builds a different graph over the same data: nets are vertices, two-terminal parts are edges, classified
+          by how they conduct.
+        </p>
+        <pre data-label="src/engine/graph.js"><code><span class="c">/**
+ * Edge kinds:
+ *   zero     : a closed switch / jumper: a wire for DC purposes
+ *   resistive: resistor, pot, thermistor, inductor, unknown external load
+ *   diode    : diode / LED: conducts, drops ~0.7-2V, does NOT limit current
+ *   blocking : capacitor: no DC path
+ *   active   : transistors, IC internals: not treated as a DC path
+ */</span>
+<span class="k">export function</span> <span class="f">findPath</span>(adjacency, startNetIds, goalNetIds, allowedKinds) { <span class="c">/* BFS */</span> }</code></pre>
+        <pre data-label="src/engine/erc.js"><code><span class="c">// "Is a supply tied to ground through nothing but zero-impedance parts?"</span>
+<span class="k">const</span> hardShort = <span class="f">findPath</span>(adjacency, supplyNetIds, groundNetIds, [<span class="s">'zero'</span>]);
+<span class="k">if</span> (hardShort &amp;&amp; hardShort.edges.length &gt; <span class="n">0</span>) { ... }
+
+<span class="c">// "...or through a diode, which cannot limit its own current?"</span>
+<span class="k">const</span> diodeShort = <span class="f">findPath</span>(adjacency, supplyNetIds, groundNetIds, [<span class="s">'zero'</span>, <span class="s">'diode'</span>]);</code></pre>
+        <div class="why">
+          <strong>Lesson: build a second representation rather than contorting the first</strong>
+          <p>
+            It is tempting to bolt path-finding onto the netlist. Keeping them separate means the netlist stays a
+            faithful description of the drawing while the graph stays a faithful description of conduction. Two small
+            honest models beat one that has to be interpreted differently depending on the caller.
+          </p>
+        </div>
+
+        <h2 id="dsl">The requirement DSL</h2>
+        <p>
+          Challenges are content, and content should not require code changes. So requirements are <em>data</em>:
+        </p>
+        <pre data-label="a challenge's requirements"><code>{
+  requiredComponents: [{ type: <span class="s">'D_LED'</span>, min: <span class="n">1</span>, max: <span class="n">1</span>, label: <span class="s">'One LED placed'</span> }],
+  checks: [
+    { kind: <span class="s">'series'</span>, a: { type: <span class="s">'D_LED'</span> }, b: { type: <span class="s">'resistor'</span> },
+      label: <span class="s">'Resistor is in series with the LED'</span>,
+      fail:  <span class="s">'In parallel it does nothing to limit LED current...'</span> },
+    { kind: <span class="s">'value_range'</span>, type: <span class="s">'resistor'</span>, inSeriesWith: { type: <span class="s">'D_LED'</span> },
+      min, max, unit: <span class="s">'Ω'</span>, label: <span class="s">'Resistor sized for 10 mA'</span>, fail: <span class="s">'R = (V − Vf)/I ...'</span> },
+  ],
+}</code></pre>
+        <p>The engine is a registry of small pure functions, one per <code>kind</code>:</p>
+        <pre data-label="src/engine/checks.js"><code><span class="k">const</span> CHECKS = {
+  <span class="f">series</span>(ctx, check) {
+    <span class="k">const</span> as = <span class="f">selectComponents</span>(ctx, check.a);
+    <span class="k">const</span> bs = <span class="f">selectComponents</span>(ctx, check.b);
+    <span class="k">if</span> (!as.length || !bs.length) <span class="k">return</span> { passed: <span class="k">false</span>, classify: <span class="s">'missing'</span>, detail: ... };
+    <span class="k">for</span> (<span class="k">const</span> a <span class="k">of</span> as) <span class="k">for</span> (<span class="k">const</span> b <span class="k">of</span> bs) {
+      <span class="k">const</span> shared = ctx.netlist.<span class="f">sharedNets</span>(a.ref, b.ref, { exclusive: <span class="k">true</span> });
+      <span class="k">if</span> (shared.length) <span class="k">return</span> { passed: <span class="k">true</span>, detail: ... };
+    }
+    <span class="c">// Distinguish "touching but not in series" from "not connected at all".</span>
+    <span class="k">const</span> touching = as.<span class="f">some</span>((a) =&gt; bs.<span class="f">some</span>((b) =&gt; ctx.netlist.<span class="f">sharedNets</span>(a.ref, b.ref).length &gt; <span class="n">0</span>));
+    <span class="k">return</span> { passed: <span class="k">false</span>, classify: <span class="s">'wrong'</span>, detail: touching ? <span class="s">'They do meet, but...'</span> : <span class="s">'Not connected at all.'</span> };
+  },
+  <span class="f">value_range</span>(ctx, check) { ... },
+  <span class="f">pull_resistor</span>(ctx, check) { ... },
+  ...
+};</code></pre>
+        <h3>Selectors: a tiny query language</h3>
+        <pre data-label="src/engine/checks.js"><code>{ type: <span class="s">'resistor'</span> }                                    <span class="c">// by symbol id or tag</span>
+{ type: <span class="s">'resistor'</span>, pin: <span class="s">'1'</span> }                          <span class="c">// a specific pin</span>
+{ type: <span class="s">'resistor'</span>, inSeriesWith: { type: <span class="s">'D_LED'</span> } }    <span class="c">// relational</span>
+{ type: <span class="s">'capacitor'</span>, between: [{ type: <span class="s">'U1'</span>, pin: <span class="s">'VCC'</span> }, { rail: <span class="s">'ground'</span> }] }
+{ rail: <span class="s">'ground'</span> | <span class="s">'supply'</span> | <span class="s">'+5V'</span> }                    <span class="c">// a power net</span></code></pre>
+        <div class="why">
+          <strong>Why go to the trouble of a DSL</strong>
+          <ul>
+            <li>Content authors write JSON, not code: 36 challenges, zero engine edits.</li>
+            <li>The data can live in a <code>jsonb</code> column and be validated server-side later, unchanged.</li>
+            <li>Each check kind is independently testable and independently fixable.</li>
+            <li>Hints can be generated <em>from the kind</em>, so a new challenge gets guidance for free.</li>
+          </ul>
+          <p>
+            The cost is one indirection. The rule of thumb: build a DSL when you expect many instances of the same shape
+            of rule. Two rules do not justify one; twenty do.
+          </p>
+        </div>
+
+        <h3>Classify failures, do not just report them</h3>
+        <pre data-label="src/engine/evaluate.js"><code><span class="k">if</span> (result.classify === <span class="s">'missing'</span>) missing.<span class="f">push</span>(entry);   <span class="c">// never addressed</span>
+<span class="k">else</span> errors.<span class="f">push</span>(entry);                                <span class="c">// present but wrong</span></code></pre>
+        <p>
+          "You never added the decoupling capacitor" and "your capacitor is on the wrong node" require different actions
+          from the learner, so they are different categories in the data model, not just different sentences. Model the
+          distinction your user will act on.
+        </p>
+
+        <h2 id="generation">Content generation: templates × seeds</h2>
+        <pre data-label="src/challenges/index.js"><code><span class="k">export function</span> <span class="f">instantiate</span>(templateId, seed = <span class="f">randomSeed</span>()) {
+  <span class="k">const</span> template = <span class="f">getTemplate</span>(templateId);
+  <span class="k">const</span> rng = <span class="f">makeRng</span>(seed);              <span class="c">// deterministic from the seed</span>
+  <span class="k">const</span> params = template.<span class="f">params</span>(rng);      <span class="c">// randomise the numbers</span>
+  <span class="k">const</span> built = template.<span class="f">build</span>(params);     <span class="c">// hand-authored topology</span>
+  <span class="k">return</span> { id: <span class="s">`</span>${templateId}#${seed}<span class="s">`</span>, ...built };
+}</code></pre>
+        <div class="why">
+          <strong>Why not generate topologies too</strong>
+          <p>
+            Because a randomly generated circuit is usually nonsense, and occasionally nonsense that looks plausible,
+            which is worse. The split is deliberate: <strong>humans author the structure, the machine varies the
+            numbers.</strong> You get an effectively unlimited pool where every instance is pedagogically sound. The same
+            principle applies to procedural level design, test-data generation and puzzle games generally.
+          </p>
+        </div>
+        <p>
+          A challenge instance is <code>(templateId, seed)</code>: two small columns that replay an attempt exactly,
+          months later, with no stored copy of the generated content.
+        </p>
+
+        <h2 id="levels">Modelling knowledge: provisional vs earned</h2>
+        <p>
+          The level system had a hard product requirement: an experienced user must not be forced through beginner
+          material, and must not be forced to sit a test either. The answer was a state distinction in the data.
+        </p>
+        <pre data-label="src/lib/level.js"><code><span class="c">/**
+ * Claimed concepts (`self: true`, set by calibration) are treated as held for
+ * selection purposes but are *unverified*. The first attempt settles the claim:
+ * a pass converts it to earned mastery, a failure drops it well below the hold
+ * threshold. That is what makes a wrong self-assessment self-correct in one
+ * challenge instead of needing a placement test.
+ */</span>
+<span class="k">if</span> (passed)          value = Math.<span class="f">min</span>(<span class="n">1</span>, prev.value + (<span class="n">1</span> - prev.value) * <span class="n">0.34</span>);
+<span class="k">else if</span> (prev.self) value = <span class="n">0.2</span>;    <span class="c">// a claim that did not survive contact</span>
+<span class="k">else</span>               value = Math.<span class="f">max</span>(<span class="n">0</span>, prev.value * <span class="n">0.7</span> - <span class="n">0.05</span>);</code></pre>
+        <p>Three consequences fall out of that single flag:</p>
+        <ul>
+          <li>Placement is one click, because being wrong is cheap and self-correcting.</li>
+          <li>The UI can be honest: the home screen says how many concepts are claimed but unproven.</li>
+          <li>"Too easy: go harder" is trivial to implement: claim the current level, draw from the band above.</li>
+        </ul>
+        <div class="note">
+          <strong>Transferable idea</strong>
+          <p>
+            When a system must act on uncertain information, model the uncertainty explicitly rather than pretending the
+            value is known. A boolean beside the number turned a "we need an assessment test" problem into a five-line
+            change.
+          </p>
+        </div>
+
+        <h2 id="overlays">Overlay state and the single-mount rule</h2>
+        <p>The app has one view variable and a set of overlays. Two rules keep it from tangling:</p>
+        <pre data-label="src/App.jsx"><code><span class="c">// 1 · Overlays live ABOVE the view switch, so a transition cannot remount them.</span>
+<span class="k">return</span> (
+  &lt;div <span class="f">className</span>=<span class="s">"relative h-full w-full overflow-hidden"</span>&gt;
+    {body}                                  <span class="c">/* calibrate | home | workspace */</span>
+    {view === <span class="s">'workspace'</span> &amp;&amp; introFor === challenge.id &amp;&amp; &lt;ChallengeIntro ... /&gt;}
+    &lt;ProfileModal ... /&gt;
+    &lt;IrisTransition <span class="f">run</span>={<span class="f">Boolean</span>(iris)} <span class="f">onMidpoint</span>={applyTransition} ... /&gt;
+  &lt;/div&gt;
+);
+
+<span class="c">// 2 · State changes happen at the midpoint of the wipe, while nothing is visible.</span>
+<span class="k">const</span> <span class="f">applyTransition</span> = <span class="f">useCallback</span>(() =&gt; {
+  <span class="k">if</span> (iris.next) { <span class="f">setChallenge</span>(iris.next); schematic.<span class="f">clear</span>(); <span class="f">setIntroFor</span>(iris.next.id); }
+  <span class="k">if</span> (iris.toView) <span class="f">setView</span>(iris.toView);
+}, [iris, schematic]);</code></pre>
+        <div class="warn-box">
+          <strong>The bug this prevents</strong>
+          <p>
+            In the first version the transition was rendered inside each view branch. Swapping the view at the midpoint
+            unmounted it, a fresh copy mounted with <code>run=true</code>, and the close animation played a second time.
+            The symptom looked like an animation bug; the cause was structural. <strong>Anything that must survive a state
+            change belongs above the thing that changes.</strong>
+          </p>
+        </div>
+        <p>And the transition itself is re-entrant-safe, because users double-click:</p>
+        <pre data-label="src/components/IrisTransition.jsx"><code><span class="k">if</span> (!run) <span class="k">return</span> <span class="k">undefined</span>;
+<span class="k">if</span> (busy.current) <span class="k">return</span> <span class="k">undefined</span>;    <span class="c">// already playing, ignore the re-trigger</span>
+busy.current = <span class="k">true</span>;</code></pre>
+
+        <h2 id="canvas">Canvas interaction</h2>
+        <p>Two ideas make the editor tractable:</p>
+        <h3>1 · One transform for the whole scene</h3>
+        <pre data-label="src/components/SchematicCanvas.jsx"><code>&lt;g <span class="f">transform</span>={<span class="s">`translate(</span>${view.x}, ${view.y}<span class="s">) scale(</span>${view.zoom}<span class="s">)`</span>}&gt;
+  <span class="c">/* everything in world coordinates */</span>
+&lt;/g&gt;</code></pre>
+        <pre data-label="src/components/SchematicCanvas.jsx"><code><span class="c">// Screen → world is then arithmetic, and it is the only place that knows about pixels.</span>
+<span class="k">const</span> <span class="f">toWorld</span> = <span class="f">useCallback</span>((event) =&gt; {
+  <span class="k">const</span> rect = svgRef.current.<span class="f">getBoundingClientRect</span>();
+  <span class="k">return</span> {
+    x: (event.clientX - rect.left - view.x) / view.zoom,
+    y: (event.clientY - rect.top  - view.y) / view.zoom,
+  };
+}, [view]);</code></pre>
+        <h3>2 · Hit-test the document, not the DOM</h3>
+        <pre data-label="src/schematic/edit.js"><code><span class="k">export function</span> <span class="f">itemAt</span>(doc, x, y) { ... }        <span class="c">// pure, testable, priority-ordered</span>
+<span class="k">export function</span> <span class="f">pinAt</span>(doc, x, y, tolerance) { ... } <span class="c">// pins win over grid when snapping</span></code></pre>
+        <p>
+          Wires get a 5px distance tolerance so a 2px line is comfortably clickable; priority is explicit (pins, then
+          labels, then junctions, then wires) rather than an accident of DOM order; and all of it runs in Node under test.
+        </p>
+        <h3>Drag without polluting history</h3>
+        <pre data-label="src/components/SchematicCanvas.jsx"><code><span class="c">// While dragging, render an offset. Commit ONE move action on drop.</span>
+<span class="k">const</span> moveDelta = keyMove ? keyMove.delta : drag?.mode === <span class="s">'move'</span> ? drag.delta : { x: <span class="n">0</span>, y: <span class="n">0</span> };
+&lt;SymbolView <span class="f">component</span>={{ ...c, x: c.x + d.x, y: c.y + d.y }} ... /&gt;</code></pre>
+        <p>
+          Mutating the document on every pointer-move would add sixty undo entries per drag and re-extract the netlist
+          sixty times. Rendering a temporary offset costs nothing and keeps undo meaningful.
+        </p>
+
+        <h3>Derived state must be re-derived, not accumulated</h3>
+        <p>
+          A junction dot is not a thing the learner owns: most of them are implied by geometry. A pin sitting on the
+          middle of a wire <em>is</em> in that wire, and the dot says so. The tempting implementation is to add a dot
+          when that becomes true. It is wrong, and the bug is invisible: drag the part away again and the dot stays,
+          silently joining two wires that only cross.
+        </p>
+        <pre data-label="src/schematic/edit.js"><code><span class="k">export function</span> <span class="f">normalize</span>(doc) {
+  doc.junctions = doc.junctions.<span class="f">filter</span>((j) =&gt; !j.auto);  <span class="c">// throw away every derived dot</span>
+  <span class="c">// ...then re-derive from the current geometry, leaving hand-placed dots alone</span>
+}</code></pre>
+        <p>
+          Every mutating operation ends with <code>normalize</code>. The rule generalises: if a piece of state is a
+          function of other state, compute it: do not maintain it. Maintaining it means every future operation has to
+          remember to keep it true, and the one that forgets produces a document that lies.
+        </p>
+        <p>
+          The <code>auto</code> flag is what makes this safe. It separates <em>derived</em> dots from <em>declared</em>
+          ones, so wiping the derived set can never destroy something a person decided.
+        </p>
+
+        <h3>A preview that disagrees with the commit is a lie</h3>
+        <p>
+          Dragging a component tows the wires attached to its pins. Two pieces of code need to know which wire ends are
+          being towed: the renderer, which draws the stretch, and the edit operation, which performs it. If they compute
+          it separately they will drift, and the failure mode is that you release the mouse and the wire snaps back,
+          having watched it stretch for a second. Both call the same function.
+        </p>
+        <pre data-label="src/schematic/edit.js"><code><span class="k">export function</span> <span class="f">attachmentPoints</span>(doc, ids) { ... } <span class="c">// pins of moving parts + ends of moving wires</span></code></pre>
+
+        <h2 id="reference">Reference answers that are graded before they ship</h2>
+        <p>
+          After three failed checks the app shows the circuit that answers the brief. The audience for that screen is,
+          by definition, someone who cannot tell whether what they are looking at is correct, so it has to be correct
+          by construction, not by review.
+        </p>
+        <p>
+          The reference is not an image or a description. It is a schematic document of exactly the type the learner
+          draws, built by a small sheet builder, and every one of them is run through the real grader in CI:
+        </p>
+        <pre data-label="tests/solutions.test.js"><code><span class="k">const</span> doc = <span class="f">solutionDoc</span>(challenge);
+<span class="k">const</span> result = <span class="f">evaluateAttempt</span>(doc, challenge);
+<span class="k">if</span> (!result.passed) failures.<span class="f">push</span>(...);   <span class="c">// across sixteen seeds per template</span></code></pre>
+        <div class="note">
+          <strong>The test earns its keep twice</strong>
+          <p>
+            It proves the answers are right, and it is a second, independent exercise of the checker, a grader that
+            rejects a correct circuit now fails the build. Content and engine hold each other honest.
+          </p>
+        </div>
+        <div class="note">
+          <strong>What it found the first time it ran</strong>
+          <p>
+            Six new reference answers were written, and three of them refused to pass. Every one was a real defect that
+            made a challenge <em>impossible for anybody to complete</em>:
+          </p>
+          <ul>
+            <li>
+              A bulk-capacitor challenge picked its recommended value at random, independently of the droop rule it
+              graded against, so it advised a part twenty times too small and then rejected it.
+            </li>
+            <li>
+              An SPDT level selector reported as a dead short, because the DC graph meshed all three terminals of a
+              changeover switch and believed the wiper could touch both throws at once.
+            </li>
+            <li>
+              A BJT load switch reported its own base as floating, because the brief hands the learner that signal
+              from off-sheet and the ERC had no way to be told so.
+            </li>
+          </ul>
+          <p>
+            None of these were reachable by unit tests of the engine, because each needs a complete, correct circuit to
+            expose it, and the only place a complete correct circuit existed was in the answer nobody had written down
+            yet. <strong>Writing the solution is what tests the specification.</strong>
+          </p>
+        </div>
+        <h3>Path-level constraints a graph cannot express</h3>
+        <p>
+          The changeover fix is worth stating on its own, because the obvious repair is wrong. Deleting the
+          throw-to-throw edge leaves the graph correct and the answer still wrong: a search can enter one throw, pass
+          through the common terminal and leave by the other, which is the same impossible connection spelled with two
+          edges instead of one.
+        </p>
+        <pre data-label="src/engine/graph.js"><code><span class="c">// Two edges of the same changeover in one path always means both positions</span>
+<span class="c">// at once, because the only way through such a part is via its common pin.</span>
+<span class="k">function</span> <span class="f">reusesChangeover</span>(edges, next) {
+  <span class="k">if</span> (!next.symbol?.commonPin) <span class="k">return false</span>;
+  <span class="k">return</span> edges.<span class="f">some</span>((e) =&gt; e.component === next.component);
+}</code></pre>
+        <p>
+          Some constraints belong to the <em>path</em>, not to the edges. When a rule cannot be expressed by adding or
+          removing connections, stop trying to encode it in the graph and put it in the traversal.
+        </p>
+
+        <p>
+          The same documents drive the deepest hint. Two schematics of one circuit never match item for item, so the
+          comparison is made on the only things that <em>are</em> the circuit: which kinds of part are present, and
+          which pins share a node. A pin's identity is <code>symbolId.pinName</code>: stable across both sheets, unlike
+          the reference designator. That turns "two things that should be connected are not" into "the LED anode and the
+          resistor are not on the same node on your sheet".
+        </p>
+
+        <h2 id="symbols">Data-driven parts</h2>
+        <pre data-label="src/schematic/symbols/passives.js"><code>{
+  id: <span class="s">'R'</span>, name: <span class="s">'Resistor'</span>, refPrefix: <span class="s">'R'</span>, category: <span class="s">'Passives'</span>,
+  tags: [<span class="s">'resistor'</span>, <span class="s">'passive'</span>, <span class="s">'two_terminal'</span>],
+  defaultValue: <span class="s">'10k'</span>, valueUnit: <span class="s">'Ω'</span>,
+  units: [{
+    id: <span class="s">'A'</span>,
+    graphics: [{ t: <span class="s">'line'</span>, pts: [[-<span class="n">20</span>,<span class="n">0</span>], [-<span class="n">16</span>,-<span class="n">7</span>], ...] }],   <span class="c">// zigzag</span>
+    pins: [
+      { num: <span class="s">'1'</span>, name: <span class="s">'~'</span>, x: -<span class="n">30</span>, y: <span class="n">0</span>, orient: <span class="s">'L'</span>, len: <span class="n">10</span>, type: <span class="s">'passive'</span> },
+      { num: <span class="s">'2'</span>, name: <span class="s">'~'</span>, x:  <span class="n">30</span>, y: <span class="n">0</span>, orient: <span class="s">'R'</span>, len: <span class="n">10</span>, type: <span class="s">'passive'</span> },
+    ],
+  }],
+}</code></pre>
+        <p>
+          Symbols are data, and the renderer walks a tiny list of primitives (<code>line</code>, <code>rect</code>,
+          <code>circle</code>, <code>path</code>, <code>text</code>). Adding a part means adding an object, no new
+          component, no new rendering code. The <code>tags</code> array is what lets a challenge say "any resistor"
+          without enumerating every resistor-like part, and <code>type</code> is what the ERC believes about
+          electrical behaviour.
+        </p>
+        <div class="note">
+          <strong>Multi-unit parts, modelled honestly</strong>
+          <p>
+            A 74HC08 is four gate units plus a power unit, all sharing one reference designator. Modelling that
+            faithfully: instead of flattening it to "an AND gate": is what makes "you forgot to place and wire the
+            chip's power unit" a detectable, teachable error. When the domain has a structure, encode the structure;
+            simplifying it away usually deletes the interesting part.
+          </p>
+        </div>
+
+        <h2 id="lessons">Transferable lessons</h2>
+        <div class="card">
+          <ol>
+            <li><strong>Separate pure logic from rendering.</strong> It is the difference between a testable system and a pile of components.</li>
+            <li><strong>Choose a representation that makes features trivial.</strong> Immutable documents gave undo away for free.</li>
+            <li><strong>Publish a vocabulary, not a data dump.</strong> Query helpers keep twenty rules from depending on your field names.</li>
+            <li><strong>Build a second model when a second question appears.</strong> Do not contort the first one.</li>
+            <li><strong>Turn repeated logic into data.</strong> Twenty similar rules want a DSL; two do not.</li>
+            <li><strong>Model uncertainty explicitly.</strong> A <code>self: true</code> flag replaced an entire placement-test feature.</li>
+            <li><strong>Test invariants over the whole dataset.</strong> Those tests find bugs that example-based tests never will.</li>
+            <li><strong>Keep the zero-configuration path working.</strong> No credentials, no setup, still runs.</li>
+          </ol>
+        </div>
+      </main>
+    </div>
+    <script type="module" src="assets/nav.js"></script>
+  </body>
+</html>

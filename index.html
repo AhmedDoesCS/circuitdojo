@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CircuitDojo - Practice Circuit Design</title>
+
+    <!--
+      Type system. Two faces, two jobs, and they never trade places:
+        Inter         , every piece of UI and prose. The default voice of modern
+                         software; a neutral grotesque that stays legible at 11px
+                         and tightens up cleanly at display sizes.
+        JetBrains Mono: values, reference designators, pin names, shortcuts and
+                         schematic labels. NEVER prose.
+
+      `display=swap` plus the system fallbacks in tailwind.config.js means the app
+      renders correctly and immediately with no network at all: the webfonts are
+      an upgrade, not a dependency.
+    -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+
+    <script>
+      /**
+       * Apply the saved appearance BEFORE the first paint.
+       *
+       * This is inline and synchronous rather than a React effect for one
+       * reason: otherwise the app paints in the default theme and then flips,
+       * and a full-screen flash of white is exactly what someone who chose dark
+       * mode does not want to see on every load.
+       *
+       * Kept deliberately tiny and dependency-free, it duplicates a few lines
+       * of src/lib/theme.js because it has to run before any module loads.
+       */
+      (function () {
+        try {
+          var saved = JSON.parse(localStorage.getItem('circuitdojo.settings.v1') || '{}');
+          var theme = saved.theme || 'light';
+          if (theme === 'system') {
+            theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          }
+          document.documentElement.setAttribute('data-theme', theme === 'dark' ? 'dark' : 'light');
+          document.documentElement.setAttribute('data-accent', saved.accent || 'cobalt');
+        } catch (e) {
+          /* private mode or corrupt settings, the stylesheet defaults stand */
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

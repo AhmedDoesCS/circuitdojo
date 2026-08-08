@@ -1,0 +1,7 @@
+# Store and check out every file byte-for-byte, with no end-of-line rewriting.
+#
+# Git on Windows defaults to core.autocrlf=true, which converts LF to CRLF when
+# it writes files into your working tree. That would mean restoring an old
+# version gives you a file that differs from the original on every single line.
+# This project exists partly to make reverts exact, so that conversion is off.
+* -text

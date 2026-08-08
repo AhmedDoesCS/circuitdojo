@@ -1,0 +1,990 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>06 · Design - CircuitDojo Manual</title>
+    <link rel="stylesheet" href="assets/manual.css" />
+  </head>
+  <body>
+    <div class="layout">
+      <nav class="sidebar">
+        <a class="brand" href="index.html">
+          <svg width="20" height="20" viewBox="0 0 18 18" fill="none">
+            <path d="M1.5 12.5h3.5V6h4v6.5h3.5" stroke="#0f7a3d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+            <circle cx="9" cy="6" r="2.1" fill="#8b1a1a" />
+          </svg>
+          <span><strong>CircuitDojo</strong><span>The Manual</span></span>
+        </a>
+      </nav>
+
+      <main>
+        <p class="eyebrow">Chapter 06</p>
+        <h1>Design</h1>
+        <p class="lead">
+          The chapter that turns "it works" into "someone with taste made this". Design is not decoration you add at the
+          end: it is a set of decisions with reasons, and reasons can be taught. Everything here is a rule you can apply
+          tomorrow, with the code that implements it.
+        </p>
+
+        <div class="why">
+          <strong>A note on this chapter's history</strong>
+          <p>
+            CircuitDojo went through three whole-cloth UI rewrites: a translucent "Liquid Glass" one, a ground-up
+            rebuild, and a dark "Signal" language, and each was abandoned. The app was restored to the first, and has
+            since been changed <em>a decision at a time</em>: a type system, then themes and accents, then the flat
+            surfaces described below. Those stuck.
+          </p>
+          <p>
+            That is the lesson, and it is worth more than the pixels. <strong>A redesign is not obviously an
+            improvement.</strong> Each rewrite was coherent on its own terms and still landed further from what the
+            project wanted, because a rewrite changes a hundred things at once and gives you no way to tell which one
+            you disliked. Changing one axis at a time is slower to describe and far faster to converge. Either way, keep
+            the old version recoverable before you start: every design in this project's history is still one
+            <code>git show</code> away.
+          </p>
+        </div>
+
+        <h2 id="what">What "designed" actually means</h2>
+        <p>
+          Award-winning interfaces are almost never more <em>decorated</em> than amateur ones. They are more
+          <em>decided</em>. Four things separate them:
+        </p>
+        <table>
+          <tr><th>Property</th><th>Amateur</th><th>Designed</th></tr>
+          <tr><td><strong>Hierarchy</strong></td><td>Everything competes for attention</td><td>One clear focus per screen; everything else recedes</td></tr>
+          <tr><td><strong>Consistency</strong></td><td>Nine spacing values, six greys, four radii</td><td>A small system, reused without exception</td></tr>
+          <tr><td><strong>Restraint</strong></td><td>Colour, shadows and animation everywhere</td><td>Neutral by default; emphasis is rationed and therefore means something</td></tr>
+          <tr><td><strong>Intent</strong></td><td>"It looked nice"</td><td>Every choice has a one-sentence reason</td></tr>
+        </table>
+        <div class="why">
+          <strong>The test to apply to your own work</strong>
+          <p>
+            Point at any element and ask: <em>why is it that size, that colour, that far from its neighbour?</em> If the
+            answer is "it looked about right", that is where your design is weak. If it is "it is step 2 on the type
+            scale because it is secondary to the title", you are designing.
+          </p>
+        </div>
+
+        <h2 id="type">Typography</h2>
+        <p>Type does most of the work. Get this right and a plain layout already looks professional.</p>
+
+        <h3>Choosing a typeface</h3>
+        <p>
+          Two faces, each with one job. More than two and the page stops having a voice; fewer and you cannot separate
+          a measurement from a sentence.
+        </p>
+        <table>
+          <tr><th>Face</th><th>Job</th><th>Never</th></tr>
+          <tr><td><strong>Inter</strong></td><td>All UI and prose: buttons, labels, headings, body copy</td><td>Values or pin names</td></tr>
+          <tr><td><strong>JetBrains Mono</strong></td><td>Anything measured or typed: resistances, reference designators, pin numbers, keyboard hints, schematic labels</td><td>Prose, ever</td></tr>
+        </table>
+        <pre data-label="tailwind.config.js"><code><span class="f">fontFamily</span>: {
+  <span class="f">sans</span>: [<span class="s">'Inter'</span>, <span class="s">'-apple-system'</span>, <span class="s">'BlinkMacSystemFont'</span>, <span class="s">'"Segoe UI"'</span>, <span class="s">'system-ui'</span>, <span class="s">'sans-serif'</span>],
+  <span class="f">mono</span>: [<span class="s">'"JetBrains Mono"'</span>, <span class="s">'ui-monospace'</span>, <span class="s">'SFMono-Regular'</span>, <span class="s">'Menlo'</span>, <span class="s">'monospace'</span>],
+}</code></pre>
+        <p>
+          Inter is the house style of modern software for a reason: it is a neutral grotesque drawn for screens, it
+          stays legible at 11px, and it tightens up cleanly at display sizes. Picking it is not a bold choice, and that
+          is the point: the typeface should not be the thing anyone notices.
+        </p>
+        <div class="note">
+          <strong>Keep the system stack behind the webfont</strong>
+          <p>
+            The fallbacks after <code>Inter</code> are not decoration. With <code>display=swap</code>, the app renders
+            immediately in the system face and upgrades when the webfont lands, so a slow or absent network costs you
+            nothing but the exact letterforms. A font the user has to wait for is a font that breaks your first
+            impression.
+          </p>
+        </div>
+        <div class="why">
+          <strong>Route every mono through the config, including SVG</strong>
+          <p>
+            Schematic labels are drawn as SVG <code>&lt;text&gt;</code>, and it is tempting to set
+            <code>fontFamily="ui-monospace, monospace"</code> right on the element. Do not: change the project's mono
+            later and those labels silently keep the old one, so the sheet and the panels drift apart. Give the element
+            <code>className="font-mono"</code> instead and let the Tailwind config stay the single source of truth.
+          </p>
+        </div>
+
+        <h3>Use a scale, not arbitrary numbers</h3>
+        <p>Pick a ratio (1.2 for dense UI, 1.25 for general, 1.333 for editorial) and step through it:</p>
+        <pre data-label="docs/assets/manual.css"><code><span class="f">:root</span> {
+  <span class="c">/* 1.25 ratio, fluid: min at small screens, max at large, no media query. */</span>
+  <span class="k">--step--1</span>: <span class="n">clamp</span>(<span class="n">0.78rem</span>, <span class="n">0.76rem</span> + <span class="n">0.1vw</span>, <span class="n">0.83rem</span>);
+  <span class="k">--step-0</span>:  <span class="n">clamp</span>(<span class="n">0.94rem</span>, <span class="n">0.9rem</span>  + <span class="n">0.15vw</span>, <span class="n">1rem</span>);
+  <span class="k">--step-1</span>:  <span class="n">clamp</span>(<span class="n">1.1rem</span>,  <span class="n">1rem</span>    + <span class="n">0.4vw</span>,  <span class="n">1.3rem</span>);
+  <span class="k">--step-2</span>:  <span class="n">clamp</span>(<span class="n">1.35rem</span>, <span class="n">1.15rem</span> + <span class="n">0.8vw</span>,  <span class="n">1.85rem</span>);
+  <span class="k">--step-3</span>:  <span class="n">clamp</span>(<span class="n">1.7rem</span>,  <span class="n">1.3rem</span>  + <span class="n">1.6vw</span>,  <span class="n">2.6rem</span>);
+  <span class="k">--step-4</span>:  <span class="n">clamp</span>(<span class="n">2.1rem</span>,  <span class="n">1.4rem</span>  + <span class="n">3vw</span>,    <span class="n">3.8rem</span>);
+}</code></pre>
+        <p><code>clamp(min, preferred, max)</code> is the single most useful function in modern CSS layout:</p>
+        <ul>
+          <li>It scales with the viewport, so one value covers laptop to 4K.</li>
+          <li>It has hard limits, so text never becomes unreadable or absurd.</li>
+          <li>It removes whole categories of media query.</li>
+        </ul>
+        <p>In the app, the same idea appears inline where a component needs it:</p>
+        <pre data-label="src/components/MenuShell.jsx"><code>&lt;span
+  <span class="f">className</span>=<span class="s">"block font-semibold tracking-[-0.02em]"</span>
+  <span class="f">style</span>={{ fontSize: primary ? <span class="s">'clamp(1.5rem, 3.1vw, 2.5rem)'</span> : <span class="s">'clamp(1.15rem, 2.1vw, 1.7rem)'</span> }}
+&gt;
+  {label}
+&lt;/span&gt;</code></pre>
+
+        <h3>Tracking: tighten as size grows</h3>
+        <pre data-label="css"><code><span class="f">h1</span> { <span class="k">letter-spacing</span>: <span class="n">-0.035em</span>; }   <span class="c">/* large: tighten hard */</span>
+<span class="f">h2</span> { <span class="k">letter-spacing</span>: <span class="n">-0.025em</span>; }
+<span class="f">body</span> { <span class="k">letter-spacing</span>: <span class="n">0</span>; }         <span class="c">/* body: leave it alone */</span>
+<span class="f">.eyebrow</span> { <span class="k">letter-spacing</span>: <span class="n">0.1em</span>; }  <span class="c">/* small caps: open it up */</span></code></pre>
+        <div class="note">
+          <strong>Why negative tracking on headings reads as "designed"</strong>
+          <p>
+            Type designers space fonts for body text. At 48px those gaps look loose and amateurish. Every carefully-made
+            marketing site tightens display type: it is one of the highest-impact single lines of CSS you can write.
+            Conversely, uppercase micro-labels need <em>more</em> space or they turn into a smear.
+          </p>
+        </div>
+
+        <h3>Line height and measure</h3>
+        <ul>
+          <li>Body: <code>1.6-1.7</code>. This manual uses <code>1.68</code>.</li>
+          <li>Headings: <code>1.0-1.15</code>. Big type needs less.</li>
+          <li>Measure (line length): 45-75 characters. <code>max-width: 76ch</code> here; <code>max-w-[46ch]</code> on the app's intro paragraphs.</li>
+        </ul>
+        <p>Two or three weights, maximum. This project uses 600/650 for headings and 400/500 for text, and no italics except for pull-quotes.</p>
+
+        <h2 id="space">Space</h2>
+        <p>Spacing is where amateur work is most obviously amateur, and it is the easiest thing to fix.</p>
+
+        <h3>One rhythm, everywhere</h3>
+        <pre data-label="docs/assets/manual.css"><code><span class="f">:root</span> {
+  <span class="k">--s1</span>: <span class="n">0.25rem</span>;  <span class="k">--s2</span>: <span class="n">0.5rem</span>;  <span class="k">--s3</span>: <span class="n">0.75rem</span>;  <span class="k">--s4</span>: <span class="n">1rem</span>;
+  <span class="k">--s5</span>: <span class="n">1.5rem</span>;   <span class="k">--s6</span>: <span class="n">2rem</span>;   <span class="k">--s7</span>: <span class="n">3rem</span>;     <span class="k">--s8</span>: <span class="n">4.5rem</span>;
+}</code></pre>
+        <p>
+          Tailwind gives you this for free: its scale is 4px-based. The discipline is to <em>only</em> use the scale.
+          The moment you write <code>margin-top: 13px</code>, you have started a second system.
+        </p>
+
+        <h3>Proximity communicates grouping</h3>
+        <p>
+          Related things sit close; unrelated things sit far apart. If a label is equally distant from the field above
+          and the field below, the reader cannot tell which it belongs to. Halve the inner gap and double the outer one
+          and the layout explains itself with no lines or boxes.
+        </p>
+
+        <h3>Whitespace is the luxury signal</h3>
+        <pre data-label="src/components/MenuShell.jsx"><code><span class="c">// The safe area scales with the viewport: never cramped, never lost.</span>
+&lt;div
+  <span class="f">className</span>=<span class="s">"relative z-10 flex h-full w-full flex-col justify-center"</span>
+  <span class="f">style</span>={{
+    paddingInline: <span class="s">'clamp(2.5rem, 8vw, 10rem)'</span>,
+    paddingBlock:  <span class="s">'clamp(2rem, 7vh, 5.5rem)'</span>,
+  }}
+&gt;</code></pre>
+        <div class="why">
+          <strong>Why the home screen's margins got much larger</strong>
+          <p>
+            The first version used a fixed <code>px-6</code>. It read as a <em>website</em>: content pinned near the
+            edges, header at the top, an implied scroll. Games and native apps put their menus in the middle of a large
+            calm field, because generous margins say "this space is mine to use, not a document to be consumed". Two
+            <code>clamp()</code> values changed the entire character of the screen without touching a single component
+            inside it.
+          </p>
+        </div>
+
+        <h2 id="colour">Colour</h2>
+        <p>The structure that almost never fails:</p>
+        <ol>
+          <li><strong>One neutral ramp</strong> (8-10 steps) for 90% of the interface.</li>
+          <li><strong>One accent</strong>, used sparingly for the primary action.</li>
+          <li><strong>Three semantic hues</strong>: success, warning, danger, used only for meaning.</li>
+          <li><strong>Optionally one signature colour</strong> tied to the subject matter.</li>
+        </ol>
+        <pre data-label="tailwind.config.js"><code>colors: {
+  zinc: { <span class="n">25</span>: <span class="s">'#fcfcfd'</span>, <span class="n">50</span>: <span class="s">'#fafafa'</span>, <span class="n">100</span>: <span class="s">'#f4f4f5'</span>, <span class="n">150</span>: <span class="s">'#ececee'</span>, ..., <span class="n">900</span>: <span class="s">'#18181b'</span> },
+  accent: { DEFAULT: <span class="s">'#3f3f46'</span>, soft: <span class="s">'#71717a'</span>, deep: <span class="s">'#27272a'</span>, tint: <span class="s">'#2563eb'</span> },
+  good: <span class="s">'#15803d'</span>, warn: <span class="s">'#b45309'</span>, bad: <span class="s">'#be123c'</span>,
+  <span class="c">// The subject's own palette: KiCad conventions. This is the signature.</span>
+  sch: { body: <span class="s">'#8b1a1a'</span>, bodyFill: <span class="s">'#fff8e6'</span>, wire: <span class="s">'#0f7a3d'</span>, label: <span class="s">'#0d6e6e'</span> },
+}</code></pre>
+        <div class="why">
+          <strong>Why the chrome is neutral and the accent is a dark grey</strong>
+          <p>
+            The schematic sheet is the subject, and it is already coloured: maroon symbols, green wires, teal labels.
+            A blue accent in the surrounding UI would compete with it. So the interface is zinc, the primary button is
+            near-black, and the only saturated colour in the chrome is <em>status</em>: red for unresolved, amber for
+            missing, green for verified. Colour that always means something is colour the user learns to trust.
+          </p>
+        </div>
+
+        <h3>Theming: invert the ramp, do not rewrite the app</h3>
+        <p>
+          The obvious way to add a dark mode is to replace every <code>zinc-900</code> with a semantic name like
+          <code>text-primary</code> and define both themes behind it. That is a thousand edits, and every one is a
+          chance to change something you did not mean to.
+        </p>
+        <p>
+          There is a cheaper route, and it is available whenever a codebase has used its neutral scale
+          <em>consistently</em>: in CircuitDojo, <code>zinc-900</code> always means ink, <code>zinc-200</code> always
+          means the page, <code>zinc-900/[0.06]</code> always means a faintly raised surface. When that holds, the dark
+          theme is the same ramp read backwards:
+        </p>
+        <pre data-label="src/index.css"><code><span class="f">:root</span> {
+  <span class="k">--zinc-200</span>: <span class="n">228 228 231</span>;  <span class="c">/* the page  */</span>
+  <span class="k">--zinc-900</span>: <span class="n">24 24 27</span>;     <span class="c">/* the ink   */</span>
+}
+<span class="f">[data-theme='dark']</span> {
+  <span class="k">--zinc-200</span>: <span class="n">18 18 21</span>;     <span class="c">/* ...swap the ends */</span>
+  <span class="k">--zinc-900</span>: <span class="n">244 244 245</span>;
+}</code></pre>
+        <pre data-label="tailwind.config.js"><code><span class="f">zinc</span>: { <span class="f">900</span>: <span class="s">'rgb(var(--zinc-900) / &lt;alpha-value&gt;)'</span>, <span class="c">/* ... */</span> }</code></pre>
+        <p>
+          <code>&lt;alpha-value&gt;</code> is the part that makes this practical: Tailwind substitutes the opacity into
+          the <code>rgb()</code> at build time, so <code>bg-zinc-900/[0.06]</code> keeps working untouched. Every
+          existing class flips on its own and no component learns that a theme exists.
+        </p>
+        <div class="warn-box">
+          <strong>Three things an inverted ramp cannot express</strong>
+          <p>
+            <strong>Text on a solid surface.</strong> <code>bg-zinc-900</code> flips to near-white, so a hardcoded
+            <code>text-white</code> label on it disappears. Those need their own token, here
+            <code>--on-solid</code>, white in light and near-black in dark.
+          </p>
+          <p>
+            <strong>Glass and shadow.</strong> These change <em>alpha</em> as well as hue: 78% white frosting reads as
+            a pane on a light ground and as a glare on a dark one. Store them as complete colour values, not triplets
+            the opacity utilities can re-derive.
+          </p>
+          <p>
+            <strong>Anything outside the neutral system.</strong> Status colours and the schematic palette have to be
+            lifted by hand: a green chosen to carry on white is too dark on near-black.
+          </p>
+        </div>
+        <div class="why">
+          <strong>Ship the new theme as a no-op</strong>
+          <p>
+            The default here stays light with the neutral accent, and it renders byte-identical to the version before
+            theming existed: same page <code>rgb(228,228,231)</code>, same ink, same glass gradient. A theming change
+            that alters the default look is two changes wearing one coat, and when someone dislikes the result you
+            cannot tell which half they mean.
+          </p>
+        </div>
+
+        <h3>Never pure black, never pure white</h3>
+        <p>
+          <code>#000</code> on <code>#fff</code> is harsh and looks unconsidered. <code>#18181b</code> on
+          <code>#ececee</code> is softer, has a subtle temperature, and gives you room to place true white as a highlight.
+        </p>
+
+        <h3>Opacity over new colours</h3>
+        <pre data-label="jsx"><code><span class="c">// One colour, many weights, automatically coherent on any background.</span>
+<span class="s">"bg-zinc-900/[0.04]"</span>   <span class="c">// subtle fill</span>
+<span class="s">"bg-zinc-900/[0.06]"</span>   <span class="c">// hover</span>
+<span class="s">"border-black/[0.06]"</span>  <span class="c">// hairline</span>
+<span class="s">"bg-bad/10"</span>            <span class="c">// danger tint behind red text</span></code></pre>
+
+        <h2 id="depth">Depth and material: flat surfaces</h2>
+        <p>
+          There are two honest ways to say "this element is in front of that one". You can imitate a material: give the
+          panel thickness, a lit edge, and something to refract, which is what translucent glass does. Or you can change
+          its <em>tone</em> and let a soft shadow do the separating. CircuitDojo used the first and now uses the second.
+        </p>
+        <pre data-label="src/index.css"><code><span class="f">.panel</span> {
+  <span class="k">@apply</span> rounded-widget;
+  <span class="k">background-color</span>: <span class="n">rgb</span>(<span class="k">var</span>(--panel));   <span class="c">/* one solid tone   */</span>
+  <span class="k">box-shadow</span>: <span class="k">var</span>(--elev-1);           <span class="c">/* one soft shadow  */</span>
+}</code></pre>
+        <p>
+          That is the whole recipe. No gradient, no border, no backdrop filter, no specular inset: four things removed,
+          and the panel still reads as a panel.
+        </p>
+        <table>
+          <tr><th>Doing the work</th><th>Reads as</th><th>Get it wrong and...</th></tr>
+          <tr><td>Tone against the ground</td><td>A distinct surface</td><td>The panel dissolves into the page</td></tr>
+          <tr><td>A soft, low-contrast shadow</td><td>Sitting slightly above</td><td>Heavy shadow: dated, 2013-skeuomorphic</td></tr>
+          <tr><td>Radius, held to a small scale</td><td>Deliberate, engineered</td><td>Too round reads toylike; square reads unfinished</td></tr>
+          <tr><td>A filled accent on one control</td><td>Where to click</td><td>Accent everywhere: nothing is primary</td></tr>
+        </table>
+
+        <h3>Elevation is tonal, and it inverts</h3>
+        <p>
+          On a light ground, a raised surface is <em>lighter</em> than the page and casts a shadow. On a dark ground the
+          shadow has nothing left to darken, so elevation has to come from tone alone: a raised surface gets lighter
+          there too, which is the opposite of what "shadow = depth" would predict:
+        </p>
+        <pre data-label="src/index.css"><code><span class="f">:root</span>              { <span class="k">--panel</span>: <span class="n">255 255 255</span>; }  <span class="c">/* above a #e4e4e7 page */</span>
+<span class="f">[data-theme='dark']</span> { <span class="k">--panel</span>: <span class="n">28 28 32</span>; }     <span class="c">/* above a #121215 page */</span></code></pre>
+        <p>
+          Three steps are plenty: the page, the panel, and a recessed tone inside it for tab strips, filled fields and
+          key caps. If you find yourself wanting a fourth, the layout is probably nested too deep.
+        </p>
+
+        <h3>Radius: a scale, not a vibe</h3>
+        <p>
+          Pick four values tied to component size and never improvise a fifth. Large radii age badly: 24px on a panel
+          starts to read as a capsule, and capsules were the house style of a specific era.
+        </p>
+        <pre data-label="tailwind.config.js"><code><span class="f">borderRadius</span>: {
+  <span class="f">widget</span>:  <span class="s">'16px'</span>,  <span class="c">/* panels, cards, modals          */</span>
+  <span class="f">bar</span>:     <span class="s">'14px'</span>,  <span class="c">/* toolbars, the switchboard      */</span>
+  <span class="f">control</span>: <span class="s">'10px'</span>,  <span class="c">/* buttons, fields, list rows     */</span>
+  <span class="f">chip</span>:    <span class="s">'8px'</span>,   <span class="c">/* chips, tags, key caps          */</span>
+}</code></pre>
+        <div class="note">
+          <strong>Keep circles where the shape means something</strong>
+          <p>
+            Going flatter is not a reason to square off a progress track, a status dot, an avatar or a toggle knob.
+            Those are round because the shape carries the meaning, not because of a style. The rule worth holding is
+            narrower: <em>chrome</em> stops being capsule-shaped, geometry does not.
+          </p>
+        </div>
+        <div class="why">
+          <strong>What removing the glass actually costs</strong>
+          <p>
+            Two real things. Translucency told you the canvas continued underneath a floating panel; opaque panels do
+            not, so the panel has to earn its screen space instead. And blur gave separation for free on any background,
+            whereas tone has to be chosen per theme: a surface that reads as raised on white will read as a hole on
+            near-black.
+          </p>
+          <p>
+            What it buys: <code>backdrop-filter</code> is the most expensive property on the page, because the
+            compositor has to sample and blur everything behind the element on every frame. Dropping it removes that
+            cost from every panel at once.
+          </p>
+        </div>
+        <h3>Backgrounds: draw the thing, do not blur a colour</h3>
+        <p>
+          The default way to make a background "interesting" is two or three big blurred colour blobs drifting behind
+          the content. It is one CSS rule and it works on any site, which is exactly the problem: it belongs to no
+          particular product, and it is the single least flat thing you can put on a screen. Three of them were what
+          sat behind CircuitDojo's menus.
+        </p>
+        <p>
+          The replacement is a drawing of the subject: a printed circuit board. Same job: low-contrast texture that
+          gives the screen depth without competing, but it now says what the app is about. Getting it to read as a
+          real board rather than a generic circuit motif came down to four details:
+        </p>
+        <table>
+          <tr><th>Detail</th><th>Why a real board has it</th></tr>
+          <tr><td><strong>45° corners</strong> on every trace</td><td>Etchant undercuts an acute angle and the corner traps flux, so copper is never routed at a sharp 90°. This is the single strongest tell.</td></tr>
+          <tr><td><strong>Vias as rings</strong>, not dots</td><td>A via is a plated hole. Drawn as a stroked circle, the barrel reads as hollow.</td></tr>
+          <tr><td><strong>Footprints</strong>, not schematic symbols</td><td>A board shows pads and silkscreen outlines. Putting a resistor zigzag on a PCB is a category error: that is the drawing of the board, not the board.</td></tr>
+          <tr><td><strong>Hatched copper pour</strong></td><td>How a ground region is rendered on a fabrication plot.</td></tr>
+        </table>
+        <p>
+          The routing is generated rather than hand-drawn: waypoints go in, and a <code>route()</code> helper mitres
+          every corner by cutting both legs back and joining the cut points. Fifteen lines, and it is what stops the
+          traces looking hand-placed.
+        </p>
+        <div class="note">
+          <strong>Canvas cannot inherit your theme</strong>
+          <p>
+            SVG reads <code>var(--token)</code> in a presentation attribute, so themed artwork is free. A
+            <code>&lt;canvas&gt;</code> cannot: you have to sample the values with
+            <code>getComputedStyle(document.documentElement)</code> when you draw. Miss that and the celebration
+            confetti keeps firing light-mode maroon over a near-black screen, where half of it never shows up.
+          </p>
+        </div>
+
+        <div class="warn-box">
+          <strong>Flat is not featureless</strong>
+          <p>
+            "Remove the gradients" is easy to over-apply until every surface is the same tone and the hierarchy is gone.
+            Flat design leans harder on the things that remain: tone steps, spacing, type weight and one saturated
+            accent, not on fewer of them. If a flat screen looks bland, the fix is usually more contrast between the
+            surface tones, not the gradient back.
+          </p>
+        </div>
+
+        <h2 id="motion">Motion</h2>
+        <p>
+          Motion has exactly three legitimate jobs: show <strong>where something came from</strong>, show
+          <strong>what changed</strong>, and cover <strong>a state change you do not want witnessed</strong>. Anything
+          else is decoration that costs the user time.
+        </p>
+
+        <h3>Duration and easing</h3>
+        <table>
+          <tr><th>Interaction</th><th>Duration</th><th>Easing</th></tr>
+          <tr><td>Hover, focus, small state</td><td>150-200ms</td><td><code>ease</code> or a gentle custom curve</td></tr>
+          <tr><td>Panel enter/exit</td><td>250-320ms</td><td>Decelerate: <code>cubic-bezier(0.32, 0.72, 0, 1)</code></td></tr>
+          <tr><td>Full-screen transition</td><td>500-700ms</td><td>Same decelerate curve</td></tr>
+          <tr><td>Celebration</td><td>700ms+, with a spring</td><td><code>cubic-bezier(0.34, 1.56, 0.64, 1)</code></td></tr>
+        </table>
+        <pre data-label="tailwind.config.js"><code>transitionTimingFunction: {
+  <span class="c">// Fast out, long gentle settle. Reads as "physical" rather than "linear".</span>
+  smooth: <span class="s">'cubic-bezier(0.32, 0.72, 0, 1)'</span>,
+  spring: <span class="s">'cubic-bezier(0.34, 1.4, 0.64, 1)'</span>,   <span class="c">// slight overshoot</span>
+}</code></pre>
+        <p>
+          One curve, used everywhere, is a large part of why an interface feels like one product. Two random easings look
+          like two teams.
+        </p>
+
+        <h3>Entrances: move a little, not a lot</h3>
+        <pre data-label="tailwind.config.js"><code>keyframes: {
+  widgetIn: {
+    <span class="s">'0%'</span>:   { opacity: <span class="s">'0'</span>, transform: <span class="s">'translateY(10px) scale(0.97)'</span> },
+    <span class="s">'100%'</span>: { opacity: <span class="s">'1'</span>, transform: <span class="s">'translateY(0) scale(1)'</span> },
+  },
+}</code></pre>
+        <p>
+          10px and 3% scale. Enough to register as arriving, small enough that it never delays comprehension. Beginners
+          animate 60px and 0.8 scale, which reads as a cartoon.
+        </p>
+
+        <h3>Stagger to imply structure</h3>
+        <p>
+          Elements arriving one after another in reading order teach the reading order, without any explicit cue. The
+          trap is doing it ad hoc: pick a delay per element by eye and within a few edits they drift out of sequence:
+          on this screen the objectives card was arriving <em>before</em> the sentence that introduces it, because the
+          two numbers were chosen weeks apart.
+        </p>
+        <p>Give the screen one beat and count in it:</p>
+        <pre data-label="src/components/MenuShell.jsx"><code><span class="k">const</span> <span class="n">LEAD_IN</span> = <span class="n">0.2</span>;   <span class="c">/* wait for the cover to start lifting */</span>
+<span class="k">const</span> <span class="n">BEAT</span> = <span class="n">0.05</span>;
+<span class="k">const</span> at = (step) =&gt; ({ animationDelay: <span class="s">`</span>${(<span class="n">LEAD_IN</span> + step * <span class="n">BEAT</span>).toFixed(<span class="n">3</span>)}<span class="s">s`</span> });
+
+<span class="c">// ...then position each element on the beat, in reading order.</span>
+&lt;h1 <span class="f">style</span>={{ ...at(<span class="n">1</span>) }}&gt;            <span class="c">/* headline    */</span>
+&lt;p  <span class="f">style</span>={at(<span class="n">1.5</span>)}&gt;               <span class="c">/* the tagline */</span>
+&lt;PrimaryAction <span class="f">delay</span>={at(<span class="n">2.5</span>)} /&gt;  <span class="c">/* the action  */</span></code></pre>
+        <p>
+          Fractional steps are the reason this holds up: a stack of three rows can be tightened to half a beat each
+          without inventing a second timing system, and the whole ladder stays sortable and reviewable. Reordering the
+          screen means renumbering, not re-guessing.
+        </p>
+        <p>
+          Direction carries meaning too. On the home screen the hero column rises from below while the save-file panel
+          slides in from the side, so the two columns do not arrive as one block, and the eye is given the thing you
+          came for first.
+        </p>
+        <p>
+          Keep total stagger under ~400ms of <em>delay</em>. Beyond that the last item feels late and the user has
+          already started reading it. This screen's ladder runs 200ms to 600ms across fourteen elements, and the last
+          one is a keyboard hint nobody is waiting on.
+        </p>
+
+        <h4>An entrance nobody sees is not an entrance</h4>
+        <p>
+          The first version of this cascade was tuned in isolation and looked right in isolation. In the app it was
+          invisible, because of <em>when</em> it ran rather than how fast.
+        </p>
+        <p>
+          A screen arriving through a transition mounts while the transition is still covering it. Here the incoming
+          screen mounts at the iris wipe's midpoint, and the cover then holds and opens on its own schedule, so the
+          clock the animation starts on is not the clock the viewer is watching:
+        </p>
+        <table>
+          <tr><th>ms after the screen mounts</th><th>What the viewer sees</th><th>What the entrance is doing</th></tr>
+          <tr><td>0</td><td>Fully covered</td><td>Cascade begins</td></tr>
+          <tr><td>140</td><td>Cover starts to lift</td><td>Half done</td></tr>
+          <tr><td>700</td><td>Fully revealed</td><td>Long finished: the screen is simply <em>there</em></td></tr>
+        </table>
+        <p>
+          Speeding the animation up made it worse, and slowing it down only partly helped. The fix is a
+          <strong>lead-in</strong>: hold the first element back until the cover has begun to move, so the cascade plays
+          in front of the viewer rather than behind a curtain. Keep it shorter than the full reveal: the elements
+          should be arriving <em>as</em> the screen opens, not waiting politely for it to finish.
+        </p>
+        <div class="why">
+          <strong>Tune motion against the whole sequence, not the component</strong>
+          <p>
+            Any animation that plays on mount has this problem the moment it lives behind a route transition, a modal
+            or a skeleton. Before adjusting a duration, work out what is on screen while it runs. The question is
+            almost never "is this too fast": it is "is anyone looking yet".
+          </p>
+        </div>
+
+        <h3>The iris wipe: a full case study</h3>
+        <p><strong>The goal.</strong> Cover the screen so the challenge swap is never witnessed, then reveal the new one.</p>
+        <pre data-label="src/index.css"><code><span class="c">/* Note the direction of the clip: this element is the *cover*, so a large
+   circle means "screen hidden" and a zero circle means "screen visible".
+   Closing the iris therefore GROWS the circle. */</span>
+<span class="f">.iris</span> {
+  <span class="k">position</span>: <span class="n">fixed</span>; <span class="k">inset</span>: <span class="n">0</span>; <span class="k">z-index</span>: <span class="n">120</span>;
+  <span class="k">pointer-events</span>: <span class="n">auto</span>;          <span class="c">/* swallow clicks while playing */</span>
+  <span class="k">background</span>: <span class="n">radial-gradient</span>(circle <span class="k">at</span> center, <span class="n">#fbfaf7</span> <span class="n">0%</span>, <span class="n">#e4e4e7</span> <span class="n">100%</span>);
+  <span class="k">clip-path</span>: <span class="n">circle</span>(<span class="n">0%</span> <span class="k">at</span> <span class="n">50% 50%</span>);
+  <span class="k">will-change</span>: <span class="k">clip-path</span>;
+}
+
+<span class="k">@keyframes</span> irisClose { <span class="k">from</span> { <span class="k">clip-path</span>: <span class="n">circle</span>(<span class="n">0%</span> <span class="k">at</span> <span class="n">50% 50%</span>); } <span class="k">to</span> { <span class="k">clip-path</span>: <span class="n">circle</span>(<span class="n">150%</span> <span class="k">at</span> <span class="n">50% 50%</span>); } }
+<span class="k">@keyframes</span> irisOpen  { <span class="k">from</span> { <span class="k">clip-path</span>: <span class="n">circle</span>(<span class="n">150%</span> <span class="k">at</span> <span class="n">50% 50%</span>); } <span class="k">to</span> { <span class="k">clip-path</span>: <span class="n">circle</span>(<span class="n">0%</span> <span class="k">at</span> <span class="n">50% 50%</span>); } }
+
+<span class="f">.iris-closing</span> { <span class="k">animation</span>: irisClose <span class="n">700ms</span> <span class="n">cubic-bezier</span>(<span class="n">0.32</span>,<span class="n">0.72</span>,<span class="n">0</span>,<span class="n">1</span>) forwards; }
+<span class="f">.iris-covered</span> { <span class="k">clip-path</span>: <span class="n">circle</span>(<span class="n">150%</span> <span class="k">at</span> <span class="n">50% 50%</span>); }
+<span class="f">.iris-opening</span> { <span class="k">animation</span>: irisOpen  <span class="n">700ms</span> <span class="n">cubic-bezier</span>(<span class="n">0.32</span>,<span class="n">0.72</span>,<span class="n">0</span>,<span class="n">1</span>) forwards; }</code></pre>
+        <p><strong>Three bugs this went through, and the lesson from each:</strong></p>
+        <ol>
+          <li>
+            <strong>It did not animate.</strong> The first version transitioned
+            <code>clip-path: circle(var(--iris))</code>. A var-substituted value does not interpolate, so it jumped to
+            the end state. <em>Lesson: animatable does not mean animatable through a variable. Use keyframes with literal
+            values.</em>
+          </li>
+          <li>
+            <strong>It played twice.</strong> The component was rendered inside each view branch, so swapping the view at
+            the midpoint unmounted it and a fresh copy replayed the close. <em>Lesson: anything that must survive a state
+            change belongs above the thing that changes.</em>
+          </li>
+          <li>
+            <strong>The clip was inverted.</strong> "Closing" shrank the circle, which actually <em>uncovers</em>.
+            <em>Lesson: write the direction of a mask in a comment. It is not obvious and you will get it wrong twice.</em>
+          </li>
+        </ol>
+        <p><strong>Pacing.</strong> 700ms in, 260ms held, 700ms out.</p>
+        <div class="why">
+          <strong>Why not faster</strong>
+          <p>
+            Below ~400ms a full-screen wipe reads as a flicker rather than a scene change, and the moment of stillness
+            that makes it feel intentional disappears. Above ~900ms per half you are making the user wait. The 260ms hold
+            exists because a cover with no pause looks like a glitch: the eye needs a beat to register that the screen
+            changed on purpose.
+          </p>
+        </div>
+
+        <h3>Respect the user's setting</h3>
+        <pre data-label="src/index.css"><code><span class="k">@media</span> (<span class="k">prefers-reduced-motion</span>: reduce) {
+  *, *::before, *::after {
+    <span class="k">animation-duration</span>: <span class="n">0.01ms</span> !important;
+    <span class="k">transition-duration</span>: <span class="n">0.01ms</span> !important;
+  }
+}</code></pre>
+        <pre data-label="src/components/IrisTransition.jsx"><code><span class="c">// JS-side too: skip straight to the state change, no timers at all.</span>
+<span class="k">const</span> reduced = window.<span class="f">matchMedia</span>?.(<span class="s">'(prefers-reduced-motion: reduce)'</span>).matches;
+<span class="k">if</span> (reduced) { onMidpoint?.(); onComplete?.(); <span class="k">return</span>; }</code></pre>
+        <p>
+          <strong>Everyone gets the information; only the motion is optional.</strong> This is both an accessibility
+          requirement and a design constraint that improves the work: if your interface only makes sense with the
+          animation, the layout is not doing its job.
+        </p>
+
+        <h2 id="layout">Composition: designing a game menu</h2>
+        <p>
+          The brief for CircuitDojo's home screen was "less website, more game". Concretely, that is five decisions:
+        </p>
+        <div class="grid-2">
+          <div class="card">
+            <h4>1 · Lock the viewport</h4>
+            <p><code>fixed inset-0 overflow-hidden</code>. A menu that scrolls is a document. If it does not fit, the layout is wrong: do not add a scrollbar.</p>
+          </div>
+          <div class="card">
+            <h4>2 · Centre in a large field</h4>
+            <p>Vertically centred content with <code>clamp()</code> margins. Websites stack from the top; apps sit in the middle of their space.</p>
+          </div>
+          <div class="card">
+            <h4>3 · One dominant action</h4>
+            <p>A single oversized action, with the rest stacked beneath it at two-thirds the weight and sharing its width. A menu with six equal options has no primary, and does not fit.</p>
+          </div>
+          <div class="card">
+            <h4>4 · A status panel</h4>
+            <p>The "save file": level, progress, stats. Games always show you where you are before you press start.</p>
+          </div>
+          <div class="card">
+            <h4>5 · Ambient life</h4>
+            <p>A drawn background at very low contrast, with one slow loop in it. Presence without demand, and drawn, never blurred.</p>
+          </div>
+          <div class="card">
+            <h4>6 · Keyboard first</h4>
+            <p><code>↑ ↓ ← →</code> to move, <code>Enter</code> to select, digits to jump straight to an option, and the hint shown on screen. It is what makes it feel like a console menu rather than a web page.</p>
+          </div>
+        </div>
+
+        <h3>A vocabulary, not a screen</h3>
+        <p>
+          The six decisions above are worth nothing if they only apply to the one screen you cared about. CircuitDojo
+          has three menu screens: placement, home and the challenge brief, and the placement screen kept its original
+          layout through two rounds of polish on the other two. It is the <em>first</em> screen anyone sees, so it was
+          the one screen where being a version behind actually mattered.
+        </p>
+        <p>The fix is to make the vocabulary shared code rather than a shared intention:</p>
+        <table>
+          <tr><th>Exported from <code>MenuShell.jsx</code></th><th>What it settles</th></tr>
+          <tr><td><code>MenuShell</code> + <code>pad</code></td><td>Locked viewport and one of two safe areas, a calm field or an edge-hugging HUD</td></tr>
+          <tr><td><code>MenuOption</code></td><td>One row anatomy: mono index, label, hint, meta. <code>emphasis="primary"</code> scales it for the one action a screen exists for</td></tr>
+          <tr><td><code>at(step)</code></td><td>One entrance beat, so three screens cannot drift into three timings</td></tr>
+        </table>
+        <div class="why">
+          <strong>Deleting the old component is the point</strong>
+          <p>
+            The row this replaced: oversized, with a rule that grew on hover: survived because it was still imported
+            in one place. A design system with two row components does not have one row component; it has a migration
+            you have not finished. Porting the last screen and deleting the old export are the same task, and if you
+            cannot delete it you have not finished porting.
+          </p>
+        </div>
+
+        <h3>Containment: the rule that decides the layout</h3>
+        <p>
+          Decision 1: lock the viewport: is the one that bites. <code>overflow-hidden</code> does not make content
+          fit; it makes content that does not fit <em>unreachable</em>. CircuitDojo's home screen learned this the
+          expensive way. Six oversized rows in one vertical stack measured fine on the machine it was built on, and at
+          1366×640 the heading sat 48px above the top of the window while the last row fell 37px below the bottom, with
+          no scrollbar to rescue either.
+        </p>
+        <p>Two changes fix that class of bug for good.</p>
+        <p>
+          <strong>Band the screen, and let the middle absorb the slack.</strong> Header and footer size to their
+          content; the body takes what is left and is allowed to be small:
+        </p>
+        <pre data-label="src/components/HomeScreen.jsx"><code>&lt;div <span class="f">className</span>=<span class="s">"flex min-h-0 flex-1 flex-col gap-..."</span>&gt;
+  &lt;header <span class="f">className</span>=<span class="s">"shrink-0 ..."</span>&gt;...&lt;/header&gt;
+  &lt;main   <span class="f">className</span>=<span class="s">"grid min-h-0 flex-1 content-center ..."</span>&gt;...&lt;/main&gt;
+  &lt;footer <span class="f">className</span>=<span class="s">"shrink-0"</span>&gt;...&lt;/footer&gt;
+&lt;/div&gt;</code></pre>
+        <p>
+          <code>min-h-0</code> is the load-bearing class. A flex child defaults to <code>min-height: auto</code>, which
+          refuses to shrink below its content, so without it the middle band pushes the footer off the screen instead
+          of giving way.
+        </p>
+        <p>
+          <strong>Clamp against both axes.</strong> A width-only clamp cannot see the case that actually breaks, which
+          is a window that is wide but short:
+        </p>
+        <pre data-label="src/components/HomeScreen.jsx"><code><span class="c">/* 5.4vw on a 1366×640 window is 74px of heading in 640px of height. */</span>
+<span class="f">fontSize</span>: <span class="s">'clamp(2rem, min(5.4vw, 8.5vh), 4.5rem)'</span></code></pre>
+        <p>
+          The <code>min(vw, vh)</code> inside the clamp means whichever axis is scarcer wins. Pair it with
+          <code>[@media(max-height:560px)]:hidden</code> on genuinely optional lines: a tagline, a keyboard hint, and
+          the screen degrades by dropping detail rather than by hiding what you came for.
+        </p>
+        <h3>One axis beats two columns</h3>
+        <p>
+          The challenge brief began as a two-column split: title and goal on the left, requirements on the right. It
+          looked orderly and read badly. A split like that has no single entry point: you take in a heading, then jump
+          sideways to find out what it actually asks of you, and the eye has to decide twice where to start.
+        </p>
+        <p>
+          A mission briefing in a game runs top to bottom on one centred spine: classification, title, objective,
+          numbered requirements, how to begin. One reading order, no competition. Rebuilding the brief that way is a
+          layout change with no styling in it at all: the same glass, the same type, the same colours, re-stacked.
+        </p>
+        <table>
+          <tr><th>Move</th><th>What it buys</th></tr>
+          <tr><td>Rule-flanked classification line above the title</td><td>Level and topic read as a mission tag, not as metadata bolted to a corner</td></tr>
+          <tr><td>Objectives numbered <code>01 02 03</code> in mono</td><td>Games number objectives, and the numbers give the eye a left edge to run down, which centred text otherwise takes away</td></tr>
+          <tr><td>Card centred, text inside it left-aligned</td><td>Centred body copy is unreadable past a few words; centre the block, not the sentences</td></tr>
+          <tr><td>Formulas as a strip along the card's bottom edge</td><td>Reads as a HUD readout rather than a second content column</td></tr>
+        </table>
+        <div class="note">
+          <strong>Narrow margins need a maximum width to work</strong>
+          <p>
+            "Hug the edges like a game HUD" and "keep the text readable" only coexist if you separate the two frames:
+            the <em>page</em> padding comes in close, and the <em>column</em> inside it gets its own
+            <code>max-width</code>. Chrome sits out at the edges, content stays on the centre line. Pulling the page
+            padding in without capping the column just gives you 1900px-wide sentences.
+          </p>
+        </div>
+
+        <div class="why">
+          <strong>Test the short window, not just the small one</strong>
+          <p>
+            Responsive testing is habitually about narrow phones. The window that breaks a locked-viewport layout is
+            the laptop with a browser toolbar, a dock and a video call open: 1366 wide and 600 tall. Resize the height
+            and watch what leaves the screen.
+          </p>
+        </div>
+        <pre data-label="src/components/MenuShell.jsx"><code><span class="c">/**
+ * Design intent: this is a game menu, not a web page:
+ *  - Locked viewport: nothing scrolls, nothing shifts.
+ *  - Generous safe area that scales with the viewport.
+ *  - Fluid type, so it fits at 1280×720 and at 4K without a media query.
+ *  - Ambient depth behind frosted glass.
+ */</span></code></pre>
+
+        <h3>The menu row, decomposed</h3>
+        <pre data-label="src/components/MenuShell.jsx"><code>&lt;button <span class="f">className</span>=<span class="s">"group flex w-full items-center gap-5 border-b border-zinc-900/[0.07] py-... text-left
+  transition-all duration-300 ease-smooth hover:border-zinc-900/20 focus-visible:border-zinc-900/20"</span>&gt;
+
+  <span class="c">{/* Leading rule: 0 → full on hover. The classic menu affordance. */}</span>
+  &lt;span <span class="f">className</span>=<span class="s">"relative h-[2px] w-6 overflow-hidden rounded-full bg-zinc-900/15"</span>&gt;
+    &lt;span <span class="f">className</span>=<span class="s">"absolute inset-y-0 left-0 w-0 bg-zinc-900 transition-all duration-300
+      ease-smooth group-hover:w-full group-focus-visible:w-full"</span> /&gt;
+  &lt;/span&gt;
+
+  <span class="c">{/* Label nudges right: motion toward the action you are about to take. */}</span>
+  &lt;span <span class="f">className</span>=<span class="s">"transition-transform duration-300 ease-smooth group-hover:translate-x-1"</span>&gt;{label}&lt;/span&gt;
+
+  <span class="c">{/* Chevron fades and slides in only on hover: reward, not clutter. */}</span>
+  &lt;svg <span class="f">className</span>=<span class="s">"-translate-x-1 opacity-0 transition-all duration-300 ease-smooth
+    group-hover:translate-x-0 group-hover:opacity-100"</span> /&gt;
+&lt;/button&gt;</code></pre>
+        <div class="note">
+          <strong>The <code>group</code> pattern</strong>
+          <p>
+            Tailwind's <code>group</code> on a parent plus <code>group-hover:</code> on descendants lets one hover drive
+            several coordinated changes. Three small movements that happen together read as one deliberate gesture,
+            which is the whole difference between "a link" and "a menu item in a well-made game".
+          </p>
+        </div>
+        <div class="why">
+          <strong>Why <code>focus-visible</code> is mirrored on every hover state</strong>
+          <p>
+            Keyboard users get the same affordance as mouse users, and <code>focus-visible</code> (rather than
+            <code>focus</code>) means mouse clicks do not leave a focus ring behind. Accessibility and polish are the
+            same edit here.
+          </p>
+        </div>
+
+        <h3>The full-bleed application layout</h3>
+        <p>The workspace uses the opposite strategy from the menu, and for a reason:</p>
+        <pre data-label="src/App.jsx"><code><span class="c">// The canvas is the app; everything else floats above it.</span>
+&lt;div <span class="f">className</span>=<span class="s">"relative h-full w-full overflow-hidden"</span>&gt;
+  &lt;div <span class="f">className</span>=<span class="s">"absolute inset-0"</span>&gt;&lt;SchematicCanvas ... /&gt;&lt;/div&gt;
+
+  <span class="c">// Corner-anchored, pointer-events-none containers so the canvas stays clickable</span>
+  <span class="c">// everywhere the widgets are not.</span>
+  &lt;div <span class="f">className</span>=<span class="s">"pointer-events-none absolute left-4 top-4 z-20 flex flex-col gap-3"</span>&gt;
+    {widgets.brief &amp;&amp; &lt;BriefWidget ... /&gt;}
+  &lt;/div&gt;
+&lt;/div&gt;</code></pre>
+        <div class="why">
+          <strong>Why floating widgets instead of docked panels</strong>
+          <p>
+            A schematic wants every available pixel. Docked panels permanently subtract width from the subject; floating
+            glass panels overlay it and can be dismissed to zero. The <code>pointer-events-none</code> wrapper with
+            <code>pointer-events-auto</code> children is the trick that makes it work, gaps between widgets remain live
+            canvas.
+          </p>
+        </div>
+
+        <h2 id="feedback">Feedback and emphasis</h2>
+        <p>Emphasis is a budget. Spend it on what has consequences.</p>
+        <table>
+          <tr><th>State</th><th>Treatment</th><th>Why that much</th></tr>
+          <tr><td>Correct</td><td>One quiet line, green dot</td><td>Confirmation, not celebration: it is the expected case</td></tr>
+          <tr><td>Missing</td><td>Amber tint, listed separately</td><td>Not an error; a gap. Different category, different colour</td></tr>
+          <tr><td>Wrong</td><td>Red-tinted card, canvas marker, pulsing chip, persistent reminder</td><td>Has consequences and needs action</td></tr>
+          <tr><td>Passed</td><td>Full-screen celebration with themed confetti</td><td>The end of an effort. Earned, and rare</td></tr>
+        </table>
+        <pre data-label="src/index.css"><code><span class="c">/* A slow breath, not a flash: it must survive being on screen for a minute. */</span>
+<span class="k">@keyframes</span> alertPulse {
+  <span class="s">'0%, 100%'</span> { <span class="k">box-shadow</span>: <span class="n">0 0 0 0</span> rgba(<span class="n">190</span>,<span class="n">18</span>,<span class="n">60</span>,<span class="n">0</span>); }
+  <span class="s">'50%'</span>      { <span class="k">box-shadow</span>: <span class="n">0 0 0 4px</span> rgba(<span class="n">190</span>,<span class="n">18</span>,<span class="n">60</span>,<span class="n">0.14</span>); }
+}</code></pre>
+        <p>And on the canvas, the marker is deliberately loud, because a busy sheet can hide a small ring:</p>
+        <pre data-label="src/components/SchematicCanvas.jsx"><code><span class="c">// Halo + ring + expanding pulse + a badge. Four layers, because an unmet</span>
+<span class="c">// requirement should be impossible to miss.</span>
+&lt;circle <span class="f">cx</span>={h.x} <span class="f">cy</span>={h.y} <span class="f">r</span>={<span class="n">13</span>} <span class="f">fill</span>=<span class="s">"#be123c"</span> <span class="f">fillOpacity</span>=<span class="s">"0.10"</span> /&gt;
+&lt;circle <span class="f">cx</span>={h.x} <span class="f">cy</span>={h.y} <span class="f">r</span>={<span class="n">7</span>}  <span class="f">stroke</span>=<span class="s">"#be123c"</span> <span class="f">strokeWidth</span>=<span class="s">"2.2"</span> <span class="f">fill</span>=<span class="s">"none"</span> /&gt;
+&lt;circle <span class="f">className</span>=<span class="s">"highlight-pulse"</span> ... /&gt;
+&lt;g <span class="f">transform</span>={<span class="s">`translate(</span>${h.x + <span class="n">11</span>}, ${h.y - <span class="n">11</span>}<span class="s">)`</span>}&gt;...&lt;/g&gt;</code></pre>
+
+        <h3>One element, one owner of <code>transform</code></h3>
+        <p>
+          Hovering a menu option made it judder and flash an outline. Three separate defects were stacked on the same
+          element, and only one of them was obvious.
+        </p>
+        <table>
+          <tr><th>Cause</th><th>Symptom</th><th>Fix</th></tr>
+          <tr>
+            <td>An entrance keyframe and a hover lift both animating <code>transform</code></td>
+            <td>The lift applied, dropped or half-applied depending on where the entrance had got to</td>
+            <td>Entrance moved to a wrapper element</td>
+          </tr>
+          <tr>
+            <td><code>focus()</code> called on hover, to keep the keyboard cursor in sync</td>
+            <td>The focus ring chased the pointer down the list</td>
+            <td>Focus only follows the keyboard</td>
+          </tr>
+          <tr>
+            <td><code>transition-all</code></td>
+            <td>Outline and shadow changes animated over 300ms instead of appearing</td>
+            <td>Transition only the properties that should move</td>
+          </tr>
+        </table>
+        <p>
+          The first is the one worth remembering. A filled keyframe animation outranks a plain declaration, so an
+          element carrying <code>animate-*</code> cannot also be styled with <code>translate</code>,
+          <code>scale</code> or <code>rotate</code>: the animation wins, silently, and only sometimes. If an element
+          needs both an entrance and a state change, they belong on different elements.
+        </p>
+        <div class="note">
+          <strong>The highlight and the focus ring are not the same thing</strong>
+          <p>
+            A pointer highlight says "this is under your cursor". A focus ring says "this is where your keystrokes will
+            go". Syncing them by calling <code>focus()</code> on hover conflates the two and produces a ring that
+            follows the mouse, visual noise for the pointer user and a lie for the keyboard one. Track which device
+            moved the cursor and only move focus for the keyboard.
+          </p>
+        </div>
+
+        <h3>Make the metaphor mean something</h3>
+        <p>
+          Three attempts needed a representation. A heart is the obvious one and the obvious one is usually a sticker:
+          drop in a generic glyph, tint it red, done. That version would carry no information: it would be a counter
+          wearing a costume.
+        </p>
+        <p>
+          The version that earns its place makes the metaphor <em>literal</em>. A life is a closed circuit: the heart is
+          routed in straight runs and 45° mitres like every other trace in the app, with a via at each lobe, and a
+          current packet running the loop. Losing one is what losing one actually looks like: the trace breaks at the
+          bottom point, the charge drains out, and what remains is a dashed outline, which is already the schematic
+          convention for something that is not really there.
+        </p>
+        <table>
+          <tr><th>State</th><th>What it draws</th><th>What it means electrically</th></tr>
+          <tr><td>Alive</td><td>Closed loop, filled, current flowing, slow beat</td><td>A complete circuit</td></tr>
+          <tr><td>Breaking</td><td>Surge, arc across the gap, fill drains, settle</td><td>The moment it opens</td></tr>
+          <tr><td>Lost</td><td>Dashed outline, open at the bottom, no fill or vias</td><td>An open circuit</td></tr>
+        </table>
+        <p>
+          Only one of those three is loud. The resting beat is 2.6s and the three hearts are deliberately out of phase,
+          so they read as three circuits rather than one animation applied three times, and so the row can sit at the
+          bottom of the screen for an hour without becoming something to ignore.
+        </p>
+        <div class="note">
+          <strong>Put the animation where the eye already is</strong>
+          <p>
+            The lives sit against the button that spends them. The first version had them in the results panel, which
+            arrives in the same frame as the loss, so the break played while the eye was being pulled to a panel
+            expanding underneath it. An animation nobody is looking at is a wasted animation, and the fix is
+            placement, not duration.
+          </p>
+        </div>
+
+        <h3>Let the drawing size the sheet</h3>
+        <p>
+          The reference answer is presented as an issued drawing: a double frame and a title block, because those say
+          "this is the released version": exactly the status it has, and exactly what separates it from the learner's
+          working sheet.
+        </p>
+        <p>
+          It also assembles itself. Parts fade in, then wires draw between them, then junction dots land: the order the
+          circuit would actually be built in. The finished picture is the thing they have already failed to produce
+          three times; the <em>sequence</em> is the part that carries new information.
+        </p>
+        <pre data-label="src/components/SolutionView.jsx"><code><span class="c">// Paint order and time order are independent. Wires are painted first so they</span>
+<span class="c">// pass under the symbol bodies, and animate last so the parts arrive first.</span>
+<span class="k">const</span> ratio = Math.<span class="f">max</span>(box.w / box.h, <span class="n">0.62</span>);  <span class="c">// the sheet takes the drawing's proportions</span></code></pre>
+        <p>
+          That last line fixed the thing that made it look cheap. A rail-to-ground ladder is about 1:3; stretched across
+          a wide panel it letterboxed itself into a thin strip with acres of blank sheet either side, frame and title
+          block floating far from the drawing. Sizing the <em>sheet</em> to the content puts the frame back on the edge
+          of the drawing. The floor stops a very tall circuit becoming a ribbon: past that point it centres on a
+          portrait sheet, exactly as it would on paper.
+        </p>
+
+        <h3>If it can fail, it must be able to look failed</h3>
+        <p>
+          A net label a few units off the wire renders identically to one sitting on it: same marker, same text, same
+          colour. It is the only item on a schematic whose entire purpose can fail with no visible difference, and the
+          checker then reported three separate topology problems, none of which was the actual fault, sending the
+          learner to rewire a circuit that was already correct.
+        </p>
+        <p>
+          The fix is not better error text. It is that <strong>the state must be visible in the thing itself</strong>:
+          an unattached label now draws in the unconnected colour, with the hollow square an EDA tool puts on a dangling
+          end, captioned "not on a net". You can see it is broken without running anything.
+        </p>
+        <div class="note">
+          <strong>Report the cause, not the symptoms</strong>
+          <p>
+            The three topology failures were all true and all useless. One root-cause error: "the BTN label is not
+            touching a wire, so it names nothing": replaces them, and it is an <em>electrical rule</em>, not a
+            requirement miss, because it is wrong regardless of what the brief asked for. When several checks fail
+            together, ask whether one upstream fact explains all of them, and say that instead.
+          </p>
+        </div>
+        <p>
+          The rule it replaced warned whenever a label appeared only once: advice that was both wrong and actively
+          harmful, since naming a node so the specification can refer to it is precisely what these briefs ask for. It
+          told the learner their <em>correct</em> label connected nothing.
+        </p>
+
+        <h3>Where do you mark a thing that is not there?</h3>
+        <p>
+          Every failure above can be ringed where it is. One cannot: a part the brief requires and the sheet does not
+          have. The mark belongs where the component <em>isn't</em>, and there is no such coordinate.
+        </p>
+        <p>
+          The instinct is to write a sentence about it and consider the job done. But a sentence in a results panel is
+          the thing a learner has to translate back into an action, and translation is where people give up. So a
+          missing part gets a standing chip of its own: outside the panel, surviving the panel being closed, and
+          clicking it opens the parts search on the thing it is asking for.
+        </p>
+        <div class="note">
+          <strong>The general rule</strong>
+          <p>
+            When you cannot point at the problem, point at the fix. An indicator that only describes a gap makes the
+            reader do the work; one that opens the tool that closes the gap has done it.
+          </p>
+        </div>
+
+        <h3>One decision, two answers</h3>
+        <p>
+          Once a sheet is in progress the main menu has two lead actions: continue it, or start something new. They are
+          not equals: continuing is what is nearly always wanted, and starting over throws away work.
+        </p>
+        <table>
+          <tr><th>Option</th><th>What it says</th><th>Cost</th></tr>
+          <tr><td>Two full-width rows</td><td>These are alternatives of equal weight</td><td>A row of vertical space, and a false equivalence</td></tr>
+          <tr><td>One row, a menu behind it</td><td>Starting new is an advanced action</td><td>Hides something people do constantly</td></tr>
+          <tr><td>One primary-sized panel, split unevenly</td><td>Same decision, two answers, one clearly the default</td><td>Nothing</td></tr>
+        </table>
+        <p>
+          The split keeps the primary's footprint exactly: continue takes the majority and the numbered badge, start-new
+          takes the end at secondary weight. Each half stays its own <code>&lt;button&gt;</code> so the keyboard walk
+          still visits both and the digit shortcuts stay in visual order.
+        </p>
+        <p>
+          The destructive half goes through a dialog, and the dialog's job is to name what is <em>actually</em> lost.
+          "You will lose your progress" reads as "your account is being reset": it overstates, and warnings that
+          overstate are the ones people learn to click through. "The circuit you have drawn is cleared. Your level,
+          solved count and concept progress are all kept" is longer and infinitely more useful.
+        </p>
+
+        <h3>Interaction states are not optional</h3>
+        <pre data-label="src/index.css"><code><span class="f">.btn</span> {
+  <span class="k">@apply</span> transition-all duration-200 ease-smooth
+    <span class="c">/* Pressed: a tiny scale-down is the cheapest "it responded" signal there is */</span>
+    active:scale-[<span class="n">0.97</span>]
+    <span class="c">/* Disabled: dim AND non-interactive, so hover does not lie */</span>
+    disabled:pointer-events-none disabled:opacity-35;
+}</code></pre>
+        <p>Every interactive element needs four looks: rest, hover, focus-visible, active. Plus disabled where it applies.</p>
+
+        <h2 id="a11y">Accessibility, as design</h2>
+        <ul>
+          <li><strong>Contrast.</strong> 4.5:1 for body text, 3:1 for large text. Your muted grey must still pass.</li>
+          <li><strong>Focus visible.</strong> Never <code>outline: none</code> without a replacement.</li>
+          <li><strong>Semantic elements.</strong> A clickable thing is a <code>&lt;button&gt;</code>; it gets keyboard and screen-reader behaviour for free.</li>
+          <li><strong>Labels on icon buttons.</strong> <code>title</code> plus <code>aria-label</code>.</li>
+          <li><strong>Hide decoration.</strong> <code>aria-hidden="true"</code> on ambient SVG so screen readers skip it.</li>
+          <li><strong>Do not encode meaning in colour alone.</strong> This app pairs every status colour with a word and an icon.</li>
+        </ul>
+
+        <h2 id="process">How to develop taste</h2>
+        <ol>
+          <li><strong>Steal structure, not style.</strong> When a site impresses you, work out its type scale, spacing rhythm and how many colours it uses. Copy the <em>system</em>; invent the surface.</li>
+          <li><strong>Build the tokens first.</strong> Scale, spacing, radii, shadows, easing. Then compose only from those. Constraint produces coherence.</li>
+          <li><strong>One signature move per project.</strong> Here it is glass over a schematic sheet, with the iris wipe as the punctuation. One memorable idea beats five competing ones.</li>
+          <li><strong>Reduce.</strong> Take a finished screen and remove a border, a shadow, a colour, a label. Most survive. Whatever breaks was load-bearing.</li>
+          <li><strong>Look at it small and squinting.</strong> Blur your eyes: the hierarchy should still be obvious as shapes. If everything is one grey mush, your contrast of size and weight is too flat.</li>
+          <li><strong>Write the reason down.</strong> Comment your design decisions in the CSS the way you comment tricky logic. Future-you needs it just as much.</li>
+        </ol>
+
+        <h2 id="checklist">From plain to designed: a checklist</h2>
+        <div class="card">
+          <ol>
+            <li>Replace all font sizes with 5-6 <code>clamp()</code> steps.</li>
+            <li>Tighten headline tracking to <code>-0.02em</code>...<code>-0.035em</code>.</li>
+            <li>Snap every space to one 4px scale; delete the odd values.</li>
+            <li>Reduce to one neutral ramp + one accent + three semantic hues.</li>
+            <li>Swap pure black/white for <code>#18181b</code> / <code>#fafafa</code>.</li>
+            <li>Give every surface one border, one faint shadow, one radius from the system.</li>
+            <li>Add hover, focus-visible and active states to everything clickable.</li>
+            <li>Pick one easing curve and one entrance animation; apply everywhere.</li>
+            <li>Double the outer margins of your main layout. Then check it again.</li>
+            <li>Add the <code>prefers-reduced-motion</code> block.</li>
+            <li>Squint at it. Fix whatever no longer has hierarchy.</li>
+          </ol>
+        </div>
+      </main>
+    </div>
+    <script type="module" src="assets/nav.js"></script>
+  </body>
+</html>

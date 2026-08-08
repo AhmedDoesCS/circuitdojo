@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>03 · React - CircuitDojo Manual</title>
+    <link rel="stylesheet" href="assets/manual.css" />
+  </head>
+  <body>
+    <div class="layout">
+      <nav class="sidebar">
+        <a class="brand" href="index.html">
+          <svg width="20" height="20" viewBox="0 0 18 18" fill="none">
+            <path d="M1.5 12.5h3.5V6h4v6.5h3.5" stroke="#0f7a3d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+            <circle cx="9" cy="6" r="2.1" fill="#8b1a1a" />
+          </svg>
+          <span><strong>CircuitDojo</strong><span>The Manual</span></span>
+        </a>
+      </nav>
+
+      <main>
+        <p class="eyebrow">Chapter 03</p>
+        <h1>React</h1>
+        <p class="lead">
+          One idea, applied relentlessly: <strong>the UI is a function of state</strong>. You describe what the screen
+          should look like for the current data; React works out the DOM changes. Everything else in this chapter is a
+          consequence of that idea.
+        </p>
+
+        <h2 id="mental">The mental shift</h2>
+        <p>Without a framework you write instructions:</p>
+        <pre data-label="js"><code><span class="c">// Imperative: you manage every transition by hand.</span>
+button.<span class="f">addEventListener</span>(<span class="s">'click'</span>, () =&gt; {
+  count++;
+  label.textContent = count;
+  <span class="k">if</span> (count &gt; <span class="n">0</span>) resetButton.style.display = <span class="s">'block'</span>;
+});</code></pre>
+        <p>With React you write a description:</p>
+        <pre data-label="jsx"><code><span class="c">// Declarative: say what is true for this state, every time.</span>
+<span class="k">function</span> <span class="f">Counter</span>() {
+  <span class="k">const</span> [count, setCount] = <span class="f">useState</span>(<span class="n">0</span>);
+  <span class="k">return</span> (
+    &lt;&gt;
+      &lt;button <span class="f">onClick</span>={() =&gt; <span class="f">setCount</span>(count + <span class="n">1</span>)}&gt;{count}&lt;/button&gt;
+      {count &gt; <span class="n">0</span> &amp;&amp; &lt;button <span class="f">onClick</span>={() =&gt; <span class="f">setCount</span>(<span class="n">0</span>)}&gt;Reset&lt;/button&gt;}
+    &lt;/&gt;
+  );
+}</code></pre>
+        <div class="why">
+          <strong>Why this scales</strong>
+          <p>
+            The imperative version has a bug the moment a second thing can change <code>count</code>: you must remember
+            to update the label there too. The declarative version cannot have that bug: there is one description, and
+            it is re-evaluated whenever state changes. As a UI grows, the number of possible transitions explodes but
+            the number of descriptions stays at one per component.
+          </p>
+        </div>
+
+        <h2 id="jsx">JSX</h2>
+        <p>JSX is syntax sugar for function calls. This:</p>
+        <pre data-label="jsx"><code>&lt;Widget <span class="f">title</span>=<span class="s">"Parts"</span> <span class="f">onClose</span>={hide}&gt;{children}&lt;/Widget&gt;</code></pre>
+        <p>compiles to:</p>
+        <pre data-label="js"><code>React.<span class="f">createElement</span>(Widget, { title: <span class="s">'Parts'</span>, onClose: hide }, children)</code></pre>
+        <p>Rules that follow from that:</p>
+        <ul>
+          <li><code>{}</code> escapes into JavaScript. Anything that evaluates to a value can go inside.</li>
+          <li>Attributes are camelCase: <code>className</code>, <code>strokeWidth</code>, <code>onPointerDown</code>, because they are object keys, and <code>class</code> is a reserved word.</li>
+          <li>Components must start with a capital letter, or JSX emits a literal HTML tag instead.</li>
+          <li>Every element must be closed: <code>&lt;br /&gt;</code>, <code>&lt;input /&gt;</code>.</li>
+          <li>A component returns one root. Use <code>&lt;&gt;...&lt;/&gt;</code> (a fragment) when you do not want a wrapper div.</li>
+        </ul>
+
+        <h3>Conditional rendering</h3>
+        <pre data-label="jsx"><code>{widgets.brief &amp;&amp; &lt;BriefWidget ... /&gt;}          <span class="c">/* render if true */</span>
+{passed ? &lt;Success /&gt; : &lt;Errors /&gt;}          <span class="c">/* either/or */</span>
+{unresolved &gt; <span class="n">0</span> &amp;&amp; &lt;Badge n={unresolved} /&gt;}  <span class="c">/* note: &gt; 0 */</span></code></pre>
+        <div class="warn-box">
+          <strong>The zero trap</strong>
+          <p>
+            <code>{count &amp;&amp; &lt;X/&gt;}</code> renders a literal <strong>0</strong> on screen when count is zero, because
+            <code>0</code> is falsy but still a valid React child. Always compare explicitly:
+            <code>{count &gt; 0 &amp;&amp; ...}</code>. CircuitDojo does this for the "unresolved" badge.
+          </p>
+        </div>
+
+        <h3>Lists and keys</h3>
+        <pre data-label="src/components/SchematicCanvas.jsx"><code>{doc.wires.<span class="f">map</span>((w) =&gt; (
+  &lt;line <span class="f">key</span>={w.id} <span class="f">x1</span>={w.x1} <span class="f">y1</span>={w.y1} <span class="f">x2</span>={w.x2} <span class="f">y2</span>={w.y2} /&gt;
+))}</code></pre>
+        <p>
+          <code>key</code> tells React which item is which between renders so it can move DOM nodes instead of
+          rebuilding them. Use a stable id from your data. Using the array index breaks the moment the list reorders:
+          animations restart, inputs lose focus, and the wrong row appears selected.
+        </p>
+
+        <h2 id="props">Props, and the direction data flows</h2>
+        <p>Props go down; events come back up as callbacks. That is the whole contract.</p>
+        <pre data-label="src/App.jsx"><code>&lt;BriefWidget
+  <span class="f">challenge</span>={challenge}                    <span class="c">/* data down */</span>
+  <span class="f">unresolved</span>={unresolved}
+  <span class="f">onClose</span>={() =&gt; <span class="f">toggleWidget</span>(<span class="s">'brief'</span>)}    <span class="c">/* events up */</span>
+  <span class="f">onTooEasy</span>={goHarder}
+/&gt;</code></pre>
+        <p>Inside, props arrive destructured, with defaults where sensible:</p>
+        <pre data-label="src/components/BriefWidget.jsx"><code><span class="k">export default function</span> <span class="f">BriefWidget</span>({
+  challenge, onClose, onReplayIntro, onBrowse, onNewChallenge, onTooEasy, unresolved = <span class="n">0</span>,
+}) { ... }</code></pre>
+        <div class="note">
+          <strong>Naming convention</strong>
+          <p>
+            Data props are nouns (<code>challenge</code>, <code>mastery</code>); callbacks are
+            <code>on&lt;Thing&gt;</code>. When a child needs something only the app can do: open a panel, run a check,
+            it calls a callback rather than reaching upward. <code>SchematicCanvas</code> takes a single
+            <code>onAppAction('add_component')</code> prop for exactly this reason: the canvas owns the sheet, the app
+            owns the application.
+          </p>
+        </div>
+
+        <h3>Composition over configuration</h3>
+        <pre data-label="src/components/Widget.jsx"><code><span class="c">// One shell, used by every panel. `children` is the slot.</span>
+<span class="k">export default function</span> <span class="f">Widget</span>({ title, subtitle, onClose, actions, children, className = <span class="s">''</span> }) {
+  <span class="k">return</span> (
+    &lt;section <span class="f">className</span>={<span class="s">`glass ... </span>${className}<span class="s">`</span>}&gt;
+      &lt;header&gt;
+        &lt;h2&gt;{title}&lt;/h2&gt;
+        {actions}
+        {onClose &amp;&amp; &lt;button <span class="f">onClick</span>={onClose}&gt;&lt;CloseIcon /&gt;&lt;/button&gt;}
+      &lt;/header&gt;
+      &lt;div&gt;{children}&lt;/div&gt;
+    &lt;/section&gt;
+  );
+}</code></pre>
+        <div class="why">
+          <strong>Why a shell beats a config object</strong>
+          <p>
+            The alternative is a component with twenty boolean props (<code>hasHeader</code>,
+            <code>showClose</code>, <code>variant</code>...) that becomes unmaintainable. Passing JSX through
+            <code>children</code> and <code>actions</code> means the shell owns <em>appearance</em> and the caller owns
+            <em>content</em>. Every glass panel in this app is visually consistent because of this one file.
+          </p>
+        </div>
+
+        <h2 id="usestate">useState</h2>
+        <pre data-label="jsx"><code><span class="k">const</span> [tool, setTool] = <span class="f">useState</span>(<span class="s">'select'</span>);        <span class="c">// initial value</span>
+<span class="k">const</span> [doc, setDoc]   = <span class="f">useState</span>(() =&gt; <span class="f">createDocument</span>()); <span class="c">// lazy init</span>
+
+<span class="f">setTool</span>(<span class="s">'wire'</span>);                                <span class="c">// replace</span>
+<span class="f">setWidgets</span>((prev) =&gt; ({ ...prev, brief: !prev.brief })); <span class="c">// derive</span></code></pre>
+        <p>Three rules:</p>
+        <ol>
+          <li><strong>Use the updater function</strong> when the next value depends on the current one. React batches updates; reading the variable directly can read a stale value.</li>
+          <li><strong>Pass a function for expensive initial values.</strong> <code>useState(createDocument())</code> calls it on every render; <code>useState(() =&gt; createDocument())</code> calls it once.</li>
+          <li><strong>Never mutate state.</strong> Always produce a new object (chapter 02).</li>
+        </ol>
+
+        <h3>Where state should live</h3>
+        <p>
+          Put state in the lowest component that needs it, and lift it only when a sibling needs it too. CircuitDojo's
+          split:
+        </p>
+        <table>
+          <tr><th>State</th><th>Owner</th><th>Why there</th></tr>
+          <tr><td>Zoom, pan, wire draft, drag</td><td><code>SchematicCanvas</code></td><td>Nothing outside cares; keeping it local avoids re-rendering the app on mouse move</td></tr>
+          <tr><td>Open tab in a panel</td><td>That panel</td><td>Purely presentational</td></tr>
+          <tr><td>The document + history</td><td><code>useSchematic</code> hook</td><td>Canvas, toolbar, properties and the checker all need it</td></tr>
+          <tr><td>Current challenge, view, overlays</td><td><code>App</code></td><td>They coordinate with each other</td></tr>
+          <tr><td>Level, settings, mastery</td><td><code>useProfile</code> hook</td><td>Persisted, needed in several places</td></tr>
+        </table>
+        <div class="warn-box">
+          <strong>The most common beginner mistake</strong>
+          <p>
+            Hoisting everything to the top component "just in case". Every state change there re-renders the entire tree.
+            Cursor position lives in the canvas for a reason: at 60 events per second, an app-level re-render would
+            make the editor unusable.
+          </p>
+        </div>
+
+        <h2 id="useeffect">useEffect</h2>
+        <p>
+          Effects synchronise your component with something <em>outside</em> React: event listeners, timers, storage,
+          network, the document title.
+        </p>
+        <pre data-label="jsx"><code><span class="f">useEffect</span>(() =&gt; {
+  <span class="c">// 1 · set up</span>
+  window.<span class="f">addEventListener</span>(<span class="s">'keydown'</span>, onKey);
+  <span class="c">// 2 · tear down: runs before the next effect and on unmount</span>
+  <span class="k">return</span> () =&gt; window.<span class="f">removeEventListener</span>(<span class="s">'keydown'</span>, onKey);
+}, [onKey]);   <span class="c">// 3 · dependencies: re-run when these change</span></code></pre>
+        <table>
+          <tr><th>Deps</th><th>Runs</th></tr>
+          <tr><td><code>[]</code></td><td>Once after mount, cleanup on unmount</td></tr>
+          <tr><td><code>[a, b]</code></td><td>After mount, then whenever <code>a</code> or <code>b</code> changes</td></tr>
+          <tr><td>omitted</td><td>After every render, almost always a mistake</td></tr>
+        </table>
+
+        <h3>Cleanup is not optional</h3>
+        <pre data-label="src/components/IrisTransition.jsx"><code><span class="f">useEffect</span>(() =&gt; {
+  <span class="k">if</span> (!run || busy.current) <span class="k">return</span> <span class="k">undefined</span>;
+  busy.current = <span class="k">true</span>;
+
+  <span class="k">const</span> <span class="f">at</span> = (ms, fn) =&gt; timers.current.<span class="f">push</span>(window.<span class="f">setTimeout</span>(fn, ms));
+  <span class="f">at</span>(CLOSE_MS, () =&gt; { <span class="f">setPhase</span>(<span class="s">'covered'</span>); onMidpoint?.(); });
+  <span class="f">at</span>(CLOSE_MS + HOLD_MS, () =&gt; <span class="f">setPhase</span>(<span class="s">'opening'</span>));
+
+  <span class="k">return</span> () =&gt; {
+    timers.current.<span class="f">forEach</span>(window.<span class="f">clearTimeout</span>);   <span class="c">// no orphan timers</span>
+    timers.current = [];
+    busy.current = <span class="k">false</span>;
+  };
+}, [run]);</code></pre>
+        <div class="note">
+          <strong>StrictMode double-invoke</strong>
+          <p>
+            In development, React 18's <code>&lt;StrictMode&gt;</code> deliberately runs every effect twice:
+            setup, cleanup, setup, to surface missing cleanup. If your effect starts a timer, opens a socket or plays an
+            animation and you see it happen twice, that is not a bug in React; it is React telling you the cleanup is
+            incomplete. Write the cleanup and the double-invoke becomes invisible.
+          </p>
+        </div>
+
+        <h3>Effects you do not need</h3>
+        <pre data-label="jsx"><code><span class="c">// ✗ Derived state in an effect: extra render, easy to desync.</span>
+<span class="k">const</span> [total, setTotal] = <span class="f">useState</span>(<span class="n">0</span>);
+<span class="f">useEffect</span>(() =&gt; { <span class="f">setTotal</span>(items.length); }, [items]);
+
+<span class="c">// ✓ Just compute it.</span>
+<span class="k">const</span> total = items.length;</code></pre>
+        <p>
+          If a value can be calculated from props and state during render, calculate it. Effects are for the outside
+          world, not for bookkeeping.
+        </p>
+
+        <h2 id="memo">useMemo and useCallback</h2>
+        <pre data-label="src/components/SchematicCanvas.jsx"><code><span class="c">// Re-extract the netlist only when the document actually changes,</span>
+<span class="c">// not on every mouse move, of which there are ~60 per second.</span>
+<span class="k">const</span> netlist = <span class="f">useMemo</span>(() =&gt; <span class="f">extractNetlist</span>(doc), [doc]);
+
+<span class="k">const</span> connectedPins = <span class="f">useMemo</span>(() =&gt; {
+  <span class="k">const</span> set = <span class="k">new</span> <span class="f">Set</span>();
+  <span class="k">for</span> (<span class="k">const</span> p <span class="k">of</span> netlist.pins) <span class="k">if</span> (<span class="f">isPinConnected</span>(netlist, p)) set.<span class="f">add</span>(<span class="s">`</span>${p.componentId}:${p.num}<span class="s">`</span>);
+  <span class="k">return</span> set;
+}, [netlist]);</code></pre>
+        <p>
+          <code>useMemo</code> caches a <em>value</em>. <code>useCallback</code> caches a <em>function identity</em>, which
+          matters when that function is a dependency of an effect or a prop to a memoised child.
+        </p>
+        <div class="warn-box">
+          <strong>Do not memoise everything</strong>
+          <p>
+            Both hooks cost memory and a comparison. Reach for them when you have measured a problem, or when the work is
+            obviously heavy (parsing a whole document) or the identity is load-bearing (a dependency of an effect).
+            Wrapping every trivial arrow function makes code noisier and slower.
+          </p>
+        </div>
+
+        <h2 id="useref">useRef</h2>
+        <p>Two distinct jobs, same hook:</p>
+        <pre data-label="jsx"><code><span class="c">// 1 · A handle on a DOM node.</span>
+<span class="k">const</span> svgRef = <span class="f">useRef</span>(<span class="k">null</span>);
+&lt;svg <span class="f">ref</span>={svgRef} /&gt;
+<span class="k">const</span> rect = svgRef.current.<span class="f">getBoundingClientRect</span>();
+
+<span class="c">// 2 · A mutable box that does NOT trigger re-renders.</span>
+<span class="k">const</span> cursorRef = <span class="f">useRef</span>({ x: <span class="n">0</span>, y: <span class="n">0</span> });
+cursorRef.current = world;        <span class="c">// no render, no stale closure</span></code></pre>
+        <p>
+          The second use solves a real problem in this app. The keyboard handler needs the current cursor position to
+          start a keyboard move, but re-creating that handler on every mouse move would be wasteful. A ref gives the
+          handler a live view of a value without making it a dependency.
+        </p>
+        <pre data-label="src/components/SchematicCanvas.jsx"><code><span class="k">case</span> <span class="s">'move'</span>:
+  <span class="c">// Attach the selection to the cursor; the next click drops it (KiCad 'M').</span>
+  <span class="f">setKeyMove</span>({ origin: { ...cursorRef.current }, ids: selection, delta: { x: <span class="n">0</span>, y: <span class="n">0</span> } });
+  <span class="k">break</span>;</code></pre>
+
+        <h2 id="reducer">useReducer: state with rules</h2>
+        <p>
+          When several pieces of state change together, or a change needs to be describable as an <em>action</em>, a
+          reducer beats a pile of <code>useState</code>. The editor is the textbook case.
+        </p>
+        <pre data-label="src/state/useSchematic.js"><code><span class="k">function</span> <span class="f">commit</span>(state, nextDoc, selection = state.selection) {
+  <span class="k">if</span> (nextDoc === state.doc) <span class="k">return</span> state;      <span class="c">// nothing changed</span>
+  <span class="k">return</span> {
+    doc: nextDoc,
+    past: [...state.past, state.doc].<span class="f">slice</span>(-HISTORY_LIMIT),
+    future: [],                                <span class="c">// a new edit kills the redo branch</span>
+    selection,
+  };
+}
+
+<span class="k">function</span> <span class="f">reducer</span>(state, action) {
+  <span class="k">switch</span> (action.type) {
+    <span class="k">case</span> <span class="s">'place'</span>: {
+      <span class="k">const</span> { doc, component } = edit.<span class="f">placeComponent</span>(state.doc, action.symbolId, ...);
+      <span class="k">return</span> <span class="f">commit</span>(state, doc, [component.id]);
+    }
+    <span class="k">case</span> <span class="s">'move'</span>:   <span class="k">return</span> <span class="f">commit</span>(state, edit.<span class="f">moveItems</span>(state.doc, action.ids, action.dx, action.dy));
+    <span class="k">case</span> <span class="s">'undo'</span>: {
+      <span class="k">if</span> (!state.past.length) <span class="k">return</span> state;
+      <span class="k">return</span> {
+        doc: state.past.<span class="f">at</span>(-<span class="n">1</span>),
+        past: state.past.<span class="f">slice</span>(<span class="n">0</span>, -<span class="n">1</span>),
+        future: [state.doc, ...state.future],
+        selection: [],
+      };
+    }
+    <span class="k">default</span>: <span class="k">return</span> state;
+  }
+}</code></pre>
+        <div class="why">
+          <strong>Why this design is worth copying</strong>
+          <p>
+            Undo/redo is normally a large feature. Here it is fifteen lines, because two decisions cooperate: every edit
+            function is pure and returns a new document (chapter 02), and the reducer keeps arrays of past and future
+            documents. No inverse operations, no command objects. The lesson: pick a data representation that makes the
+            feature trivial rather than writing a clever algorithm around a bad one.
+          </p>
+        </div>
+
+        <h2 id="custom">Custom hooks</h2>
+        <p>A custom hook is just a function that calls other hooks. It is how you package stateful logic for reuse.</p>
+        <pre data-label="src/state/useSchematic.js"><code><span class="k">export default function</span> <span class="f">useSchematic</span>(initialDoc) {
+  <span class="k">const</span> [state, dispatch] = <span class="f">useReducer</span>(reducer, initialDoc, initial);
+
+  <span class="c">// A stable API object, so children can depend on it without churn.</span>
+  <span class="k">const</span> api = <span class="f">useMemo</span>(() =&gt; ({
+    <span class="f">place</span>: (symbolId, unitId, x, y, opts = {}) =&gt; <span class="f">dispatch</span>({ type: <span class="s">'place'</span>, ... }),
+    <span class="f">move</span>:  (ids, dx, dy) =&gt; <span class="f">dispatch</span>({ type: <span class="s">'move'</span>, ids, dx, dy }),
+    <span class="f">undo</span>:  () =&gt; <span class="f">dispatch</span>({ type: <span class="s">'undo'</span> }),
+    ...
+  }), []);
+
+  <span class="k">return</span> { doc: state.doc, selection: state.selection, canUndo: state.past.length &gt; <span class="n">0</span>, ...api };
+}</code></pre>
+        <p>
+          Components now call <code>schematic.move(ids, 10, 0)</code> and never see an action object. The rules of hooks
+          apply: call them at the top level of a component or another hook, never inside a condition or loop, and name
+          them <code>use*</code> so the linter can check you.
+        </p>
+
+        <h2 id="controlled">Forms and controlled inputs</h2>
+        <pre data-label="src/components/PropertiesPanel.jsx"><code><span class="k">const</span> [value, setValue] = <span class="f">useState</span>(<span class="s">''</span>);
+
+<span class="c">// Re-sync when the selection changes underneath us.</span>
+<span class="f">useEffect</span>(() =&gt; { <span class="f">setValue</span>(component?.value ?? <span class="s">''</span>); }, [component?.id, component?.value]);
+
+&lt;input
+  <span class="f">data-prop-field</span>=<span class="s">"value"</span>              <span class="c">/* so a shortcut can focus it */</span>
+  <span class="f">value</span>={value}                       <span class="c">/* React owns the value */</span>
+  <span class="f">onChange</span>={(e) =&gt; <span class="f">setValue</span>(e.target.value)}
+  <span class="f">onBlur</span>={() =&gt; <span class="f">commitToDocument</span>(value.<span class="f">trim</span>())}  <span class="c">/* commit on blur */</span>
+  <span class="f">onKeyDown</span>={(e) =&gt; e.key === <span class="s">'Enter'</span> &amp;&amp; e.currentTarget.<span class="f">blur</span>()}
+/&gt;</code></pre>
+        <div class="note">
+          <strong>Why commit on blur, not on change</strong>
+          <p>
+            Typing "4k7" passes through "4", "4k": two of which are invalid or mean something different. Committing on
+            every keystroke would push nonsense into the document and into undo history. Local state while typing,
+            commit on blur or Enter: that is the standard pattern for any field where the value is parsed.
+          </p>
+        </div>
+
+        <h2 id="overlays">Modals, overlays and the mount trap</h2>
+        <p>
+          A component that renders <code>null</code> when closed is still <em>mounted</em>. Its state persists. This bit
+          this project for real:
+        </p>
+        <pre data-label="src/components/ProfileModal.jsx"><code><span class="k">export default function</span> <span class="f">ProfileModal</span>({ open, initialTab = <span class="s">'progress'</span>, ... }) {
+  <span class="k">const</span> [tab, setTab] = <span class="f">useState</span>(initialTab);
+
+  <span class="c">// The component stays mounted and renders null when closed, so useState's</span>
+  <span class="c">// initial value would stick forever. Re-sync on every open instead, or the</span>
+  <span class="c">// "?" shortcut would land on whichever tab was opened first.</span>
+  <span class="f">useEffect</span>(() =&gt; { <span class="k">if</span> (open) <span class="f">setTab</span>(initialTab); }, [open, initialTab]);
+
+  <span class="k">if</span> (!open) <span class="k">return null</span>;
+  ...
+}</code></pre>
+        <p>
+          Two ways out: sync with an effect (above), or force a remount with a changing <code>key</code>
+          (<code>&lt;Modal key={openCount} /&gt;</code>). Both are legitimate; the effect is cheaper.
+        </p>
+        <div class="why">
+          <strong>Single-mount rule for transitions</strong>
+          <p>
+            The iris wipe swaps the app's view at its midpoint. In the first version the transition component was
+            rendered <em>inside</em> each view branch, so switching view unmounted it and a fresh copy replayed the
+            close: a visible double-play. The fix was structural: render the transition once, above the view switch.
+            Anything that must survive a state change belongs above the thing that changes.
+          </p>
+        </div>
+
+        <h2 id="events">Events, and why this app hit-tests itself</h2>
+        <pre data-label="jsx"><code>&lt;svg
+  <span class="f">onPointerDown</span>={handlePointerDown}
+  <span class="f">onPointerMove</span>={handlePointerMove}
+  <span class="f">onPointerUp</span>={handlePointerUp}
+  <span class="f">onContextMenu</span>={(e) =&gt; e.<span class="f">preventDefault</span>()}
+/&gt;</code></pre>
+        <p>
+          Note there are no handlers on the individual wires or symbols. All three handlers live on the
+          <code>&lt;svg&gt;</code>, and the code works out what was hit by comparing world coordinates against the
+          document:
+        </p>
+        <pre data-label="src/schematic/edit.js"><code><span class="k">export function</span> <span class="f">itemAt</span>(doc, x, y) {
+  <span class="k">for</span> (<span class="k">let</span> i = doc.components.length - <span class="n">1</span>; i &gt;= <span class="n">0</span>; i--) {   <span class="c">// topmost first</span>
+    <span class="k">if</span> (<span class="f">hitComponent</span>(doc.components[i], x, y)) <span class="k">return</span> { kind: <span class="s">'component'</span>, item: doc.components[i] };
+  }
+  <span class="k">for</span> (<span class="k">const</span> w <span class="k">of</span> doc.wires) {
+    <span class="k">if</span> (<span class="f">distanceToSegment</span>({ x, y }, ...) &lt; <span class="n">5</span>) <span class="k">return</span> { kind: <span class="s">'wire'</span>, item: w };
+  }
+  <span class="k">return null</span>;
+}</code></pre>
+        <div class="why">
+          <strong>Why not per-element handlers</strong>
+          <p>
+            Three reasons. A 2px wire is nearly impossible to click, but a 5px distance tolerance is comfortable.
+            Hit priority becomes explicit, pins beat bodies beat wires, instead of depending on DOM order. And the
+            logic is pure, so it is unit-testable without a browser. The cost is that you write the maths yourself;
+            for a drawing tool that is the right trade every time.
+          </p>
+        </div>
+
+        <h3>Global keyboard handling</h3>
+        <pre data-label="src/lib/shortcuts.js"><code><span class="c">// One resolver maps an event to an action id. The canvas dispatches on the id,</span>
+<span class="c">// and the shortcuts sheet renders from the same table, one source of truth.</span>
+<span class="k">export function</span> <span class="f">resolveShortcut</span>(event) {
+  <span class="k">const</span> typing = [<span class="s">'INPUT'</span>, <span class="s">'TEXTAREA'</span>, <span class="s">'SELECT'</span>].<span class="f">includes</span>(event.target.tagName)
+    || event.target.isContentEditable;
+  <span class="k">if</span> (typing) <span class="k">return null</span>;                  <span class="c">// never steal keys from a field</span>
+  ...
+  <span class="k">switch</span> (event.key.<span class="f">toLowerCase</span>()) {
+    <span class="k">case</span> <span class="s">'w'</span>: <span class="k">return</span> <span class="s">'tool_wire'</span>;
+    <span class="k">case</span> <span class="s">'m'</span>: <span class="k">case</span> <span class="s">'g'</span>: <span class="k">return</span> <span class="s">'move'</span>;
+    ...
+  }
+}</code></pre>
+
+        <h2 id="perf">Performance in practice</h2>
+        <ul>
+          <li><strong>Keep fast-changing state local.</strong> Cursor position never leaves the canvas.</li>
+          <li><strong>Memoise derived work, not everything.</strong> The netlist is memoised on <code>[doc]</code>.</li>
+          <li><strong>Render from data, not from imperative updates.</strong> Dragging renders a transform offset; the document is only rewritten on drop, which also keeps undo history clean.</li>
+          <li><strong>Animate <code>transform</code>, <code>opacity</code> and <code>clip-path</code></strong>: the compositor can do those without layout.</li>
+          <li><strong>Measure before optimising.</strong> DevTools' Performance panel tells you the truth; intuition does not.</li>
+        </ul>
+
+        <h2 id="checklist">Component review checklist</h2>
+        <div class="card">
+          <ul>
+            <li>Does it own only state that nothing else needs?</li>
+            <li>Is every list keyed by a stable id?</li>
+            <li>Does every effect have correct dependencies and a cleanup?</li>
+            <li>Are conditionals explicit (<code>&gt; 0</code>, <code>!== null</code>) rather than truthy?</li>
+            <li>Do callbacks flow up rather than the child reaching into global state?</li>
+            <li>Is state replaced, never mutated?</li>
+            <li>If it renders <code>null</code> when closed, is its internal state re-synced on open?</li>
+          </ul>
+        </div>
+      </main>
+    </div>
+    <script type="module" src="assets/nav.js"></script>
+  </body>
+</html>

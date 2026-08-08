@@ -1,0 +1,14 @@
+node_modules
+dist
+.env
+.env.local
+.DS_Store
+*.log
+
+# Editor and tooling settings, local to whoever is working on the project
+.claude/
+.vscode/
+.idea/
+
+# The original build brief, kept locally rather than published
+circuit-practice-app-prompt.md

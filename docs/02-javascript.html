@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>02 · JavaScript - CircuitDojo Manual</title>
+    <link rel="stylesheet" href="assets/manual.css" />
+  </head>
+  <body>
+    <div class="layout">
+      <nav class="sidebar">
+        <a class="brand" href="index.html">
+          <svg width="20" height="20" viewBox="0 0 18 18" fill="none">
+            <path d="M1.5 12.5h3.5V6h4v6.5h3.5" stroke="#0f7a3d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+            <circle cx="9" cy="6" r="2.1" fill="#8b1a1a" />
+          </svg>
+          <span><strong>CircuitDojo</strong><span>The Manual</span></span>
+        </a>
+      </nav>
+
+      <main>
+        <p class="eyebrow">Chapter 02</p>
+        <h1>JavaScript</h1>
+        <p class="lead">
+          You already know what a variable and a loop are. This chapter gives you the JavaScript that professionals
+          actually write, and, more importantly, the reasoning behind each idiom, so you can tell a good pattern from a
+          fashionable one.
+        </p>
+
+        <h2 id="values">Values, and the two that ruin your day</h2>
+        <pre data-label="js"><code><span class="k">const</span> count   = <span class="n">42</span>;            <span class="c">// number: one numeric type, no int/float split</span>
+<span class="k">const</span> name    = <span class="s">'R1'</span>;           <span class="c">// string</span>
+<span class="k">const</span> ok      = <span class="k">true</span>;           <span class="c">// boolean</span>
+<span class="k">const</span> nothing = <span class="k">null</span>;           <span class="c">// "deliberately empty"</span>
+<span class="k">let</span>   later;                     <span class="c">// undefined, "not set yet"</span>
+<span class="k">const</span> parts   = [<span class="s">'R'</span>, <span class="s">'C'</span>];      <span class="c">// array (an object)</span>
+<span class="k">const</span> pin     = { num: <span class="s">'1'</span> };    <span class="c">// object</span></code></pre>
+        <p>
+          <code>null</code> vs <code>undefined</code> is a real distinction and worth using deliberately:
+          <code>undefined</code> means nobody has supplied a value; <code>null</code> means someone decided there isn't
+          one. CircuitDojo's <code>parseValue()</code> returns <code>null</code> for "this string contains no usable
+          number": a decision, not an accident.
+        </p>
+
+        <h3>const, let, and never var</h3>
+        <ul>
+          <li><code>const</code>: cannot be reassigned. Your default.</li>
+          <li><code>let</code>: reassignable. Use when a value genuinely changes.</li>
+          <li><code>var</code>: legacy, function-scoped, hoisted. Never use it.</li>
+        </ul>
+        <div class="warn-box">
+          <strong>const is not "immutable"</strong>
+          <p>
+            <code>const doc = { x: 1 }; doc.x = 2;</code> is perfectly legal: you cannot reassign the
+            <em>binding</em>, but the object is still mutable. This trips up everyone once, and it matters enormously in
+            React (see "Immutability" below).
+          </p>
+        </div>
+
+        <h3>Equality: use === always</h3>
+        <pre data-label="js"><code><span class="s">'2'</span> == <span class="n">2</span>      <span class="c">// true , loose equality coerces types. Avoid.</span>
+<span class="s">'2'</span> === <span class="n">2</span>     <span class="c">// false, strict equality. Use this.</span>
+<span class="k">null</span> == <span class="k">undefined</span>   <span class="c">// true , the one useful coercion</span>
+Object.<span class="f">is</span>(-<span class="n">0</span>, <span class="n">0</span>)     <span class="c">// false, and this bit us for real</span></code></pre>
+        <div class="note">
+          <strong>Real bug from this project</strong>
+          <p>
+            A test asserted <code>pin.x % GRID === 0</code> to check that symbol pins sit on the grid. For
+            <code>x = -30</code>, JavaScript evaluates <code>-30 % 10</code> as <code>-0</code>, and
+            <code>assert.equal(-0, 0)</code> fails under strict equality. The fix:
+            <code>Math.abs(pin.x % GRID) === 0</code>. Signed zero is not trivia: it is a live edge case.
+          </p>
+        </div>
+
+        <h3>Truthiness</h3>
+        <p>Falsy values: <code>false</code>, <code>0</code>, <code>-0</code>, <code>''</code>, <code>null</code>, <code>undefined</code>, <code>NaN</code>. Everything else is truthy, including <code>[]</code> and <code>{}</code>.</p>
+        <pre data-label="js"><code><span class="k">if</span> (list.length) { ... }        <span class="c">// idiomatic "not empty"</span>
+<span class="k">if</span> (value !== <span class="k">null</span>) { ... }      <span class="c">// explicit when 0 is a valid value</span></code></pre>
+
+        <h2 id="functions">Functions</h2>
+        <pre data-label="js"><code><span class="c">// Declaration: hoisted, so it can be called before its definition.</span>
+<span class="k">function</span> <span class="f">snap</span>(n) { <span class="k">return</span> Math.<span class="f">round</span>(n / GRID) * GRID; }
+
+<span class="c">// Arrow function: concise, and does not have its own `this`.</span>
+<span class="k">const</span> <span class="f">snapPoint</span> = (x, y) =&gt; ({ x: <span class="f">snap</span>(x), y: <span class="f">snap</span>(y) });</code></pre>
+        <p>
+          Note the parentheses in <code>=&gt; ({ ... })</code>. Without them the braces are read as a function body and you
+          silently return <code>undefined</code>. This is the single most common arrow-function mistake.
+        </p>
+
+        <h3>Default, rest and spread parameters</h3>
+        <pre data-label="src/schematic/edit.js"><code><span class="c">// Default value, and an options object with its own defaults,</span>
+<span class="c">// the standard way to write a function with optional behaviour.</span>
+<span class="k">export function</span> <span class="f">placeComponent</span>(doc, symbolId, unitId, x, y, { rot = <span class="n">0</span>, mirror = <span class="k">false</span> } = {}) {
+  <span class="k">const</span> next = <span class="f">cloneDocument</span>(doc);
+  ...
+}
+
+<span class="c">// Called with or without the options: both are valid.</span>
+<span class="f">placeComponent</span>(doc, <span class="s">'R'</span>, <span class="s">'A'</span>, <span class="n">10</span>, <span class="n">20</span>);
+<span class="f">placeComponent</span>(doc, <span class="s">'R'</span>, <span class="s">'A'</span>, <span class="n">10</span>, <span class="n">20</span>, { rot: <span class="n">90</span> });</code></pre>
+        <div class="why">
+          <strong>Why an options object</strong>
+          <p>
+            Positional booleans are unreadable at the call site: <code>place(doc, 'R', 'A', 10, 20, true, false)</code>
+            tells you nothing. Named options are self-documenting and can be extended without breaking existing calls.
+            Use them the moment you have more than one optional parameter.
+          </p>
+        </div>
+
+        <h3>Closures - the concept that unlocks everything else</h3>
+        <p>A function remembers the variables that were in scope where it was <em>defined</em>.</p>
+        <pre data-label="src/challenges/rng.js"><code><span class="k">export function</span> <span class="f">makeRng</span>(seed) {
+  <span class="k">let</span> a = (seed &gt;&gt;&gt; <span class="n">0</span>) || <span class="n">1</span>;      <span class="c">// private state</span>
+
+  <span class="k">const</span> <span class="f">next</span> = () =&gt; {
+    a += <span class="n">0x6d2b79f5</span>;              <span class="c">// the closure can read and update it...</span>
+    <span class="k">let</span> t = a;
+    t = Math.<span class="f">imul</span>(t ^ (t &gt;&gt;&gt; <span class="n">15</span>), t | <span class="n">1</span>);
+    t ^= t + Math.<span class="f">imul</span>(t ^ (t &gt;&gt;&gt; <span class="n">7</span>), t | <span class="n">61</span>);
+    <span class="k">return</span> ((t ^ (t &gt;&gt;&gt; <span class="n">14</span>)) &gt;&gt;&gt; <span class="n">0</span>) / <span class="n">4294967296</span>;
+  };
+
+  <span class="k">return</span> { next, <span class="f">int</span>(min, max) { ... }, <span class="f">pick</span>(list) { ... } };
+}</code></pre>
+        <p>
+          Nobody outside can touch <code>a</code>. Two RNGs made from the same seed produce identical sequences, and two
+          made from different seeds never interfere. That is a closure doing the job people reach for classes to do,
+          and it is how every challenge in the app is reproducible from a single number.
+        </p>
+
+        <h2 id="objects">Objects and destructuring</h2>
+        <pre data-label="js"><code><span class="k">const</span> pin = { num: <span class="s">'1'</span>, name: <span class="s">'VCC'</span>, x: -<span class="n">60</span>, y: <span class="n">0</span>, type: <span class="s">'power_in'</span> };
+
+<span class="c">// Pull fields out by name.</span>
+<span class="k">const</span> { name, type } = pin;
+
+<span class="c">// Rename, and supply a default for a missing key.</span>
+<span class="k">const</span> { num: pinNumber, len = <span class="n">10</span> } = pin;
+
+<span class="c">// Nested, in a parameter list, extremely common in React.</span>
+<span class="k">function</span> <span class="f">Pin</span>({ pin: { x, y }, symbol }) { ... }</code></pre>
+
+        <h3>Spread: copy-with-changes</h3>
+        <pre data-label="js"><code><span class="k">const</span> moved   = { ...component, x: component.x + <span class="n">10</span> };  <span class="c">// object</span>
+<span class="k">const</span> appended = [...wires, newWire];                     <span class="c">// array</span>
+<span class="k">const</span> merged  = { ...DEFAULTS, ...userSettings };         <span class="c">// later wins</span></code></pre>
+        <div class="warn-box">
+          <strong>Spread is shallow</strong>
+          <p>
+            <code>{ ...doc }</code> copies the top level only; <code>doc.components</code> is still the same array
+            object. For a genuinely independent copy of nested data, CircuitDojo uses
+            <code>JSON.parse(JSON.stringify(doc))</code> in <code>cloneDocument()</code>: crude, but honest and correct
+            for plain JSON data, which is exactly what a schematic document is.
+          </p>
+        </div>
+
+        <h3>Optional chaining and nullish coalescing</h3>
+        <pre data-label="js"><code>challenge?.brief?.spec            <span class="c">// undefined instead of a TypeError</span>
+element?.<span class="f">focus</span>?.()                <span class="c">// call only if it exists</span>
+<span class="k">const</span> level = template.level ?? template.tier ?? <span class="n">1</span>;</code></pre>
+        <p>
+          <code>??</code> only falls through on <code>null</code>/<code>undefined</code>, unlike <code>||</code> which
+          also rejects <code>0</code> and <code>''</code>. When zero is a legitimate value: a coordinate, a count, a
+          mastery score: <code>||</code> is a bug waiting to happen.
+        </p>
+
+        <h2 id="arrays">Arrays: think in transformations</h2>
+        <p>Stop writing <code>for</code> loops that push into an array. Describe the transformation instead.</p>
+        <pre data-label="js"><code>list.<span class="f">map</span>(f)        <span class="c">// same length, each item transformed</span>
+list.<span class="f">filter</span>(p)     <span class="c">// shorter, items that match</span>
+list.<span class="f">find</span>(p)       <span class="c">// the first match, or undefined</span>
+list.<span class="f">some</span>(p)       <span class="c">// boolean: at least one?</span>
+list.<span class="f">every</span>(p)      <span class="c">// boolean: all of them?</span>
+list.<span class="f">flatMap</span>(f)    <span class="c">// map, then flatten one level</span>
+list.<span class="f">reduce</span>(f, x)  <span class="c">// fold everything into one value</span>
+list.<span class="f">sort</span>(cmp)     <span class="c">// ⚠ mutates! copy first: [...list].sort()</span></code></pre>
+        <p>Real chains from the codebase, and what they say:</p>
+        <pre data-label="src/engine/erc.js"><code><span class="c">// "Which pins on this net are push-pull outputs?"</span>
+<span class="k">const</span> drivers = net.pins.<span class="f">filter</span>((p) =&gt; p.type === <span class="s">'output'</span>);
+
+<span class="c">// "Name them all for the error message."</span>
+drivers.<span class="f">map</span>((d) =&gt; <span class="s">`</span>${d.ref} pin ${d.num}<span class="s">`</span>).<span class="f">join</span>(<span class="s">' and '</span>)
+
+<span class="c">// "Every marker point from every failed check, flattened."</span>
+evaluation.errors.<span class="f">flatMap</span>((e) =&gt; e.points || []).<span class="f">slice</span>(<span class="n">0</span>, <span class="n">12</span>)
+
+<span class="c">// "How many concepts does this learner hold?"</span>
+CONCEPTS.<span class="f">filter</span>((c) =&gt; <span class="f">masteryOf</span>(mastery, c.id) &gt;= HOLD).length</code></pre>
+        <div class="why">
+          <strong>Why this reads better</strong>
+          <p>
+            Each line states <em>what</em> is wanted, not <em>how</em> to accumulate it. When you return to this code in
+            six months, <code>filter(p =&gt; p.type === 'output')</code> needs no reconstruction in your head, a
+            <code>for</code> loop with an <code>if</code> and a <code>push</code> does.
+          </p>
+        </div>
+
+        <h3>Map and Set</h3>
+        <pre data-label="js"><code><span class="c">// Set: fast membership, automatic de-duplication.</span>
+<span class="k">const</span> seen = <span class="k">new</span> <span class="f">Set</span>();
+seen.<span class="f">add</span>(key); seen.<span class="f">has</span>(key);
+[...<span class="k">new</span> <span class="f">Set</span>(refs)]                 <span class="c">// unique list, back to an array</span>
+
+<span class="c">// Map: keyed lookup with any key type, and insertion order preserved.</span>
+<span class="k">const</span> BY_ID = <span class="k">new</span> <span class="f">Map</span>(SYMBOLS.<span class="f">map</span>((s) =&gt; [s.id, s]));
+BY_ID.<span class="f">get</span>(<span class="s">'74HC08'</span>);</code></pre>
+        <p>
+          That <code>BY_ID</code> line is the symbol registry. Building the map once turns every later lookup from a
+          linear scan into a constant-time hit, and the netlist extractor does thousands of lookups.
+        </p>
+
+        <h2 id="immutability">Immutability, and why React demands it</h2>
+        <p>
+          React decides whether to re-render by comparing references. Mutating an object in place leaves the reference
+          identical, so React concludes nothing changed and skips the update. The screen goes stale.
+        </p>
+        <pre data-label="js"><code><span class="c">// ✗ Mutation: React cannot see this.</span>
+doc.components.<span class="f">push</span>(component);
+<span class="f">setDoc</span>(doc);
+
+<span class="c">// ✓ New objects all the way up the path you changed.</span>
+<span class="f">setDoc</span>({ ...doc, components: [...doc.components, component] });</code></pre>
+        <p>
+          CircuitDojo takes the strictest possible version of this: <em>every</em> editing operation returns a brand-new
+          document.
+        </p>
+        <pre data-label="src/schematic/edit.js"><code><span class="k">export function</span> <span class="f">moveItems</span>(doc, ids, dx, dy) {
+  <span class="k">const</span> next = <span class="f">cloneDocument</span>(doc);   <span class="c">// deep copy...</span>
+  <span class="k">const</span> sel  = <span class="k">new</span> <span class="f">Set</span>(ids);
+  <span class="k">for</span> (<span class="k">const</span> c <span class="k">of</span> next.components) { <span class="k">if</span> (sel.<span class="f">has</span>(c.id)) { c.x += dx; c.y += dy; } }
+  <span class="k">return</span> next;                       <span class="c">// ...mutate the copy, return it</span>
+}</code></pre>
+        <div class="why">
+          <strong>The payoff</strong>
+          <p>
+            Because no operation ever modifies the document it was given, undo is just "keep the previous one".
+            The entire history feature in this app is a plain array of past documents, no inverse operations, no
+            command pattern, no bugs. Immutability bought a whole feature for free.
+          </p>
+        </div>
+
+        <h2 id="modules">Modules</h2>
+        <pre data-label="js"><code><span class="c">// Exporting</span>
+<span class="k">export const</span> GRID = <span class="n">10</span>;
+<span class="k">export function</span> <span class="f">snap</span>(n) { ... }
+<span class="k">export default function</span> <span class="f">App</span>() { ... }    <span class="c">// one per file</span>
+
+<span class="c">// Importing</span>
+<span class="k">import</span> App, { GRID, snap } <span class="k">from</span> <span class="s">'./App.jsx'</span>;
+<span class="k">import</span> * <span class="k">as</span> edit <span class="k">from</span> <span class="s">'./schematic/edit.js'</span>;   <span class="c">// namespace</span>
+<span class="k">const</span> mod = <span class="k">await</span> <span class="k">import</span>(<span class="s">'./heavy.js'</span>);            <span class="c">// lazy, at runtime</span></code></pre>
+        <p>Each file is its own scope. Two rules worth internalising:</p>
+        <ul>
+          <li><strong>Imports are live bindings, not copies.</strong> That is why <code>challenges/select.js</code> can import <code>TEMPLATES</code> from <code>challenges/index.js</code> while <code>index.js</code> re-exports from <code>select.js</code>: a circular graph that works because neither uses the other's value until a function is actually called.</li>
+          <li><strong>Import side effects happen once.</strong> <code>import './index.css'</code> in <code>main.jsx</code> is not a value import; it tells the bundler "this CSS belongs to the app".</li>
+        </ul>
+        <div class="note">
+          <strong>Naming convention used here</strong>
+          <p>
+            Default-export the one thing a file is <em>for</em> (a component, a hook). Named-export everything else. It
+            makes <code>import Palette from './Palette.jsx'</code> unambiguous and keeps utility modules greppable.
+          </p>
+        </div>
+
+        <h2 id="async">Asynchronous JavaScript</h2>
+        <p>
+          JavaScript runs on one thread. Anything slow: a network request, a timer: is handed to the environment and
+          reported back later via the event loop. That is why "wait for this" needs syntax.
+        </p>
+        <pre data-label="js"><code><span class="c">// A Promise is a value that is not ready yet.</span>
+<span class="k">const</span> promise = <span class="f">fetch</span>(<span class="s">'/api/thing'</span>);
+
+<span class="c">// async/await: write it as if it were sequential.</span>
+<span class="k">async function</span> <span class="f">load</span>() {
+  <span class="k">try</span> {
+    <span class="k">const</span> response = <span class="k">await</span> <span class="f">fetch</span>(<span class="s">'/api/thing'</span>);
+    <span class="k">if</span> (!response.ok) <span class="k">throw new</span> <span class="f">Error</span>(<span class="s">`HTTP </span>${response.status}<span class="s">`</span>);
+    <span class="k">return await</span> response.<span class="f">json</span>();
+  } <span class="k">catch</span> (error) {
+    console.<span class="f">error</span>(<span class="s">'load failed'</span>, error);
+    <span class="k">return null</span>;                        <span class="c">// degrade, do not crash</span>
+  }
+}</code></pre>
+        <p>Two patterns from the codebase worth stealing:</p>
+        <pre data-label="src/App.jsx"><code><span class="c">// 1 · Yield to the event loop so the UI can repaint before slow work.</span>
+<span class="k">const</span> <span class="f">runCheck</span> = <span class="f">useCallback</span>(<span class="k">async</span> () =&gt; {
+  <span class="f">setChecking</span>(<span class="k">true</span>);                       <span class="c">// paint "Checking..."</span>
+  <span class="k">await new</span> <span class="f">Promise</span>((r) =&gt; <span class="f">setTimeout</span>(r, <span class="n">0</span>)); <span class="c">// let the browser breathe</span>
+  <span class="k">const</span> evaluation = <span class="f">evaluateAttempt</span>(schematic.doc, challenge);
+  <span class="f">setResult</span>(evaluation);
+  <span class="f">setChecking</span>(<span class="k">false</span>);
+}, [schematic.doc, challenge]);</code></pre>
+        <div class="warn-box">
+          <strong>Why setTimeout and not requestAnimationFrame</strong>
+          <p>
+            The first version used <code>requestAnimationFrame</code>. In a background tab rAF is throttled to a
+            standstill, so the check appeared to hang forever with the button stuck on "Checking...". A
+            <code>setTimeout(0)</code> yields to the event loop regardless of visibility. Picking the right scheduling
+            primitive is a real engineering decision, not boilerplate.
+          </p>
+        </div>
+        <pre data-label="src/state/useProfile.js"><code><span class="c">// 2 · Guard against a response arriving after the component moved on.</span>
+<span class="f">useEffect</span>(() =&gt; {
+  <span class="k">let</span> cancelled = <span class="k">false</span>;
+  (<span class="k">async</span> () =&gt; {
+    <span class="k">const</span> { data, error } = <span class="k">await</span> supabase.<span class="f">from</span>(<span class="s">'user_progress'</span>).<span class="f">select</span>(<span class="s">'*'</span>);
+    <span class="k">if</span> (error || cancelled) <span class="k">return</span>;      <span class="c">// stale result, drop it</span>
+    <span class="f">setProgress</span>(data);
+  })();
+  <span class="k">return</span> () =&gt; { cancelled = <span class="k">true</span>; };     <span class="c">// cleanup flips the flag</span>
+}, [user]);</code></pre>
+
+        <h2 id="classes">Classes (and when to skip them)</h2>
+        <pre data-label="src/schematic/netlist.js"><code><span class="k">class</span> <span class="t">UnionFind</span> {
+  <span class="f">constructor</span>() { <span class="k">this</span>.parent = <span class="k">new</span> <span class="f">Map</span>(); }
+
+  <span class="f">find</span>(k) {
+    <span class="k">let</span> root = k;
+    <span class="k">while</span> (<span class="k">this</span>.parent.<span class="f">get</span>(root) !== root) root = <span class="k">this</span>.parent.<span class="f">get</span>(root);
+    <span class="k">return</span> root;
+  }
+
+  <span class="f">union</span>(a, b) { ... }
+}</code></pre>
+        <p>
+          This is the one class in the whole application, and it earns its place: it is a data structure with invariants
+          and several methods that operate on shared internal state. Everywhere else, plain functions over plain data
+          are simpler to test and impossible to misuse.
+        </p>
+        <div class="why">
+          <strong>Rule of thumb</strong>
+          <p>
+            Reach for a class when you have identity plus behaviour plus invariants. For "transform this data into that
+            data", write a function. Most React codebases contain zero classes, and that is a feature.
+          </p>
+        </div>
+
+        <h2 id="strings">Strings, numbers and formatting</h2>
+        <pre data-label="js"><code><span class="c">// Template literals: interpolation and multi-line, with backticks.</span>
+<span class="k">const</span> msg = <span class="s">`</span>${pin.ref} pin ${pin.num} isn't connected<span class="s">`</span>;
+
+<span class="c">// Regular expressions, used here to parse engineering values.</span>
+<span class="k">const</span> m = s.<span class="f">match</span>(/^(\d+)\s*([pnuµmkKMGR])\s*(\d+)$/);   <span class="c">// "4k7"</span>
+
+<span class="c">// Numbers: one type, so be careful with money and comparisons.</span>
+<span class="n">0.1</span> + <span class="n">0.2</span> === <span class="n">0.3</span>              <span class="c">// false, floating point</span>
+Math.<span class="f">abs</span>(a - b) &lt; <span class="n">1e-9</span>         <span class="c">// compare with a tolerance instead</span>
+(<span class="n">1234.5678</span>).<span class="f">toFixed</span>(<span class="n">2</span>)         <span class="c">// "1234.57" (a string!)</span>
+<span class="f">Number</span>(<span class="s">'4700'</span>)                 <span class="c">// 4700</span></code></pre>
+        <p>The value parser is a compact demonstration of string work with a real specification behind it:</p>
+        <pre data-label="src/schematic/units.js"><code><span class="c">// EEs write "4k7" for 4.7kΩ, the multiplier replaces the decimal point so it</span>
+<span class="c">// cannot be lost in a photocopy. Parse it once, at the boundary.</span>
+<span class="k">const</span> infix = s.<span class="f">match</span>(/^(\d+)\s*([pnuµμmkKMGR])\s*(\d+)$/);
+<span class="k">if</span> (infix) {
+  <span class="k">const</span> [, whole, prefix, frac] = infix;          <span class="c">// skip index 0</span>
+  <span class="k">const</span> n = <span class="f">Number</span>(<span class="s">`</span>${whole}.${frac}<span class="s">`</span>);
+  <span class="k">return</span> prefix === <span class="s">'R'</span> ? n : n * SI_PREFIXES[prefix];
+}</code></pre>
+        <div class="note">
+          <strong>Pattern: parse at the boundary</strong>
+          <p>
+            User input is text. Convert it to a number <em>once</em>, as it enters the system, and let everything
+            downstream work in base SI units. The alternative, re-parsing "4k7" in six different places, guarantees
+            six slightly different bugs.
+          </p>
+        </div>
+
+        <h2 id="errors">Errors and defensive code</h2>
+        <pre data-label="src/engine/checks.js"><code><span class="k">export function</span> <span class="f">runCheck</span>(ctx, check) {
+  <span class="k">const</span> fn = CHECKS[check.kind];
+  <span class="k">if</span> (!fn) <span class="k">return</span> { passed: <span class="k">false</span>, detail: <span class="s">`Unknown check kind "</span>${check.kind}<span class="s">"`</span> };
+  <span class="k">try</span> {
+    <span class="k">return</span> <span class="f">fn</span>(ctx, check);
+  } <span class="k">catch</span> (err) {
+    <span class="c">// One malformed check must not take the whole grading run down.</span>
+    <span class="k">return</span> { passed: <span class="k">false</span>, detail: <span class="s">`Check failed to evaluate: </span>${err.message}<span class="s">`</span> };
+  }
+}</code></pre>
+        <div class="why">
+          <strong>Where to catch</strong>
+          <p>
+            Catch at a boundary where you can still do something sensible. Here, one broken check becomes one failed
+            requirement with an honest message, the learner still gets feedback on the other twelve. Wrapping every
+            individual line in <code>try/catch</code> would just hide bugs.
+          </p>
+        </div>
+
+        <h2 id="browser">Browser APIs you will actually use</h2>
+        <table>
+          <tr><th>API</th><th>For</th><th>In this project</th></tr>
+          <tr><td><code>document.querySelector</code></td><td>Find an element</td><td>Focusing a field from a keyboard shortcut</td></tr>
+          <tr><td><code>addEventListener</code></td><td>React to events</td><td>Global keyboard handling</td></tr>
+          <tr><td><code>localStorage</code></td><td>Persist small data locally</td><td>Guest progress and the open sheet</td></tr>
+          <tr><td><code>PointerEvent</code></td><td>Mouse/touch/pen in one API</td><td>All canvas interaction</td></tr>
+          <tr><td><code>requestAnimationFrame</code></td><td>Per-frame animation</td><td>The confetti particle loop</td></tr>
+          <tr><td><code>matchMedia</code></td><td>Query CSS media features from JS</td><td><code>prefers-reduced-motion</code> checks</td></tr>
+          <tr><td><code>IntersectionObserver</code></td><td>Know when an element is on screen</td><td>This manual's reading position</td></tr>
+          <tr><td><code>getBoundingClientRect</code></td><td>Element geometry</td><td>Screen → world coordinate maths</td></tr>
+        </table>
+        <pre data-label="src/lib/storage.js"><code><span class="c">// localStorage stores strings only, and can throw (private mode, quota).</span>
+<span class="c">// Wrap it once so no caller ever has to think about that again.</span>
+<span class="k">function</span> <span class="f">read</span>(key, fallback) {
+  <span class="k">try</span> {
+    <span class="k">const</span> raw = localStorage.<span class="f">getItem</span>(key);
+    <span class="k">return</span> raw ? <span class="f">JSON.parse</span>(raw) : fallback;
+  } <span class="k">catch</span> {
+    <span class="k">return</span> fallback;
+  }
+}</code></pre>
+
+        <h2 id="style">House style that ages well</h2>
+        <ul>
+          <li><strong>Name things after what they mean, not their type.</strong> <code>netlist</code>, <code>unresolved</code>, <code>claimedCount</code>, not <code>data</code>, <code>arr</code>, <code>temp</code>.</li>
+          <li><strong>Comment the "why", never the "what".</strong> <code>// increment i</code> is noise; <code>// -30 % 10 is -0 in JS, so compare the magnitude</code> saves an hour.</li>
+          <li><strong>Keep functions honest about their inputs.</strong> Pure in, new value out. Side effects belong at the edges.</li>
+          <li><strong>Small modules with one responsibility.</strong> If you cannot name a file's job in five words, it is doing two jobs.</li>
+          <li><strong>Early return over nested if.</strong> Handle the impossible cases first, then write the happy path flat.</li>
+        </ul>
+        <p>You now have the language. Chapter 03 uses all of it at once.</p>
+      </main>
+    </div>
+    <script type="module" src="assets/nav.js"></script>
+  </body>
+</html>

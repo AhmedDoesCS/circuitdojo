@@ -1,0 +1,381 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import MenuShell, { LogoMark, MenuOption, at } from './MenuShell.jsx';
+import { CONCEPTS, DOMAINS } from '../challenges/concepts.js';
+import { EXPERIENCE_TIERS, HOLD, conceptsAtOrBelow, masteryOf } from '../lib/level.js';
+
+/**
+ * Level placement: the answer to "I am not a beginner, do not waste my time".
+ *
+ * Why this shape rather than an admission test:
+ *
+ *  - A test costs the impatient expert exactly the thing they came for: time,
+ *    and it tests the wrong thing anyway, because a placement circuit they fail
+ *    for a silly reason drops them two levels.
+ *  - So step one is a single click: pick the sentence that describes you. That
+ *    *claims* every concept at or below that level, which unlocks the material
+ *    immediately.
+ *  - Claims are provisional. The first real challenge that touches a claimed
+ *    concept settles it: a pass converts it to earned mastery, a failure hands
+ *    it back and the level self-corrects. Being wrong costs one challenge, not a
+ *    test.
+ *  - Step two is optional and exists for people who are strong in one branch and
+ *    new to another: tick the concepts you actually hold. Nobody is forced
+ *    through it.
+ *
+ * ## Layout
+ *
+ * This is the first screen anyone sees, and it was the last one still built the
+ * old way: oversized rows with growing leading rules, ad-hoc delays, no bands.
+ * It now uses the same vocabulary as the home screen and the brief:
+ *
+ *  - **Header / body / footer bands**, the body on `min-h-0 flex-1`, so a short
+ *    window compresses the middle instead of pushing content off-screen.
+ *  - **Numbered options** from the shared `MenuOption`, with the digit keys
+ *    wired to match: six tiers means `1`-`6` selects your level outright.
+ *  - **One entrance beat** via the shared `at()`, counted in reading order.
+ *  - The confirm step runs on the **brief's centred spine**, because by then
+ *    there is one decision and no reason for a second column.
+ */
+export default function Calibrate({ mastery, onDone, onCancel, firstRun = false }) {
+  const [step, setStep] = useState('tier');
+  const [tier, setTier] = useState(null);
+  const [ticked, setTicked] = useState(() => new Set());
+
+  const grouped = useMemo(() => {
+    const map = new Map();
+    for (const concept of CONCEPTS) {
+      if (!map.has(concept.domain)) map.set(concept.domain, []);
+      map.get(concept.domain).push(concept);
+    }
+    return [...map.entries()];
+  }, []);
+
+  const chooseTier = (chosen) => {
+    setTier(chosen);
+    setTicked(new Set(conceptsAtOrBelow(chosen.level - 1)));
+  };
+
+  const finish = (conceptIds) => {
+    onDone({ level: tier?.level ?? 1, conceptIds });
+  };
+
+  /**
+   * Digit keys pick an option, matching the badge on each row, the same model
+   * the home screen uses. Only the two choosing steps are wired: the concept
+   * list has 37 checkboxes and no sensible numbering.
+   */
+  useEffect(() => {
+    if (step === 'concepts') return undefined;
+    const onKey = (event) => {
+      if (['INPUT', 'TEXTAREA'].includes(event.target.tagName)) return;
+      const digit = Number(event.key);
+      if (!digit) return;
+
+      if (step === 'tier' && digit <= EXPERIENCE_TIERS.length) {
+        event.preventDefault();
+        chooseTier(EXPERIENCE_TIERS[digit - 1]);
+        setStep('confirm');
+      } else if (step === 'confirm' && digit <= 3) {
+        event.preventDefault();
+        if (digit === 1) finish([...ticked]);
+        else setStep(digit === 2 ? 'concepts' : 'tier');
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, ticked, tier]);
+
+  // ------------------------------------------------------------- step: tier
+  if (step === 'tier') {
+    return (
+      <MenuShell>
+        <div className="flex min-h-0 flex-1 flex-col gap-[clamp(0.9rem,2.6vh,2rem)]">
+          <header className="flex shrink-0 items-center justify-between gap-3">
+            <div className="panel-pill animate-enter-up flex h-11 items-center gap-2.5 px-4" style={at(0)}>
+              <LogoMark />
+              <span className="text-[14px] font-semibold tracking-[-0.01em] text-zinc-900">CircuitDojo</span>
+            </div>
+            {!firstRun && (
+              <button className="btn-ghost animate-enter-up text-[12px]" style={at(0.5)} onClick={onCancel}>
+                Cancel
+              </button>
+            )}
+          </header>
+
+          <main
+            className="grid min-h-0 flex-1 content-center gap-x-[clamp(1.75rem,4vw,4.5rem)] gap-y-[clamp(1rem,2.5vh,2rem)]
+              lg:grid-cols-[minmax(0,1.35fr)_minmax(0,0.85fr)]"
+          >
+            <section className="flex min-w-0 flex-col justify-center">
+              <p className="widget-title animate-enter-up" style={at(1)}>
+                {firstRun ? 'Before we start' : 'Placement'}
+              </p>
+
+              <h1
+                className="animate-intro-title mt-1.5 font-semibold leading-[1] tracking-[-0.035em] text-zinc-900"
+                style={{ fontSize: 'clamp(1.8rem, min(4.6vw, 7.5vh), 3.6rem)', ...at(1.5) }}
+              >
+                Where are you
+                <br />
+                <span className="text-zinc-400">starting from?</span>
+              </h1>
+
+              <p
+                className="animate-enter-up mt-[clamp(0.4rem,1.2vh,0.9rem)] max-w-[44ch] text-zinc-600 [@media(max-height:640px)]:hidden"
+                style={{ fontSize: 'clamp(0.82rem, min(1.05vw, 2vh), 1rem)', ...at(2.2) }}
+              >
+                One click. No test. If you aim too high, the first challenge that catches you out puts you back, so
+                guess generously.
+              </p>
+
+              {/* Six equal choices, so none is emphasised: this is a picker, not
+                  a menu with a primary. The index doubles as the digit key. */}
+              <nav className="mt-[clamp(0.7rem,2.2vh,1.5rem)] flex w-full max-w-[34rem] flex-col gap-2">
+                {EXPERIENCE_TIERS.map((option, i) => (
+                  <MenuOption
+                    key={option.id}
+                    index={i + 1}
+                    label={option.label}
+                    hint={option.blurb}
+                    meta={`L${option.level}`}
+                    compact
+                    delay={at(3 + i * 0.55)}
+                    onClick={() => {
+                      chooseTier(option);
+                      setStep('confirm');
+                    }}
+                  />
+                ))}
+              </nav>
+            </section>
+
+            <aside className="hidden min-w-0 lg:flex lg:flex-col lg:justify-center">
+              <div className="panel animate-enter-right p-[clamp(1rem,1.9vw,1.7rem)]" style={at(4)}>
+                <p className="widget-title">How placement works</p>
+                <ol className="mt-3 space-y-3 text-[12.5px] leading-relaxed text-zinc-600">
+                  <Explainer n="1" title="You claim a level.">
+                    Everything below it is marked as already known, so you never see it as new material.
+                  </Explainer>
+                  <Explainer n="2" title="Challenges start there.">
+                    Drawn at random from a band around your level, never a fixed roadmap.
+                  </Explainer>
+                  <Explainer n="3" title="The work confirms it.">
+                    Pass and the claim becomes real mastery. Fail and that one concept comes back, on its own, without
+                    dragging the rest of your level down with it.
+                  </Explainer>
+                </ol>
+                <p className="mt-4 rounded-control bg-zinc-900/[0.04] px-3 py-2 text-[11.5px] leading-relaxed text-zinc-600 [@media(max-height:700px)]:hidden">
+                  Mid-challenge you can always hit <span className="font-medium text-zinc-900">Too easy</span> to jump a
+                  band immediately.
+                </p>
+              </div>
+            </aside>
+          </main>
+
+          <footer className="shrink-0">
+            <p className="animate-fade-in text-[11px] text-zinc-400 [@media(max-height:600px)]:hidden" style={at(7)}>
+              1-{EXPERIENCE_TIERS.length} to choose · nothing here is permanent
+            </p>
+          </footer>
+        </div>
+      </MenuShell>
+    );
+  }
+
+  // ---------------------------------------------------------- step: confirm
+  // The brief's shape: one centred spine, because there is one decision left.
+  if (step === 'confirm') {
+    return (
+      <MenuShell pad="tight">
+        <div className="flex min-h-0 flex-1 flex-col gap-[clamp(0.6rem,1.8vh,1.4rem)]">
+          <header className="flex shrink-0 items-center justify-between gap-3">
+            <div className="panel-pill animate-enter-up flex h-10 items-center gap-2.5 px-3.5" style={at(0)}>
+              <LogoMark size={17} />
+              <span className="text-[12.5px] font-semibold tracking-[-0.01em] text-zinc-900">Placement</span>
+            </div>
+          </header>
+
+          <main className="flex min-h-0 flex-1 flex-col items-center justify-center text-center">
+            <div className="flex w-full min-w-0 max-w-[46rem] flex-col items-center">
+              <div
+                className="animate-enter-up flex w-full items-center justify-center gap-3 text-zinc-500"
+                style={at(1)}
+              >
+                <span className="h-px max-w-[6rem] flex-1 bg-zinc-900/15" />
+                <span className="shrink-0 font-mono text-[11px] font-semibold tracking-[0.14em] text-zinc-600">
+                  LEVEL {String(tier.level).padStart(2, '0')}
+                </span>
+                <span className="h-px max-w-[6rem] flex-1 bg-zinc-900/15" />
+              </div>
+
+              <h1
+                className="animate-intro-title mt-[clamp(0.4rem,1.2vh,0.9rem)] font-semibold leading-[1.02] tracking-[-0.035em] text-zinc-900"
+                style={{ fontSize: 'clamp(1.6rem, min(4.2vw, 6.5vh), 3.2rem)', ...at(1.6) }}
+              >
+                {tier.label}
+              </h1>
+
+              <p
+                className="animate-enter-up mt-[clamp(0.5rem,1.4vh,1rem)] max-w-[54ch] leading-relaxed text-zinc-700"
+                style={{ fontSize: 'clamp(0.86rem, min(1.2vw, 2.2vh), 1.08rem)', ...at(2.6) }}
+              >
+                {tier.blurb} {ticked.size} concept{ticked.size === 1 ? '' : 's'} below that level will be treated as
+                already known.
+              </p>
+
+              <nav className="mt-[clamp(0.9rem,2.6vh,1.9rem)] flex w-full max-w-[32rem] flex-col gap-2">
+                <MenuOption
+                  index="1"
+                  emphasis="primary"
+                  label="Start designing"
+                  hint="Go straight to a challenge at this level"
+                  delay={at(3.6)}
+                  onClick={() => finish([...ticked])}
+                />
+                <MenuOption
+                  index="2"
+                  label="Tune it concept by concept"
+                  hint="Strong in one branch, new to another? Tick exactly what you hold"
+                  delay={at(4.4)}
+                  onClick={() => setStep('concepts')}
+                />
+                <MenuOption
+                  index="3"
+                  label="Pick a different level"
+                  hint="Back to the list"
+                  delay={at(5)}
+                  onClick={() => setStep('tier')}
+                />
+              </nav>
+            </div>
+          </main>
+
+          <footer className="shrink-0 text-center">
+            <p className="animate-fade-in text-[11px] text-zinc-400 [@media(max-height:600px)]:hidden" style={at(7)}>
+              Claims are provisional, the first challenge that uses one settles it
+            </p>
+          </footer>
+        </div>
+      </MenuShell>
+    );
+  }
+
+  // --------------------------------------------------------- step: concepts
+  const toggle = (id) =>
+    setTicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  return (
+    <MenuShell pad="tight">
+      <div className="flex min-h-0 flex-1 flex-col gap-[clamp(0.6rem,1.8vh,1.2rem)]">
+        <header className="flex shrink-0 items-baseline justify-between gap-4">
+          <div className="min-w-0">
+            <p className="widget-title animate-enter-up" style={at(0)}>
+              Placement · tune
+            </p>
+            <h1
+              className="animate-enter-up mt-1 font-semibold leading-[1.05] tracking-[-0.03em] text-zinc-900"
+              style={{ fontSize: 'clamp(1.35rem, min(3vw, 5vh), 2.2rem)', ...at(0.6) }}
+            >
+              Tick what you already hold
+            </h1>
+          </div>
+          <div className="animate-enter-up shrink-0 text-right" style={at(1.2)}>
+            <div className="font-mono text-[13px] font-medium text-zinc-900">{ticked.size} selected</div>
+            <div className="text-[11.5px] text-zinc-500">of {CONCEPTS.length}</div>
+          </div>
+        </header>
+
+        {/* The only scrollable region in the whole menu system, and it is opt-in:
+            a concept list is genuinely long, and hiding half of it would be worse. */}
+        <div
+          className="panel animate-enter-up min-h-0 flex-1 overflow-y-auto p-[clamp(0.8rem,1.6vw,1.4rem)]"
+          style={at(1.8)}
+        >
+          <div className="grid gap-x-8 gap-y-5 md:grid-cols-2">
+            {grouped.map(([domainId, concepts]) => (
+              <section key={domainId}>
+                <h2 className="widget-title mb-2">{DOMAINS[domainId] || domainId}</h2>
+                <div className="space-y-1">
+                  {concepts.map((concept) => {
+                    const earned = masteryOf(mastery, concept.id) >= HOLD && !mastery[concept.id]?.self;
+                    const on = ticked.has(concept.id) || earned;
+                    return (
+                      <button
+                        key={concept.id}
+                        onClick={() => !earned && toggle(concept.id)}
+                        disabled={earned}
+                        className={`flex w-full items-center gap-2.5 rounded-control px-2.5 py-1.5 text-left transition-colors ${
+                          earned ? 'cursor-default opacity-60' : 'hover:bg-zinc-900/[0.05]'
+                        }`}
+                        title={concept.applies}
+                      >
+                        <span
+                          className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] transition-colors duration-200 ${
+                            on ? 'bg-accent' : 'bg-zinc-900/[0.10]'
+                          }`}
+                        >
+                          {on && (
+                            <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+                              <path
+                                d="M2.5 6.5L5 9l4.5-6"
+                                stroke="rgb(var(--on-accent))"
+                                strokeWidth="1.8"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                          )}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate text-[12.5px] text-zinc-700">{concept.name}</span>
+                        <span className="shrink-0 font-mono text-[10px] text-zinc-400">L{concept.level}</span>
+                        {earned && <span className="shrink-0 text-[10px] font-medium text-good">earned</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
+          </div>
+        </div>
+
+        <footer className="animate-enter-up flex shrink-0 items-center gap-2" style={at(2.6)}>
+          <button className="btn-primary h-11 rounded-control px-6 text-[14px]" onClick={() => finish([...ticked])}>
+            Start designing
+          </button>
+          <button
+            className="btn-quiet h-11 rounded-control px-5 text-[13px]"
+            onClick={() => setTicked(new Set(CONCEPTS.map((c) => c.id)))}
+          >
+            Tick everything
+          </button>
+          <button className="btn-ghost h-11 rounded-control px-5 text-[13px]" onClick={() => setTicked(new Set())}>
+            Clear
+          </button>
+          <span className="ml-auto max-w-[38ch] text-[11.5px] leading-relaxed text-zinc-500 [@media(max-height:620px)]:hidden">
+            Anything you tick is provisional until a challenge proves it.
+          </span>
+        </footer>
+      </div>
+    </MenuShell>
+  );
+}
+
+/** One numbered step in the explainer panel. */
+function Explainer({ n, title, children }) {
+  return (
+    <li className="flex gap-2.5">
+      <span className="mt-[0.15em] flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-zinc-900/[0.06] font-mono text-[9px] text-zinc-500">
+        {n}
+      </span>
+      <span>
+        <span className="font-medium text-zinc-900">{title}</span> {children}
+      </span>
+    </li>
+  );
+}
