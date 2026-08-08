@@ -3,6 +3,16 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
+  /**
+   * Where the built site will be served from.
+   *
+   * A GitHub Pages project site lives at /<repository>/, not at the domain
+   * root, so every asset URL needs that prefix or the page loads and then
+   * fetches its JavaScript from the wrong path. The deploy workflow sets
+   * BASE_PATH; everything else (dev server, local preview, a custom domain)
+   * keeps the root and needs no configuration.
+   */
+  base: process.env.BASE_PATH || '/',
   server: {
     port: 5173,
     open: true,
