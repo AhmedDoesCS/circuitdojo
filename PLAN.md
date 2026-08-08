@@ -291,20 +291,31 @@ settled, or it gets written twice.
 
 ---
 
-## 9. Open questions
+## 9. Decisions
 
-1. **Twelve stages or eight?** Twelve gives room for the four strands to breathe.
-   Eight keeps the existing band names and the expertise percentage meaningful
-   without translation. I lean twelve, with bands as a display mapping.
-2. **Can a learner skip ahead?** The current "too easy" button skips a band. In a
-   roadmap it could skip a block, but skipping is how gaps form. Suggest: allow
-   skipping a block by passing its final Build unit cold, which is a test rather
-   than a claim.
-3. **Does practice mode ever feed back into the roadmap?** A repeated ranked
-   failure on decoupling could reopen that block. Powerful, and easy to make
-   annoying.
-4. **How much does a ranked failure cost?** Enough to matter, not enough to
-   discourage a second attempt in one sitting.
+**Twelve stages.** More room per idea, and the learner holds each one longer
+before the next arrives. The existing eight expertise bands become a display
+mapping over the twelve, so the percentage still means something.
+
+**Skipping is by examination, not by claim.** Each block ends in a Build unit
+marked as its capstone. Pass that cold and the whole block is complete. This
+replaces the current "too easy" button, which claimed a band on the learner's
+word. A claim creates gaps silently; a capstone cannot.
+
+**A ranked loss never touches roadmap progress.** The two systems record
+different things. The roadmap records what you have been taught; the rating
+records how you are performing right now. A bad afternoon in ranked play does
+not un-teach anything, and taking progress away for it would make the mode
+something to avoid rather than something to test yourself against.
+
+**A ranked loss is a recommendation, not a penalty.** The rating moves, and that
+is the whole of the cost. What the failure produces instead is a reading list:
+the failed requirements map back to the roadmap blocks that taught them, and the
+result screen offers those blocks by name, to replay. Revisiting is free, does
+not reset anything, and completed blocks stay completed.
+
+This makes ranked play diagnostic. The mode's job is to tell you what you have
+not really internalised, and then point at the exact lesson that covers it.
 
 ---
 

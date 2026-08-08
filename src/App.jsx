@@ -21,12 +21,13 @@ import { LogoMark } from './components/MenuShell.jsx';
 import useSchematic from './state/useSchematic.js';
 import useProfile from './state/useProfile.js';
 import { evaluateAttempt } from './engine/evaluate.js';
-import { instantiate, instantiateFromId, selectChallenge, RECIPE_COUNT } from './challenges/index.js';
+import { instantiate, instantiateFromId, RECIPE_COUNT } from './challenges/index.js';
 import { localStore } from './lib/storage.js';
 import { applyAppearance, watchSystemTheme } from './lib/theme.js';
 import { createDocument, isEmptyDocument } from './schematic/model.js';
 import { getSymbol } from './schematic/symbols/index.js';
 import { randomSeed } from './challenges/rng.js';
+import { skipTarget, unitById } from './roadmap/index.js';
 
 /**
  * Requirement "types" are either a symbol id ("D_LED") or a tag ("resistor").
@@ -188,6 +189,9 @@ export default function App() {
     if (evaluation.passed) {
       setResult(evaluation);
       setCelebrating(true);
+      // Advancing the curriculum is the only thing a pass has to do that a
+      // random draw never did.
+      if (challenge.unitId) profile.completeRoadmapUnit(challenge.unitId);
       return;
     }
     // An empty sheet is not an attempt: it is someone pressing the button
@@ -256,39 +260,42 @@ export default function App() {
     else if (iris.next) setView('workspace');
   }, [iris, schematic, profile.settings.introAnimation]);
 
-  const drawChallenge = useCallback(
-    (opts = {}) =>
-      selectChallenge(profile.mastery, {
-        level: profile.level.level,
-        throwbacks: profile.settings.throwbacks,
-        ...opts,
-      }),
-    [profile.mastery, profile.level.level, profile.settings.throwbacks]
+  /**
+   * The next thing to build.
+   *
+   * A read of the roadmap cursor, not a weighted draw. Nothing is computed
+   * here beyond instantiating the template, so pressing Start Designing costs
+   * what it always did: the iris, and the brief behind it.
+   */
+  const openUnit = useCallback(
+    (unit) => {
+      if (!unit) return;
+      const next = instantiate(unit.templateId, randomSeed());
+      beginTransition({ next: { ...next, unitId: unit.id }, toView: 'workspace' });
+    },
+    [beginTransition]
   );
 
-  const startRandom = useCallback(() => {
-    beginTransition({ next: drawChallenge(), toView: 'workspace' });
-  }, [beginTransition, drawChallenge]);
+  const startNext = useCallback(() => {
+    openUnit(profile.roadmap.current);
+  }, [openUnit, profile.roadmap.current]);
 
-  const nextChallenge = useCallback(() => {
-    beginTransition({ next: drawChallenge({ avoidTemplateId: challenge.templateId }), toView: 'workspace' });
-  }, [beginTransition, drawChallenge, challenge.templateId]);
+  const nextChallenge = startNext;
 
   /**
    * "Too easy": claim the current level, then immediately draw from the band
    * above. The impatient expert's escape hatch, no test required.
    */
-  const goHarder = useCallback(() => {
-    const { mastery, level } = profile.skipUp();
-    beginTransition({
-      next: selectChallenge(mastery, {
-        level: level.level,
-        throwbacks: false,
-        avoidTemplateId: challenge.templateId,
-      }),
-      toView: 'workspace',
-    });
-  }, [profile, beginTransition, challenge.templateId]);
+  /**
+   * "This is too easy" now sets an examination rather than accepting a claim.
+   *
+   * It jumps to the block's capstone: pass that cold and the whole block is
+   * marked done. Claiming a level on the learner's word is how silent gaps
+   * formed, and a gap in a curriculum is worse than a gap in a shuffler.
+   */
+  const skipBlock = useCallback(() => {
+    openUnit(skipTarget(profile.completedUnits));
+  }, [openUnit, profile.completedUnits]);
 
   const highlight = useCallback((points) => {
     clearTimeout(highlightTimer.current);
@@ -397,7 +404,7 @@ export default function App() {
       // The home screen's system menu opens the profile on a chosen tab, so it
       // takes the opener itself rather than one pre-bound entry point.
       <HomeScreen
-        onStart={startRandom}
+        onStart={startNext}
         onBrowse={() => setBrowserOpen(true)}
         // Every other route into the workspace wipes. Resume used to snap, and
         // the sheet appearing without warning read as a glitch rather than a
@@ -406,6 +413,7 @@ export default function App() {
         onCalibrate={() => beginTransition({ toView: 'calibrate' })}
         onOpenProfile={openProfile}
         hasSession={hasSession}
+        roadmap={profile.roadmap}
         level={profile.level}
         mastery={profile.mastery}
         solved={profile.attempts.filter((a) => a.passed).length}
@@ -449,7 +457,7 @@ export default function App() {
               onReplayIntro={() => setIntroFor(challenge.id)}
               onBrowse={() => setBrowserOpen(true)}
               onNewChallenge={nextChallenge}
-              onTooEasy={goHarder}
+              onTooEasy={skipBlock}
             />
           )}
 
@@ -598,7 +606,7 @@ export default function App() {
 
       {/* Overlays live above the view switch so a transition cannot remount them. */}
       {view === 'workspace' && introFor === challenge.id && (
-        <ChallengeIntro challenge={challenge} onDone={() => setIntroFor(null)} onTooEasy={goHarder} />
+        <ChallengeIntro challenge={challenge} onDone={() => setIntroFor(null)} onTooEasy={skipBlock} />
       )}
 
       {view === 'workspace' && celebrating && result?.passed && (

@@ -12,6 +12,7 @@ const KEYS = {
   session: 'circuitdojo.session.v1',
   attempts: 'circuitdojo.attempts.v1',
   settings: 'circuitdojo.settings.v1',
+  roadmap: 'circuitdojo.roadmap.v1',
 };
 
 export const DEFAULT_SETTINGS = {
@@ -60,6 +61,9 @@ export const localStore = {
   setProgress: (progress) => write(KEYS.progress, progress),
 
   /** Per-concept mastery, the input to the level model. */
+  getRoadmap: () => read(KEYS.roadmap, null),
+  setRoadmap: (completed) => write(KEYS.roadmap, completed),
+
   getMastery: () => read(KEYS.mastery, {}),
   setMastery: (mastery) => write(KEYS.mastery, mastery),
 

@@ -42,6 +42,7 @@ export default function HomeScreen({
   onCalibrate,
   onOpenProfile,
   hasSession,
+  roadmap,
   level,
   mastery = {},
   solved = 0,
@@ -67,20 +68,20 @@ export default function HomeScreen({
         : {
             id: 'play',
             label: 'Start designing',
-            hint: `Generated for level ${level.level}: ${level.name}`,
+            hint: roadmap ? `Stage ${roadmap.stage} of ${roadmap.stageCount}: ${roadmap.blockName}` : '',
             onClick: onStart,
           },
-    [hasSession, level, onResume, onStart]
+    [hasSession, roadmap, onResume, onStart]
   );
 
   const startNew = useMemo(
     () => ({
       id: 'play',
       label: 'New challenge',
-      hint: `Level ${level.level}`,
+      hint: roadmap ? `Stage ${roadmap.stage}` : '',
       onClick: () => setConfirmNew(true),
     }),
-    [level.level]
+    [roadmap]
   );
 
   const secondary = useMemo(

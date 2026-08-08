@@ -2,7 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js';
 import { localStore, DEFAULT_SETTINGS } from '../lib/storage.js';
 import { applyResult, emptyProgress } from '../lib/progress.js';
+import { UNITS, completeUnit, roadmapProgress } from '../roadmap/index.js';
+import { conceptsOf, getTemplate } from '../challenges/index.js';
 import {
+  HOLD,
+  masteryOf,
   applyConceptResults,
   claimConcepts,
   computeLevel,
@@ -33,6 +37,48 @@ export default function useProfile() {
   const [attempts, setAttempts] = useState(() => localStore.getAttempts());
   const [authError, setAuthError] = useState(null);
   const [busy, setBusy] = useState(false);
+
+  /**
+   * Roadmap position: the units finished, in order.
+   *
+   * The learner's standing now comes from how far along the curriculum they
+   * are rather than from a coverage estimate over concepts. Mastery is still
+   * tracked, because practice mode weights by it, but it no longer decides what
+   * comes next.
+   */
+  const [completedUnits, setCompletedUnits] = useState(() => localStore.getRoadmap());
+  const roadmap = useMemo(() => roadmapProgress(completedUnits || []), [completedUnits]);
+
+  /**
+   * First run on a profile that predates the roadmap.
+   *
+   * Everything whose concepts the learner already holds is marked done, so
+   * somebody at level 2 lands part way into the curriculum rather than back at
+   * the first LED. Runs once, then the stored list is the truth.
+   */
+  useEffect(() => {
+    if (completedUnits !== null) return;
+    const done = [];
+    for (const unit of UNITS) {
+      const concepts = conceptsOf(getTemplate(unit.templateId) || {});
+      if (!concepts.length) break;
+      if (!concepts.every((id) => masteryOf(mastery, id) >= HOLD)) break;
+      done.push(unit.id);
+    }
+    setCompletedUnits(done);
+    localStore.setRoadmap(done);
+    // Mount only: this reads the mastery the profile arrived with.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** Mark a unit finished. A capstone finishes its whole block. */
+  const completeRoadmapUnit = useCallback((unitId) => {
+    setCompletedUnits((prev) => {
+      const next = completeUnit(prev || [], unitId);
+      localStore.setRoadmap(next);
+      return next;
+    });
+  }, []);
 
   const level = useMemo(() => computeLevel(mastery), [mastery]);
 
@@ -332,6 +378,9 @@ export default function useProfile() {
     recordAttempt,
     calibrate,
     skipUp,
+    roadmap,
+    completedUnits: completedUnits || [],
+    completeRoadmapUnit,
     signIn,
     signUp,
     signOut,
