@@ -34,11 +34,11 @@ export default defineConfig({
   /**
    * Where the built site will be served from.
    *
-   * A GitHub Pages project site lives at /<repository>/, not at the domain
-   * root, so every asset URL needs that prefix or the page loads and then
-   * fetches its JavaScript from the wrong path. The deploy workflow sets
-   * BASE_PATH; everything else (dev server, local preview, a custom domain)
-   * keeps the root and needs no configuration.
+   * Almost every host serves from the domain root, which is the default and
+   * needs no configuration. The exception is a host that puts the site in a
+   * subdirectory, such as a GitHub Pages project site at /<repository>/: there
+   * every asset URL needs that prefix, or the page loads and then fetches its
+   * JavaScript from the wrong path. Set BASE_PATH at build time for those.
    */
   base: process.env.BASE_PATH || '/',
   server: {

@@ -151,32 +151,43 @@ real geometry bugs.
 
 ## Deployment
 
-`npm run build` produces a static `dist/`. There is no server to run.
+`npm run build` produces a static `dist/`, containing the app and the manual at
+`dist/docs`. There is no server to run.
 
-### GitHub Pages
+### Vercel
 
-`.github/workflows/deploy.yml` runs the tests, builds and publishes on every push to `main`. Enable it once, under
-**Settings > Pages > Build and deployment > Source: GitHub Actions**. The workflow passes the repository name as
-`BASE_PATH`, because a project site is served from `/<repository>/` rather than the domain root.
+Import the repository at [vercel.com/new](https://vercel.com/new). Vite is detected
+automatically: `npm run build`, output `dist`, served from the root. No
+configuration file is needed and `BASE_PATH` stays unset.
+
+If you are using accounts, add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`
+under Settings, Environment Variables, then redeploy so they are baked into the
+bundle.
 
 ### Anywhere else
 
-Vercel, Netlify and Cloudflare Pages all serve `dist/` as-is. Leave `BASE_PATH` unset for those: they serve from the
-root. If you are using accounts, set the two `VITE_` environment variables in the host's dashboard.
+Netlify and Cloudflare Pages serve `dist/` unchanged. GitHub Pages works too,
+but a project site is served from `/<repository>/` rather than the root, so the
+build needs `BASE_PATH=/<repository>/` for asset URLs to resolve.
 
-### Moving your progress to the deployed site
+`.github/workflows/test.yml` runs the tests and a build on every push. It does
+not deploy: the host does that.
 
-Progress lives in `localStorage`, which browsers scope to the **origin**: scheme, host *and* port. So
-`localhost:5173` and `yourname.github.io` are two different stores, and opening the deployed site gives you an empty
-profile even though nothing was lost.
+### Moving your progress between sites
+
+Progress lives in `localStorage`, which browsers scope to the **origin**: scheme,
+host and port. So `localhost:5173` and a deployed site are two different stores,
+and opening the deployed site gives you an empty profile even though nothing was
+lost.
 
 Carry it across by hand:
 
-1. On the site that has your progress, open **Profile > Account > Back up this profile** and download the JSON.
-2. On the deployed site, open the same panel and restore that file.
+1. On the site that has your progress, open **Profile > Account > Back up this
+   profile** and download the JSON.
+2. On the other site, open the same panel and restore that file.
 
-The same applies in reverse, and to any change of domain. Signing in (see below) removes the problem entirely, since
-progress then lives in the database rather than in one browser.
+Signing in removes the problem entirely, since progress then lives in the
+database rather than in one browser.
 
 ---
 

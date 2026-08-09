@@ -12,3 +12,6 @@ dist
 
 # The original build brief, kept locally rather than published
 circuit-practice-app-prompt.md
+
+# Vercel CLI
+.vercel
