@@ -98,8 +98,11 @@ is high-impedance until firmware runs) without writing any code.
 used JavaScript can reach the point of building an application of this complexity unaided.
 
 ```bash
-npm run docs      # opens the manual at /docs/index.html
+npm run docs      # opens the manual locally at /docs/index.html
 ```
+
+It is published with the app rather than left behind in the repository: the
+build copies it to `dist/docs`, so a deployed site serves it at `/docs/`.
 
 | Chapter | Covers |
 | --- | --- |

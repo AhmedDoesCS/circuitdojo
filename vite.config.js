@@ -1,8 +1,36 @@
+import { cp, access } from 'node:fs/promises';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
+/**
+ * Ship the manual with the app.
+ *
+ * Vite builds the entry HTML and whatever that imports. The manual is nine
+ * hand-written pages that nothing imports, so it was simply absent from the
+ * build and every link into it would have 404'd on a deployed site.
+ *
+ * Copying rather than adding nine more Vite inputs, because these pages want
+ * no bundling: they are plain HTML with one stylesheet and one script, all
+ * referenced relatively, so they work unchanged under any base path.
+ */
+function publishManual() {
+  return {
+    name: 'publish-manual',
+    apply: 'build',
+    async closeBundle() {
+      try {
+        await access('docs');
+      } catch {
+        return;
+      }
+      await cp('docs', 'dist/docs', { recursive: true });
+      this.info('manual copied to dist/docs');
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), publishManual()],
   /**
    * Where the built site will be served from.
    *
