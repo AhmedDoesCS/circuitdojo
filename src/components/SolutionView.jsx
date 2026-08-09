@@ -1,6 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef } from 'react';
 import SymbolView from './SymbolView.jsx';
 import { documentBounds } from '../schematic/model.js';
+import { itemAt } from '../schematic/edit.js';
 
 /**
  * A schematic document, presented as a drawing.
@@ -27,7 +28,44 @@ import { documentBounds } from '../schematic/model.js';
 const PART_STEP = 0.05;
 const WIRE_STEP = 0.07;
 
-export default function SolutionView({ doc, title, meta, animate = true, className = '', pad = 40 }) {
+export default function SolutionView({
+  doc,
+  title,
+  meta,
+  animate = true,
+  className = '',
+  pad = 40,
+  /**
+   * Review mode. The drawing becomes clickable and the learner names the item
+   * they believe is wrong. Read-only in every other respect: this is somebody
+   * else's schematic and they are not here to fix it, only to find the fault.
+   */
+  selectable = false,
+  selectedId = null,
+  onSelect,
+}) {
+  const svgRef = useRef(null);
+
+  /**
+   * Screen to drawing coordinates.
+   *
+   * The sheet letterboxes its content, so the mapping is not a simple ratio of
+   * the bounding box. `getScreenCTM` is the transform the browser actually
+   * used, which makes this exact at any size and any zoom.
+   */
+  const pick = (event) => {
+    if (!selectable || !svgRef.current) return;
+    const svg = svgRef.current;
+    const point = svg.createSVGPoint();
+    point.x = event.clientX;
+    point.y = event.clientY;
+    const ctm = svg.getScreenCTM();
+    if (!ctm) return;
+    const world = point.matrixTransform(ctm.inverse());
+    const hit = itemAt(doc, world.x, world.y);
+    onSelect?.(hit ? hit.item.id : null);
+  };
+
   const box = useMemo(() => {
     const bounds = documentBounds(doc);
     if (!bounds) return null;
@@ -84,10 +122,12 @@ export default function SolutionView({ doc, title, meta, animate = true, classNa
       <div className="pointer-events-none absolute inset-[0.85rem] rounded-[3px] border border-zinc-950/[0.07]" />
 
       <svg
+        ref={svgRef}
         viewBox={`${box.x} ${box.y} ${box.w} ${box.h}`}
-        className="min-h-0 w-full flex-1"
+        className={`min-h-0 w-full flex-1 ${selectable ? 'cursor-pointer' : ''}`}
         role="img"
         aria-label={title ? `Reference schematic: ${title}` : 'Reference schematic'}
+        onPointerDown={pick}
       >
         {/* Wires are painted first so they pass *under* the symbol bodies, but
             they animate last. Paint order and time order are independent, and
@@ -146,6 +186,8 @@ export default function SolutionView({ doc, title, meta, animate = true, classNa
           </g>
         ))}
 
+        {selectedId && <SelectionRing doc={doc} id={selectedId} />}
+
         {doc.labels.map((l) => (
           <g
             key={l.id}
@@ -179,4 +221,60 @@ export default function SolutionView({ doc, title, meta, animate = true, classNa
       )}
     </figure>
   );
+}
+
+
+/**
+ * A ring around the item under review.
+ *
+ * Drawn as a marker rather than by recolouring the item, because a review
+ * exercise must not change how the circuit itself looks: recolouring a wire is
+ * indistinguishable from the wire being highlighted for some electrical reason.
+ */
+function SelectionRing({ doc, id }) {
+  const component = doc.components.find((c) => c.id === id);
+  const wire = doc.wires.find((w) => w.id === id);
+  const label = doc.labels.find((l) => l.id === id);
+
+  if (component) {
+    return (
+      <circle
+        cx={component.x}
+        cy={component.y}
+        r={46}
+        fill="rgb(var(--accent) / 0.10)"
+        stroke="rgb(var(--accent))"
+        strokeWidth="2"
+        strokeDasharray="6 4"
+      />
+    );
+  }
+  if (wire) {
+    return (
+      <line
+        x1={wire.x1}
+        y1={wire.y1}
+        x2={wire.x2}
+        y2={wire.y2}
+        stroke="rgb(var(--accent))"
+        strokeWidth="7"
+        strokeOpacity="0.35"
+        strokeLinecap="round"
+      />
+    );
+  }
+  if (label) {
+    return (
+      <circle
+        cx={label.x}
+        cy={label.y}
+        r={16}
+        fill="rgb(var(--accent) / 0.10)"
+        stroke="rgb(var(--accent))"
+        strokeWidth="2"
+        strokeDasharray="6 4"
+      />
+    );
+  }
+  return null;
 }

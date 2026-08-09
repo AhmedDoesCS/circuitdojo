@@ -9,6 +9,7 @@ import assert from 'node:assert/strict';
 import {
   STAGES,
   UNITS,
+  indexOfUnit,
   UNIT_COUNT,
   STAGE_COUNT,
   nextUnit,
@@ -51,8 +52,16 @@ test('the order never puts a unit before the stage that teaches it', () => {
 test('a fresh learner starts at the first unit of stage 1', () => {
   const start = nextUnit([]);
   assert.equal(start.stage, 1);
-  assert.equal(start.templateId, 'led_current_limit');
-  assert.ok(unitTitle(start).length > 0);
+  assert.equal(start.block, 1);
+  assert.equal(indexOfUnit(start.id), 0);
+});
+
+test('a block interleaves the strands rather than stacking them', () => {
+  const opener = UNITS.filter((u) => u.stage === 1 && u.block === 1);
+  const strands = new Set(opener.map((u) => u.strand));
+  assert.ok(strands.size > 1, 'a block that teaches one strand is a lecture, not a block');
+  assert.equal(opener.at(-1).kind, 'inspect', 'the block ends by reviewing what it built');
+  assert.equal(opener.filter((u) => u.capstone).length, 1, 'exactly one capstone');
 });
 
 test('finishing a unit moves the cursor on by one', () => {
@@ -72,17 +81,15 @@ test('passing a capstone completes the whole block it ends', () => {
 });
 
 test('skipping offers the capstone, and nothing when the block is one unit', () => {
-  // Stage 1 block 1 is a single unit: it is already its own capstone.
-  assert.equal(skipTarget([]), null);
-
-  // Reach a block that has more than one unit.
-  let done = [];
-  while (nextUnit(done) && !(nextUnit(done).stage === 2 && nextUnit(done).block === 1)) {
-    done = completeUnit(done, nextUnit(done).id);
-  }
-  const target = skipTarget(done);
+  // Stage 1 block 1 has four units, so there is something ahead to sit.
+  const target = skipTarget([]);
   assert.ok(target && target.capstone, 'a multi-unit block offers its capstone');
-  assert.notEqual(target.id, nextUnit(done).id, 'and it is ahead of where you are');
+  assert.equal(target.kind, 'build', 'skipping is demonstrated by drawing, not by answering');
+  assert.notEqual(target.id, nextUnit([]).id, 'and it is ahead of where you are');
+
+  // Stage 1 block 2 is a single unit and is already its own capstone.
+  let done = UNITS.filter((u) => u.stage === 1 && u.block === 1).map((u) => u.id);
+  assert.equal(skipTarget(done), null);
 });
 
 test('progress reports the stage the learner is actually in', () => {

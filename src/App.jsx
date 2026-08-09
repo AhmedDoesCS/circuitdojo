@@ -27,7 +27,10 @@ import { applyAppearance, watchSystemTheme } from './lib/theme.js';
 import { createDocument, isEmptyDocument } from './schematic/model.js';
 import { getSymbol } from './schematic/symbols/index.js';
 import { randomSeed } from './challenges/rng.js';
-import { skipTarget, unitById } from './roadmap/index.js';
+import { skipTarget } from './roadmap/index.js';
+import { instantiateUnit } from './roadmap/instantiate.js';
+import UnitView from './components/UnitView.jsx';
+import { gradeAnalyse, gradeInspect } from './engine/answer.js';
 
 /**
  * Requirement "types" are either a symbol id ("D_LED") or a tag ("resistor").
@@ -99,6 +102,8 @@ export default function App() {
   const [celebrating, setCelebrating] = useState(false);
   const [iris, setIris] = useState(null); // { next, toView }
   const [openHints, setOpenHints] = useState(false);
+  /** The active roadmap unit when it is not a drawing. Null for Build units. */
+  const [work, setWork] = useState(null);
   const [tries, setTries] = useState(() => savedSession?.tries || 0);
   // A failed check is two pieces of news. The verdict is held back until the
   // life has visibly been spent, so the cost lands before the diagnosis.
@@ -214,6 +219,42 @@ export default function App() {
   }, [schematic.doc, challenge, profile, tries]);
 
   /**
+   * Checking an Analyse or Inspect unit.
+   *
+   * Deliberately the same shape as `runCheck`: it produces a result, spends a
+   * life on a genuine wrong answer, and leaves an unanswered question costing
+   * nothing. The learner should not be able to feel which engine graded them.
+   */
+  const checkUnit = useCallback(
+    async (answer) => {
+      if (!work) return;
+      setChecking(true);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      const evaluation =
+        work.kind === 'analyse'
+          ? gradeAnalyse(work.unit, answer, work.params)
+          : gradeInspect(work.fault, answer);
+      setChecking(false);
+
+      if (evaluation.passed) {
+        setResult(evaluation);
+        setCelebrating(true);
+        profile.completeRoadmapUnit(work.unitId);
+        return;
+      }
+      if (evaluation.empty) {
+        setResult(evaluation);
+        return;
+      }
+      const used = tries + 1;
+      setTries(used);
+      setPendingResult(evaluation);
+      setLifeLost({ remaining: Math.max(0, MAX_TRIES - used), used });
+    },
+    [work, profile, tries]
+  );
+
+  /**
    * The loss has played. Now show what is actually wrong.
    *
    * Every value read here is written once, before the overlay mounts, so this
@@ -241,7 +282,17 @@ export default function App() {
   /** Applied at the midpoint of the wipe, while the screen is fully covered. */
   const applyTransition = useCallback(() => {
     if (!iris) return;
+    if (iris.work) {
+      setWork(iris.work);
+      setResult(null);
+      setTries(0);
+      setSolutionOpen(false);
+      setSolutionSeen(false);
+      setLifeLost(null);
+      setPendingResult(null);
+    }
     if (iris.next) {
+      setWork(null);
       setChallenge(iris.next);
       setResult(null);
       setHighlights([]);
@@ -270,8 +321,13 @@ export default function App() {
   const openUnit = useCallback(
     (unit) => {
       if (!unit) return;
-      const next = instantiate(unit.templateId, randomSeed());
-      beginTransition({ next: { ...next, unitId: unit.id }, toView: 'workspace' });
+      const built = instantiateUnit(unit, randomSeed());
+      if (!built) return;
+      if (built.kind === 'build') {
+        beginTransition({ next: { ...built.challenge, unitId: unit.id }, toView: 'workspace' });
+        return;
+      }
+      beginTransition({ work: built, toView: 'workspace' });
     },
     [beginTransition]
   );
@@ -418,6 +474,22 @@ export default function App() {
         mastery={profile.mastery}
         solved={profile.attempts.filter((a) => a.passed).length}
         recipeCount={RECIPE_COUNT}
+      />
+    );
+  } else if (work) {
+    // A roadmap unit that is not a drawing. It gets the menu shell rather than
+    // the workspace chrome: there is no canvas to give the window to, and the
+    // dock, palette and properties panel are furniture for tools that do not
+    // apply to reading a schematic or answering a question about one.
+    body = (
+      <UnitView
+        unit={work}
+        tries={tries}
+        maxTries={MAX_TRIES}
+        checking={checking}
+        result={result}
+        onCheck={checkUnit}
+        onBack={() => beginTransition({ toView: 'home' })}
       />
     );
   } else {
@@ -612,7 +684,7 @@ export default function App() {
       {view === 'workspace' && celebrating && result?.passed && (
         <SuccessOverlay
           result={result}
-          challenge={challenge}
+          challenge={work ? { title: work.title } : challenge}
           onNext={nextChallenge}
           onStay={() => setCelebrating(false)}
         />

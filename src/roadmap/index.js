@@ -29,7 +29,50 @@ export const STAGES = [
     name: 'One closed loop',
     blurb: 'Current only flows in a complete circuit, and something has to limit it.',
     blocks: [
-      { block: 1, name: 'Current, voltage and a resistor', units: ['led_current_limit'] },
+      {
+        block: 1,
+        name: 'Current, voltage and a resistor',
+        units: [
+          {
+            kind: 'analyse',
+            slug: 'ohms-law-current',
+            title: 'How much current flows',
+            prompt:
+              'A {r} resistor is connected straight across a {v} V supply. What current flows through it?',
+            params: (rng) => ({ v: rng.pick([3.3, 5, 9, 12]), r: rng.pick([220, 470, 1000, 2200]) }),
+            answer: (p) => p.v / p.r,
+            unit: 'A',
+            hint: "Ohm's law, rearranged for current.",
+            explain: (p) => `I = V / R = ${p.v} / ${p.r}`,
+          },
+          {
+            kind: 'analyse',
+            slug: 'led-resistor-value',
+            title: 'Sizing the resistor',
+            prompt:
+              'An LED dropping {vf} V is to run at {ma} mA from a {v} V rail. What resistance goes in series with it?',
+            params: (rng) => ({
+              v: rng.pick([5, 9, 12]),
+              vf: rng.pick([1.8, 2.1, 3.2]),
+              ma: rng.pick([5, 10, 20]),
+            }),
+            answer: (p) => (p.v - p.vf) / (p.ma / 1000),
+            unit: 'ohm',
+            hint: 'The resistor drops whatever the LED does not.',
+            explain: (p) =>
+              `V across the resistor is ${p.v} - ${p.vf} = ${(p.v - p.vf).toFixed(1)} V, and R = V / I.`,
+          },
+          'led_current_limit',
+          {
+            kind: 'inspect',
+            slug: 'led-review',
+            templateId: 'led_current_limit',
+            title: 'Review: an LED indicator',
+            prompt:
+              'This sheet came back from a colleague. It does not work. Find the one thing that is wrong with it.',
+          },
+        ],
+      },
       { block: 2, name: 'Interrupting the loop', units: ['switched_led'] },
     ],
   },
@@ -176,7 +219,9 @@ export const UNITS = STAGES.flatMap((stage) =>
       return {
         ...spec,
         kind,
-        id: spec.id || `s${stage.stage}b${block.block}-${spec.templateId || spec.slug}`,
+        // The slug wins: a review unit names the same template as the Build
+        // unit it reviews, and the two must not collide.
+        id: spec.id || `s${stage.stage}b${block.block}-${spec.slug || spec.templateId}`,
         stage: stage.stage,
         block: block.block,
         blockName: block.name,
