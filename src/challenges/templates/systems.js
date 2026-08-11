@@ -10,6 +10,24 @@
 
 import { band } from '../rng.js';
 import { formatValue } from '../../schematic/units.js';
+import { sheet, powerAndDecouple } from '../solution.js';
+
+/**
+ * A chip's supply stubs and the capacitor across them.
+ *
+ * The same arrangement as the 74xx helper, for parts whose supply pins are on
+ * the symbol itself rather than on a separate power unit. `tees` are the two
+ * points on the supply stubs the capacitor is wired back to.
+ */
+function supplyAndCap(s, part, { rail, top, bottom, capX, tees }) {
+  s.wire(s.rail(rail, { x: part.pin('VCC').x, y: top }).top(), part.pin('VCC'));
+  s.wire(part.pin('GND'), s.rail('ground', { x: part.pin('GND').x, y: bottom }).top());
+
+  const cap = s.place('C', { x: capX, y: 400, rot: 90, value: '100n' });
+  s.wire(cap.top(), { x: part.pin('VCC').x, y: tees[0] });
+  s.wire(cap.bottom(), { x: part.pin('GND').x, y: tees[1] });
+  return cap;
+}
 
 export const tier6 = [
   {
@@ -42,6 +60,44 @@ export const tier6 = [
             'An I²C output transistor can only pull the line down. Without pull-ups the bus never returns high and every transfer fails: the single most common I²C bring-up mistake.',
         },
         solutionNote: `Two shared nets, each with one ${formatValue(speed.r, 'Ω')} resistor to +3V3. Smaller resistors charge the bus capacitance faster, which is why ${speed.khz} kHz wants ${formatValue(speed.r, 'Ω')}.`,
+        /**
+         * The bus is joined by net labels rather than by wires drawn across the
+         * page, which is how a real I2C sheet does it. Three things have to
+         * reach SDA and three have to reach SCL, and any wired version of that
+         * puts one line across the other: on paper the crossing means nothing,
+         * but a learner reading it cannot tell that from a connection.
+         */
+        solution() {
+          const s = sheet();
+          const mcu = s.place('ATTINY85', { x: 400, y: 400 });
+          const dev = s.place('I2C_DEV', { x: 1000, y: 400 });
+
+          supplyAndCap(s, mcu, { rail: '+3V3', top: 200, bottom: 600, capX: 100, tees: [220, 540] });
+          supplyAndCap(s, dev, { rail: '+3V3', top: 200, bottom: 600, capX: 1180, tees: [260, 540] });
+
+          // Each device brings its bus pins out to a short stub and names it.
+          s.wire(mcu.pin('PB0/SDA'), { x: 580, y: 360 });
+          s.label({ x: 580, y: 360 }, 'SDA');
+          s.wire(mcu.pin('PB2/SCL'), { x: 580, y: 400 });
+          s.label({ x: 580, y: 400 }, 'SCL');
+          s.wire(dev.pin('SDA'), { x: 820, y: 380 });
+          s.label({ x: 820, y: 380 }, 'SDA');
+          s.wire(dev.pin('SCL'), { x: 820, y: 420 });
+          s.label({ x: 820, y: 420 }, 'SCL');
+
+          for (const [x, net] of [[660, 'SDA'], [760, 'SCL']]) {
+            const pull = s.place('R', { x, y: 220, rot: 90, value: formatValue(speed.r, 'Ω') });
+            s.wire(s.rail('+3V3', { x, y: 120 }).top(), pull.top());
+            s.wire(pull.bottom(), { x, y: 320 });
+            s.label({ x, y: 320 }, net);
+          }
+
+          const reset = s.place('R', { x: 220, y: 360, value: '10k' });
+          s.wire(s.rail('+3V3', { x: 190, y: 280 }).top(), reset.left());
+          s.wire(reset.right(), mcu.pin('/RST'));
+
+          return s.done();
+        },
         requirements: {
           ercOptions: { allowUnconnected: ['ATTINY85:PB1', 'ATTINY85:PB3', 'ATTINY85:PB4'] },
           requiredComponents: [
@@ -159,6 +215,43 @@ export const tier6 = [
             'Both /OE and /SRCLR are active-low control inputs. Leaving either floating gives you a register that sometimes works and sometimes does not: the worst possible failure mode.',
         },
         solutionNote: '/OE (pin 13) → GND, /SRCLR (pin 10) → +5V, QA → R → LED → GND, plus supplies and decoupling on both chips.',
+        /**
+         * The three control signals run straight across at their own heights,
+         * in the order the pins are already in, so nothing has to cross
+         * anything. /OE and /SRCLR are tied off below them, where the corridor
+         * is empty: a control pin at a fixed level gets the shortest wire on
+         * the sheet, because there is nothing to follow.
+         */
+        solution() {
+          const s = sheet();
+          const mcu = s.place('ATTINY85', { x: 400, y: 400 });
+          const sr = s.place('74HC595', { x: 900, y: 400 });
+
+          supplyAndCap(s, mcu, { rail: '+5V', top: 200, bottom: 600, capX: 100, tees: [220, 540] });
+          supplyAndCap(s, sr, { rail: '+5V', top: 180, bottom: 640, capX: 1400, tees: [250, 560] });
+
+          s.wire(mcu.pin('PB0/SDA'), { x: 560, y: 360 });
+          s.wire({ x: 560, y: 360 }, sr.pin('SER'));
+          s.wire(mcu.pin('PB1'), { x: 600, y: 380 });
+          s.wire({ x: 600, y: 380 }, sr.pin('SRCLK'));
+          s.wire(mcu.pin('PB2/SCL'), sr.pin('RCLK'));
+
+          s.wire(sr.pin('/OE'), { x: 760, y: 430 });
+          s.wire({ x: 760, y: 430 }, s.rail('ground', { x: 760, y: 620 }).top());
+          s.wire(sr.pin('/SRCLR'), s.rail('+5V', { x: 770, y: 460 }).top());
+
+          const limit = s.place('R', { x: 1100, y: 330, value: formatValue(ideal, 'Ω') });
+          const lamp = s.place('D_LED', { x: 1280, y: 330 });
+          s.wire(sr.pin('QA'), limit.left());
+          s.chainX(limit, lamp);
+          s.wire(lamp.right(), s.rail('ground', { x: lamp.right().x, y: 470 }).top());
+
+          const reset = s.place('R', { x: 220, y: 360, value: '10k' });
+          s.wire(s.rail('+5V', { x: 190, y: 280 }).top(), reset.left());
+          s.wire(reset.right(), mcu.pin('/RST'));
+
+          return s.done();
+        },
         requirements: {
           ercOptions: { allowUnconnected: ['74HC595:Q*', 'ATTINY85:PB3', 'ATTINY85:PB4'] },
           requiredComponents: [
@@ -292,6 +385,60 @@ export const tier7 = [
             'The 555 charges the capacitor through R1+R2 and discharges it through R2 alone, which is why the duty cycle is never below 50% in this configuration.',
         },
         solutionNote: `R2 = (1.44/(f·C) − R1)/2 = (1.44/(${freq}·${formatValue(c, 'F')}) − ${formatValue(r1, 'Ω')})/2 ≈ ${formatValue(r2, 'Ω')}.`,
+        /**
+         * R1, R2 and the timing capacitor are drawn as one column on the left,
+         * which is the arrangement every 555 datasheet uses, because the column
+         * is literally the charge path: down through both resistors into the
+         * capacitor. The long way round to pin 7 is the price of keeping it,
+         * and it is worth paying: the shape is the thing being learned.
+         */
+        solution() {
+          const s = sheet();
+          const timer = s.place('NE555', { x: 700, y: 400 });
+
+          s.wire(s.rail('+5V', { x: 700, y: 200 }).top(), timer.pin('VCC'));
+          s.wire(timer.pin('GND'), s.rail('ground', { x: 700, y: 600 }).top());
+
+          const x = 250;
+          const charge = s.place('R', { x, y: 200, rot: 90, value: formatValue(r1, 'Ω') });
+          const discharge = s.place('R', { x, y: 320, rot: 90, value: formatValue(r2, 'Ω') });
+          const timing = s.place('C', { x, y: 440, rot: 90, value: formatValue(c, 'F') });
+          s.chain(
+            s.rail('+5V', { x, y: 120 }),
+            charge,
+            discharge,
+            timing,
+            s.rail('ground', { x, y: 540 })
+          );
+
+          // THR, and TRIG tee'd onto the same run: joining pins 2 and 6 is what
+          // makes this astable rather than a one-shot.
+          s.wire({ x, y: 380 }, { x: 600, y: 380 });
+          s.wire({ x: 600, y: 380 }, timer.pin('THR'));
+          s.wire(timer.pin('TRIG'), { x: 600, y: 390 }, { horizontalFirst: true });
+
+          // DIS takes the long way round the outside rather than cutting across
+          // the timing column or the output branch.
+          s.wire({ x, y: 260 }, { x: 120, y: 700 }, { horizontalFirst: true });
+          s.wire({ x: 120, y: 700 }, { x: 1000, y: 410 }, { horizontalFirst: true });
+          s.wire({ x: 1000, y: 410 }, timer.pin('DIS'));
+
+          s.wire(timer.pin('RST'), { x: 480, y: 370 });
+          s.wire({ x: 480, y: 370 }, s.rail('+5V', { x: 480, y: 280 }).top());
+
+          const control = s.place('C', { x: 560, y: 500, rot: 90, value: '10n' });
+          s.wire(timer.pin('CTRL'), { x: 560, y: 430 });
+          s.wire({ x: 560, y: 430 }, control.top());
+          s.wire(control.bottom(), s.rail('ground', { x: 560, y: 620 }).top());
+
+          const limit = s.place('R', { x: 880, y: 390, value: '330' });
+          const lamp = s.place('D_LED', { x: 1080, y: 390 });
+          s.wire(timer.pin('OUT'), limit.left());
+          s.chainX(limit, lamp);
+          s.wire(lamp.right(), s.rail('ground', { x: lamp.right().x, y: 540 }).top());
+
+          return s.done();
+        },
         requirements: {
           requiredComponents: [
             { type: 'NE555', min: 1, max: 1, label: 'NE555 placed' },
@@ -436,6 +583,37 @@ export const tier7 = [
             'Contact bounce lasts roughly 1-10ms. The filter smears the bouncing edges into one slow ramp, and the gate turns that ramp back into a single clean transition.',
         },
         solutionNote: `R = τ/C = ${tau}/${formatValue(c, 'F')} ≈ ${formatValue(r, 'Ω')}. +5V → pull-up → BTN_RAW → button → GND; BTN_RAW → R → BTN_F; C from BTN_F to GND; BTN_F → inverter input.`,
+        /**
+         * Signal left to right through three named nodes: raw, filtered,
+         * clean. Naming all three is the point of the exercise, because the
+         * whole circuit is one signal being improved twice, and the sheet
+         * should let you point at where each improvement happened.
+         */
+        solution() {
+          const s = sheet();
+          const x = 200;
+          const pullUp = s.place('R', { x, y: 140, rot: 90, value: formatValue(pull, 'Ω') });
+          const button = s.place('SW_PUSH', { x, y: 250, rot: 90 });
+          s.chain(s.rail('+5V', { x, y: 60 }), pullUp, button, s.rail('ground', { x, y: 360 }));
+          s.label({ x, y: 195 }, 'BTN_RAW');
+
+          const series = s.place('R', { x: 340, y: 195, value: formatValue(r, 'Ω') });
+          s.wire({ x, y: 195 }, series.left());
+
+          const filter = s.place('C', { x: 450, y: 275, rot: 90, value: formatValue(c, 'F') });
+          s.wire(series.right(), filter.top(), { horizontalFirst: true });
+          s.wire(filter.bottom(), s.rail('ground', { x: 450, y: 420 }).top());
+          s.label({ x: 450, y: 195 }, 'BTN_F');
+
+          const inverter = s.place('74HC04', { x: 700, y: 195, unitId: 'A' });
+          s.wire({ x: 450, y: 195 }, inverter.pin('1'));
+          s.wire(inverter.pin('2'), { x: 850, y: 195 });
+          s.label({ x: 850, y: 195 }, 'BTN_CLEAN');
+
+          powerAndDecouple(s, '74HC04', 1000);
+
+          return s.done();
+        },
         requirements: {
           requiredComponents: [
             { type: '74HC04', min: 1, max: 1, label: '74HC04 placed' },
@@ -560,12 +738,60 @@ export const tier8 = [
         },
         solutionNote:
           'LDR divider → IN+, reference divider → IN−, output → R → LED → GND. With no feedback path the gain is enormous, so the output is fully high or fully low.',
+        /**
+         * The two dividers are stacked rather than placed side by side: the
+         * reference above, the sensor below, each with a clear run to its own
+         * input. Drawn side by side, one divider's output has to cross the
+         * other's body to reach the op-amp, and a sheet where LIGHT appears to
+         * touch VREF is the one mistake this circuit cannot survive.
+         */
+        solution() {
+          const s = sheet();
+          const opamp = s.place('OPAMP', { x: 700, y: 400 });
+          s.wire(s.rail('+5V', { x: 700, y: 280 }).top(), opamp.pin('V+'));
+          s.wire(opamp.pin('V-'), s.rail('ground', { x: 700, y: 540 }).top());
+
+          const refTopR = s.place('R', { x: 340, y: 140, rot: 90, value: formatValue(refTop, 'Ω') });
+          const refBottomR = s.place('R', { x: 340, y: 250, rot: 90, value: formatValue(refBottom, 'Ω') });
+          s.chain(
+            s.rail('+5V', { x: 340, y: 60 }),
+            refTopR,
+            refBottomR,
+            s.rail('ground', { x: 340, y: 360 })
+          );
+          s.label({ x: 340, y: 195 }, 'VREF');
+          s.wire({ x: 340, y: 195 }, { x: 600, y: 195 });
+          s.wire({ x: 600, y: 195 }, opamp.pin('IN-'));
+
+          const sensor = s.place('LDR', { x: 200, y: 540, rot: 90 });
+          const fixedR = s.place('R', { x: 200, y: 650, rot: 90, value: formatValue(fixed, 'Ω') });
+          s.chain(
+            s.rail('+5V', { x: 200, y: 460 }),
+            sensor,
+            fixedR,
+            s.rail('ground', { x: 200, y: 760 })
+          );
+          s.label({ x: 200, y: 595 }, 'LIGHT');
+          s.wire({ x: 200, y: 595 }, { x: 560, y: 595 });
+          s.wire({ x: 560, y: 595 }, opamp.pin('IN+'));
+
+          const limit = s.place('R', { x: 860, y: 400, value: formatValue(ledR, 'Ω') });
+          const lamp = s.place('D_LED', { x: 1060, y: 400 });
+          s.wire(opamp.pin('OUT'), limit.left());
+          s.chainX(limit, lamp);
+          s.wire(lamp.right(), s.rail('ground', { x: lamp.right().x, y: 540 }).top());
+
+          return s.done();
+        },
         requirements: {
           requiredComponents: [
             { type: 'OPAMP', min: 1, max: 1, label: 'Op-amp placed' },
             { type: 'LDR', min: 1, max: 1, label: 'Photoresistor placed' },
             { type: 'D_LED', min: 1, max: 1, label: 'One LED placed' },
-            { type: 'resistor', min: 4, max: 4, label: 'Four resistors placed (sensor, two reference, LED limiter)' },
+            // 'R' rather than the 'resistor' tag on purpose: an LDR carries
+            // that tag too, so counting by tag made five parts out of four and
+            // the requirement could not be met.
+            { type: 'R', min: 4, max: 4, label: 'Four resistors placed (sensor, two reference, LED limiter)' },
           ],
           checks: [
             {
@@ -582,12 +808,24 @@ export const tier8 = [
               label: 'Op-amp negative supply on GND',
               fail: 'Single-supply operation puts V− on ground.',
             },
+            // Stated as two halves, because the midpoint is deliberately tapped
+            // by IN+: a strict series pair would be a requirement no correct
+            // answer could meet.
             {
-              kind: 'series',
-              a: { type: 'LDR' },
-              b: { type: 'resistor' },
-              label: 'LDR forms a divider with a fixed resistor',
-              fail: 'The LDR and its partner resistor must share exactly one node: the sensing midpoint.',
+              kind: 'path',
+              from: { rail: '+5V' },
+              to: { net: 'LIGHT' },
+              through: ['resistive'],
+              label: 'Sensor divider fed from +5V',
+              fail: 'LIGHT has to sit below the rail through one of the two parts. Tied straight to +5V it cannot move with the light level at all.',
+            },
+            {
+              kind: 'path',
+              from: { net: 'LIGHT' },
+              to: { rail: 'ground' },
+              through: ['resistive'],
+              label: 'Sensor divider returns to GND',
+              fail: 'The other half of the sensor divider is missing: LIGHT needs a resistive path to ground, or no current flows through the LDR and its resistance changes nothing.',
             },
             {
               kind: 'common_node',

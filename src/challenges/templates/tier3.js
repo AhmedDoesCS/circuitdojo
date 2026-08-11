@@ -9,7 +9,7 @@
 
 import { band } from '../rng.js';
 import { formatValue, nearestE24 } from '../../schematic/units.js';
-import { sheet } from '../solution.js';
+import { sheet, powerAndDecouple } from '../solution.js';
 
 const LEDS = [
   { color: 'red', vf: 1.8 },
@@ -98,23 +98,6 @@ const RAIL_5V = { name: '+5V', v: 5 };
  * of the teaching: after the third one the learner should recognise the shape
  * before reading the brief.
  */
-
-/**
- * The chip's power unit and its decoupling capacitor, parked to the right of
- * the logic where a real sheet puts them. The capacitor is wired to the two
- * short stubs either side of the power unit rather than to the rails directly,
- * so the drawing says "across this chip's pins" and not "somewhere on the rail".
- */
-function powerAndDecouple(s, part, x) {
-  const power = s.place(part, { x, y: 300, unitId: 'PWR' });
-  s.wire(s.rail('+5V', { x, y: 160 }).top(), power.pin('VCC'));
-  s.wire(power.pin('GND'), s.rail('ground', { x, y: 460 }).top());
-
-  const cap = s.place('C', { x: x + 130, y: 300, rot: 90, value: '100n' });
-  s.wire(cap.top(), { x, y: 220 });
-  s.wire(cap.bottom(), { x, y: 400 });
-  return power;
-}
 
 /**
  * A pushbutton to the rail with a pull-down under it. Returns the point of the
