@@ -593,7 +593,7 @@ export const tier7 = [
           s.wire(inverter.pin('2'), { x: 850, y: 195 });
           s.label({ x: 850, y: 195 }, 'BTN_CLEAN');
 
-          powerAndDecouple(s, '74HC04', 1000);
+          powerAndDecouple(s, '74HC04', { x: 1000 });
 
           return s.done();
         },

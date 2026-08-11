@@ -26,20 +26,27 @@ import { SYMBOLS } from '../schematic/symbols/index.js';
  * A 74xx chip's power unit and its decoupling capacitor.
  *
  * Every logic challenge needs this and none of them is about it, so it is drawn
- * the same way every time: the power unit parked to the right of the logic, the
- * 100nF wired to the two short stubs either side of it rather than to the rails
+ * the same way every time: the power unit parked clear of the logic, the 100nF
+ * wired to the two short stubs either side of it rather than to the rails
  * directly. Tying it to the stubs is the part that matters, because it makes
  * the drawing say "across this chip's own pins" instead of "somewhere on the
  * rail", which is the whole point of a decoupling capacitor.
+ *
+ * It goes to the right of the logic rather than below it, and that is a
+ * decision about legibility rather than about circuits. The panel that shows a
+ * reference answer has roughly two and a half times more width available than
+ * height, so the drawing scale is set by whichever dimension is worse: a wide,
+ * short sheet reads at nearly twice the size of a squarer one carrying the same
+ * parts. Height below the logic looks like free space and is not.
  */
-export function powerAndDecouple(s, part, x) {
-  const power = s.place(part, { x, y: 300, unitId: 'PWR' });
-  s.wire(s.rail('+5V', { x, y: 160 }).top(), power.pin('VCC'));
-  s.wire(power.pin('GND'), s.rail('ground', { x, y: 460 }).top());
+export function powerAndDecouple(s, part, { x, y = 300 }) {
+  const power = s.place(part, { x, y, unitId: 'PWR' });
+  s.wire(s.rail('+5V', { x, y: y - 140 }).top(), power.pin('VCC'));
+  s.wire(power.pin('GND'), s.rail('ground', { x, y: y + 160 }).top());
 
-  const cap = s.place('C', { x: x + 130, y: 300, rot: 90, value: '100n' });
-  s.wire(cap.top(), { x, y: 220 });
-  s.wire(cap.bottom(), { x, y: 400 });
+  const cap = s.place('C', { x: x + 130, y, rot: 90, value: '100n' });
+  s.wire(cap.top(), { x, y: y - 80 });
+  s.wire(cap.bottom(), { x, y: y + 100 });
   return power;
 }
 

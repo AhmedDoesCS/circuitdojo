@@ -367,7 +367,7 @@ export const systems2 = [
           s.wire({ x: 860, y: 400 }, hysteresis.right());
           s.wire(hysteresis.left(), cmp.pin('IN+'));
 
-          powerAndDecouple(s, 'LM393', 1150);
+          powerAndDecouple(s, 'LM393', { x: 1150 });
 
           return s.done();
         },

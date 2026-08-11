@@ -169,7 +169,7 @@ export const tier3 = [
           s.wire(buttonLadder(s, 200, 60, 'BTN1', pull), gate.pin('1'), { horizontalFirst: true });
           s.wire(buttonLadder(s, 340, 260, 'BTN2', pull), gate.pin('2'), { horizontalFirst: true });
           ledBranch(s, gate.pin('3'), led, current);
-          powerAndDecouple(s, '74HC08', 1140);
+          powerAndDecouple(s, '74HC08', { x: 1140 });
 
           return s.done();
         },
@@ -248,7 +248,7 @@ export const tier3 = [
           s.wire(buttonLadder(s, 200, 60, 'IN', pull), gate.pin('1'), { horizontalFirst: true });
           s.wire(gate.pin('1'), gate.pin('2'));
           ledBranch(s, gate.pin('3'), led, current);
-          powerAndDecouple(s, '74HC00', 1140);
+          powerAndDecouple(s, '74HC00', { x: 1140 });
 
           return s.done();
         },
@@ -336,7 +336,7 @@ export const tier3 = [
           s.wire(node, inverter.pin('1'), { horizontalFirst: true });
 
           ledBranch(s, inverter.pin('2'), led, current);
-          powerAndDecouple(s, '74HC04', 1140);
+          powerAndDecouple(s, '74HC04', { x: 1140 });
 
           return s.done();
         },
@@ -452,7 +452,7 @@ export const tier3 = [
           s.wire(buttonLadder(s, 200, 60, 'SW_A', pull), gate.pin('1'), { horizontalFirst: true });
           s.wire(buttonLadder(s, 340, 260, 'SW_B', pull), gate.pin('2'), { horizontalFirst: true });
           ledBranch(s, gate.pin('3'), led, current);
-          powerAndDecouple(s, '74HC86', 1140);
+          powerAndDecouple(s, '74HC86', { x: 1140 });
 
           return s.done();
         },

@@ -3,6 +3,14 @@ import SolutionView from './SolutionView.jsx';
 import { solutionDoc } from '../challenges/index.js';
 import { compareToSolution } from '../engine/solution-diff.js';
 import { getSymbol } from '../schematic/symbols/index.js';
+import { documentBounds } from '../schematic/model.js';
+
+/**
+ * Past this ratio the drawing is a landscape one and the parts list has to get
+ * out of its way. Under it, the drawing is a ladder and the two sit side by
+ * side, which is how a drawing and its parts list are usually issued.
+ */
+const LANDSCAPE = 1.5;
 
 /**
  * The reference answer, shown when the tries run out.
@@ -26,6 +34,21 @@ export default function SolutionOverlay({ challenge, doc, result, onClose, onNex
     [doc, reference]
   );
 
+  /**
+   * How wide the drawing is, which decides how much room it is given.
+   *
+   * These used to all be rail-to-ground ladders, so the sheet took a narrow
+   * column and the parts list sat beside it. A three-chip sheet is three times
+   * wider than it is tall, and in that column it rendered at under half a pixel
+   * per grid unit: the reference answer, illegible, to the one person who has
+   * already failed to produce it three times.
+   */
+  const shape = useMemo(() => {
+    const box = reference ? documentBounds(reference) : null;
+    return box && box.h ? box.w / box.h : 1;
+  }, [reference]);
+  const landscape = shape > LANDSCAPE;
+
   const unresolved = result ? result.errors.length + result.missing.length : 0;
   const tabs = [
     ...(reference ? [{ id: 'circuit', label: 'Reference circuit' }] : []),
@@ -38,7 +61,11 @@ export default function SolutionOverlay({ challenge, doc, result, onClose, onNex
     <div className="fixed inset-0 z-[70] flex items-center justify-center overflow-hidden">
       <div className="absolute inset-0 animate-fade-in bg-zinc-200/[0.94]" />
 
-      <div className="relative mx-6 flex max-h-[92vh] w-full max-w-4xl flex-col">
+      <div
+        className={`relative mx-6 flex max-h-[92vh] w-full flex-col ${
+          landscape ? 'max-w-6xl' : 'max-w-4xl'
+        }`}
+      >
         <header className="animate-rise-in text-center">
           <span className="chip bg-warn/12 text-warn">Three attempts used</span>
           <h1 className="mt-3 text-[28px] font-semibold leading-tight tracking-[-0.02em] text-zinc-900">
@@ -72,21 +99,28 @@ export default function SolutionOverlay({ challenge, doc, result, onClose, onNex
           style={{ animationDelay: '0.16s' }}
         >
           {active === 'circuit' && reference && (
-            /* Sheet and parts list, as a drawing is actually issued. The sheet
-               takes a portrait-ish column because these circuits are ladders,
-               given the full width it letterboxed itself into a thin strip in
-               the middle with the drawing tiny. */
-            <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_13.5rem]">
+            /* Sheet and parts list, as a drawing is actually issued: side by
+               side for a ladder, stacked for a landscape sheet so the drawing
+               gets the whole width instead of two thirds of it. */
+            <div className={`grid gap-4 ${landscape ? '' : 'md:grid-cols-[minmax(0,1fr)_13.5rem]'}`}>
               <SolutionView
                 doc={reference}
                 title={challenge?.title}
                 meta={`Level ${challenge?.level ?? '-'}`}
-                // Height only. The sheet derives its own width from the
-                // drawing's proportions, so `w-full` here would override that
-                // and letterbox it again.
-                className="h-[min(46vh,24rem)]"
+                /* A ladder is constrained by height and derives its own width
+                   from the drawing's proportions, so it gets a height and no
+                   width: `w-full` there would letterbox it into a strip. A
+                   landscape sheet is the other way round. It takes the full
+                   width and derives its height, which is both the largest the
+                   drawing can be drawn and the only version with no blank
+                   sheet above and below it. */
+                className={landscape ? 'w-full' : 'h-[min(46vh,24rem)]'}
               />
-              <BillOfMaterials doc={reference} note={challenge?.solutionNote} />
+              <BillOfMaterials
+                doc={reference}
+                note={challenge?.solutionNote}
+                columns={landscape}
+              />
             </div>
           )}
 
@@ -146,7 +180,7 @@ export default function SolutionOverlay({ challenge, doc, result, onClose, onNex
  * anyone fits, which is the same distinction the netlist draws when it counts
  * "what the learner placed".
  */
-function BillOfMaterials({ doc, note }) {
+function BillOfMaterials({ doc, note, columns = false }) {
   const parts = doc.components
     .filter((c) => !getSymbol(c.symbolId)?.isPower)
     .map((c) => {
@@ -165,9 +199,14 @@ function BillOfMaterials({ doc, note }) {
   return (
     <aside className="flex min-h-0 flex-col">
       <h3 className="widget-title mb-2">Parts</h3>
-      <ul className="space-y-1">
+      {/* Under a landscape sheet the list runs across rather than down, so a
+          sixteen-part drawing does not push its own explanation off-screen. */}
+      <ul className={columns ? 'sm:columns-2 sm:gap-3 lg:columns-3' : ''}>
         {parts.map((p) => (
-          <li key={p.ref} className="flex items-baseline gap-2 rounded-control bg-zinc-900/[0.04] px-2.5 py-1.5">
+          <li
+            key={p.ref}
+            className="mb-1 flex break-inside-avoid items-baseline gap-2 rounded-control bg-zinc-900/[0.04] px-2.5 py-1.5"
+          >
             <span className="font-mono text-[11.5px] font-semibold text-accent">{p.ref}</span>
             <span className="min-w-0 flex-1 truncate text-[12px] text-zinc-700">{p.name}</span>
             {p.value && <span className="shrink-0 font-mono text-[11.5px] text-zinc-900">{p.value}</span>}
