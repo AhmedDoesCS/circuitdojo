@@ -268,6 +268,11 @@ Analyse and Inspect: grading, rendering, results. These unlock the Analysis and
 Practice strands and make the remaining content affordable. Inspect depends on
 reference solutions, so it also motivates finishing those.
 
+**Done.** `src/engine/answer.js` grades Analyse; `src/engine/mutate.js` injects
+Inspect faults and verifies each one against the real grader before offering it.
+All thirty-six templates now ship a reference schematic, so every one of them
+can carry an Inspect unit. That was the gate on P2 and P4, and it is open.
+
 **P2. Content for stages 1 to 4.**
 The learner's current position. Roughly 55 units, mostly Analyse and Inspect
 around the Build units that already exist.

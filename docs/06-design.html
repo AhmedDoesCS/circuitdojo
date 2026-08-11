@@ -868,6 +868,28 @@
           portrait sheet, exactly as it would on paper.
         </p>
 
+        <h3>The panel has to know which way the drawing runs</h3>
+        <p>
+          Sizing the sheet to the drawing is only half of it. The panel around the sheet was laid out when every
+          reference answer was a ladder: a narrow column for the drawing, the parts list beside it. That is right for a
+          ladder, and it costs nothing, because a tall narrow drawing is limited by height and was never going to use
+          the width. Then the content grew a three-chip sheet three times wider than it was tall, and the same column
+          rendered it at 0.4 pixels per grid unit. Symbol text under four pixels. The reference answer, illegible, on
+          the screen shown to the one person who has already failed to draw it three times.
+        </p>
+        <pre data-label="src/components/SolutionOverlay.jsx"><code><span class="k">const</span> landscape = box.w / box.h &gt; <span class="n">1.5</span>;
+<span class="c">// A ladder is limited by height: give it a height, let it find its width.</span>
+<span class="c">// A landscape sheet is the other way round, and the parts list moves below it.</span>
+className={landscape ? <span class="s">'w-full'</span> : <span class="s">'h-[min(46vh,24rem)]'</span>}</code></pre>
+        <p>
+          Two lessons worth carrying. The first is that a layout encodes an assumption about its content, and when the
+          content changes the layout does not fail loudly: it just quietly gets worse, and only in the case nobody
+          opens. The second is about which dimension is scarce. A panel of this kind has roughly two and a half times
+          more width available than height, so the same circuit drawn wide and short reads at nearly twice the size of
+          the same circuit drawn square. Moving a block of parts from beside the circuit to underneath it looked like
+          using free space, and made every one of those drawings smaller.
+        </p>
+
         <h3>If it can fail, it must be able to look failed</h3>
         <p>
           A net label a few units off the wire renders identically to one sitting on it: same marker, same text, same

@@ -189,6 +189,7 @@ UI       ResultsPanel, canvas markers, brief badge</code></pre>
  *   zero     : a closed switch / jumper: a wire for DC purposes
  *   resistive: resistor, pot, thermistor, inductor, unknown external load
  *   diode    : diode / LED: conducts, drops ~0.7-2V, does NOT limit current
+ *   clamp    : TVS: off at the working voltage, so no DC path at all
  *   blocking : capacitor: no DC path
  *   active   : transistors, IC internals: not treated as a DC path
  */</span>
@@ -458,6 +459,54 @@ busy.current = <span class="k">true</span>;</code></pre>
             yet. <strong>Writing the solution is what tests the specification.</strong>
           </p>
         </div>
+        <div class="note">
+          <strong>What the remaining twenty-four found</strong>
+          <p>
+            Finishing the set, so that every one of the thirty-six templates ships a drawing, produced the same result
+            at a larger scale: three more engine faults and two more challenges nobody could have passed.
+          </p>
+          <ul>
+            <li>
+              The ERC compared a pin's name against the supply-or-ground <em>label</em> of the net it landed on, so an
+              op-amp's V− pin correctly wired to a −12V rail was reported as a reversed supply. Comparing voltages
+              instead gets the dual-supply and single-supply cases right for the same reason.
+            </li>
+            <li>
+              The floating-input rule seeded its search from rails only. An inverting amplifier's inverting input
+              reaches no rail at all, only the op-amp's own output through the feedback resistor, and it is nonetheless
+              the most firmly defined node on the sheet. Nets an output drives are sources too.
+            </li>
+            <li>
+              A TVS was classed as an ordinary diode, so every correctly protected supply input looked like a diode
+              short from the rail to ground. A clamp is off at the working voltage by construction, so it is now its
+              own edge kind and never a DC path.
+            </li>
+            <li>
+              Two challenges asked for a strict series pair whose midpoint they <em>also</em> required a pin to reach,
+              which no answer can satisfy at once. Both now state the divider as two halves.
+            </li>
+            <li>
+              Two more counted resistors by tag, and an LDR carries the resistor tag, so four parts counted as five.
+            </li>
+          </ul>
+        </div>
+
+        <h3>A reference drawing is held to a stricter standard than a correct one</h3>
+        <p>
+          Two wires crossing without a junction are not connected. That is true, it is deliberately modelled, and it is
+          exactly the trap the app sets for the learner elsewhere. It also means a reference answer must never do it:
+          the reader of that screen is by definition someone who cannot yet tell a crossing from a connection, so a
+          drawing that relies on the distinction teaches nothing and risks teaching the opposite.
+        </p>
+        <pre data-label="tests/solutions.test.js"><code><span class="c">// No wire may pass over a pin it is not connecting to.</span>
+<span class="k">for</span> (<span class="k">const</span> w <span class="k">of</span> doc.wires)
+  <span class="k">for</span> (<span class="k">const</span> pin <span class="k">of</span> pins)
+    <span class="k">if</span> (<span class="f">onSegmentInterior</span>(pin, w)) offences.<span class="f">push</span>(...);</code></pre>
+        <p>
+          The rule shapes the drawings. Where three signals fan from one chip to another they stagger their turns to
+          keep the pin order; where a bus needs three things on one net, the sheet uses net labels rather than running
+          one line over another, which is what a real I²C schematic does anyway. Where neither works, a part moves.
+        </p>
         <h3>Path-level constraints a graph cannot express</h3>
         <p>
           The changeover fix is worth stating on its own, because the obvious repair is wrong. Deleting the

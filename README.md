@@ -21,10 +21,10 @@ No backend needed to start: guest mode stores everything locally.
 | --- | --- |
 | **Schematic editor** | SVG, grid-snapped, explicit junctions, multi-unit ICs with real power units, rotation/mirroring, undo/redo, zoom/pan. |
 | **Validation engine** | An ERC pass (shorts, floating pins/inputs, unpowered chips, output conflicts) and a requirements pass against a structured schema. |
-| **Challenge library** | 36 hand-authored recipes across 13 topics, each parameterised by a seed so the numbers change every time. |
+| **Challenge library** | 36 hand-authored recipes across 13 topics, each parameterised by a seed so the numbers change every time, and each shipping a reference schematic graded by the real checker. |
 | **Concept model** | 37 concepts from Ohm's law to mixed-signal partitioning, each with formulas, application notes, professional standards and further reading. |
 | **Symbol library** | 59 symbols: passives, discretes, 74HC logic, op-amps, comparators, MCUs, sensors, motor drivers, protection parts. |
-| **Level system** | An expertise estimate over 8 bands, driving random non-linear challenge selection with optional throwbacks. |
+| **Roadmap** | Twelve stages of interleaved blocks, each ending in a capstone you can pass cold to skip the rest of it. |
 | **Guided hints** | Three-step escalation after a failed check: where to look → the principle → the fix. |
 
 ---
@@ -69,17 +69,27 @@ Both passes always run: a circuit can be electrically clean and still fail the b
 
 ---
 
-## Levels and generation
+## The roadmap
 
-There is no fixed roadmap. Each challenge declares the concepts it exercises; passing moves those concepts' mastery
-up, failing knocks it back. Your level is the highest band whose concepts you mostly hold, and challenges are drawn
-**randomly** from a band around it: weighted toward concepts you have not yet held or recently got wrong.
+Twelve stages, from one closed loop to designing for production. A stage is a handful of **blocks**, and a block is a
+short arc of units around one idea, taken through analysis, real components, the canonical recipe and professional
+practice in the order that idea is actually learned. Progression is linear in sequence and deliberately not linear in
+subject.
 
-Enable **throwbacks** in Settings to have a quarter of draws come from below your level, so fundamentals keep being
-re-applied inside larger circuits.
+Not every unit is a drawing. A **Build** unit is a blank sheet and a specification; an **Analyse** unit asks for a
+number; an **Inspect** unit hands you somebody else's schematic with one fault in it and asks you to find it. The
+faults are injected into the reference answers by seeded mutation, so what is wrong is known by construction.
+
+Each block ends in a **capstone** Build unit. Pass it cold and the whole block is complete, which is how you skip
+material you already know: by examination rather than by claim, so it cannot leave a silent gap.
+
+Mastery still exists underneath, per concept, and still moves on every pass and fail. It no longer decides what you
+see next; it is what practice mode will weight its projects by.
 
 A challenge instance is a `(templateId, seed)` pair: the template hand-authors the topology so it always makes
 engineering sense, the seed randomises the numbers.
+
+Design notes and what is still to come: [PLAN.md](PLAN.md).
 
 ---
 
@@ -142,7 +152,8 @@ npm test
 - `tests/symbols.test.js`: the library audit: on-grid pins, valid electrical types, and that every symbol id, tag
   and pin name referenced by a challenge actually exists.
 - `tests/editor.test.js`: the document operations behind the canvas gestures, and the level model.
-- `tests/solutions.test.js`: every reference answer, graded by the real checker across sixteen seeds each.
+- `tests/solutions.test.js`: every reference answer, graded by the real checker across sixteen seeds each, and checked
+  as a *drawing*: no wire may cross a pin it does not connect to.
 
 The audit matters: a typo in a pin name would otherwise ship as an unsolvable challenge. It has already caught two
 real geometry bugs.

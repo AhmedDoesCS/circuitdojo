@@ -157,8 +157,8 @@ export default function Calibrate({ mastery, onDone, onCancel, firstRun = false 
                   <Explainer n="1" title="You claim a level.">
                     Everything below it is marked as already known, so you never see it as new material.
                   </Explainer>
-                  <Explainer n="2" title="Challenges start there.">
-                    Drawn at random from a band around your level, never a fixed roadmap.
+                  <Explainer n="2" title="The roadmap starts there.">
+                    Twelve stages, each a few short arcs around one idea, in the order the idea is actually learned.
                   </Explainer>
                   <Explainer n="3" title="The work confirms it.">
                     Pass and the claim becomes real mastery. Fail and that one concept comes back, on its own, without
@@ -166,8 +166,7 @@ export default function Calibrate({ mastery, onDone, onCancel, firstRun = false 
                   </Explainer>
                 </ol>
                 <p className="mt-4 rounded-control bg-zinc-900/[0.04] px-3 py-2 text-[11.5px] leading-relaxed text-zinc-600 [@media(max-height:700px)]:hidden">
-                  Mid-challenge you can always hit <span className="font-medium text-zinc-900">Too easy</span> to jump a
-                  band immediately.
+                  Already know a stretch of it? Pass the circuit that block ends on, cold, and the whole block is done.
                 </p>
               </div>
             </aside>
