@@ -30,7 +30,7 @@ import { randomSeed } from './challenges/rng.js';
 import { skipTarget } from './roadmap/index.js';
 import { instantiateUnit } from './roadmap/instantiate.js';
 import UnitView from './components/UnitView.jsx';
-import { gradeAnalyse, gradeInspect } from './engine/answer.js';
+import { gradeAnalyse, gradeInspect, revealFor } from './engine/answer.js';
 
 /**
  * Requirement "types" are either a symbol id ("D_LED") or a tag ("resistor").
@@ -685,6 +685,7 @@ export default function App() {
         <SuccessOverlay
           result={result}
           challenge={work ? { title: work.title } : challenge}
+          kind={work?.kind || 'build'}
           onNext={nextChallenge}
           onStay={() => setCelebrating(false)}
         />
@@ -696,9 +697,18 @@ export default function App() {
 
       {view === 'workspace' && solutionOpen && (
         <SolutionOverlay
-          challenge={challenge}
+          // `challenge` is not updated for units that are not drawings, so it
+          // is deliberately withheld from them: a stale brief presented as the
+          // explanation of a different unit is worse than no explanation.
+          challenge={work ? null : challenge}
+          title={work ? work.title : challenge?.title}
+          reference={work?.reference || null}
           doc={schematic.doc}
           result={result}
+          kind={work?.kind || 'build'}
+          // A Build unit reveals its drawing. A unit without one still owes the
+          // learner the answer and the reason for it.
+          workings={revealFor(work)}
           onClose={() => setSolutionOpen(false)}
           onNext={nextChallenge}
           // Rebuilding is a fresh run at it: the counter goes back to zero, but

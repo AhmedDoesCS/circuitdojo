@@ -142,6 +142,39 @@ export function gradeInspect(fault, selectedId) {
   };
 }
 
+/**
+ * What is owed to a learner who has run out of attempts on a non-drawing unit.
+ *
+ * A Build unit reveals its schematic. These have no schematic of their own to
+ * reveal, and the thing they have been withholding is the answer and the reason
+ * for it, so that is what comes out. Returning it as labelled entries rather
+ * than a sentence lets the same panel render it beside a drawing when there is
+ * one, which is the case for a review exercise.
+ */
+export function revealFor(work) {
+  if (!work) return [];
+
+  if (work.kind === 'analyse') {
+    const expected = work.unit.answer(work.params);
+    return [
+      {
+        label: `The answer is ${formatValue(expected, work.answerUnit || '')}`,
+        detail: work.unit.explain ? work.unit.explain(work.params) : '',
+      },
+      ...(work.unit.hint ? [{ label: 'What to hold on to', detail: work.unit.hint }] : []),
+    ];
+  }
+
+  if (work.kind === 'inspect' && work.fault) {
+    return [
+      { label: 'The fault', detail: work.fault.what },
+      { label: 'What it would do', detail: work.fault.consequence },
+    ];
+  }
+
+  return [];
+}
+
 /** The question text with this instance's numbers filled in. */
 export function renderPrompt(template, params) {
   return String(template).replace(/\{(\w+)\}/g, (whole, key) => {

@@ -13,6 +13,34 @@ import { documentBounds } from '../schematic/model.js';
 const LANDSCAPE = 1.5;
 
 /**
+ * What running out of attempts means, in the words of the thing that ran out.
+ *
+ * The Build wording ("here is the circuit that answers it, rebuild it
+ * yourself") is wrong for a review exercise, where nobody was asked to build
+ * anything, and wrong for a numeric question, where there is no circuit at all.
+ */
+const VOICE = {
+  build: {
+    heading: 'Here is the circuit that answers it',
+    line: 'Your sheet is untouched. Read this, then rebuild it yourself.',
+    retry: 'Rebuild it on my sheet',
+    tab: 'Reference circuit',
+  },
+  analyse: {
+    heading: 'Here is how it works out',
+    line: 'Nothing is lost by having read it. Work the next one from the same relation.',
+    retry: 'Try it again',
+    tab: 'The circuit behind it',
+  },
+  inspect: {
+    heading: 'This is the sheet as it should be',
+    line: 'Put it beside the one you were reviewing. The difference between them is the fault.',
+    retry: 'Look at it again',
+    tab: 'The correct sheet',
+  },
+};
+
+/**
  * The reference answer, shown when the tries run out.
  *
  * Three attempts is the point at which another hint stops teaching and starts
@@ -26,9 +54,33 @@ const LANDSCAPE = 1.5;
  * the reference beside it, which is the only version of this that respects the
  * work already done.
  */
-export default function SolutionOverlay({ challenge, doc, result, onClose, onNext, onRetry }) {
-  const [tab, setTab] = useState('circuit');
-  const reference = useMemo(() => solutionDoc(challenge), [challenge]);
+export default function SolutionOverlay({
+  challenge,
+  doc,
+  result,
+  kind = 'build',
+  workings = [],
+  /**
+   * The drawing to show, when the caller already has one.
+   *
+   * A review exercise carries its own correct sheet, and deriving it from the
+   * active challenge instead was wrong in a way that only showed up on the
+   * second review unit: `challenge` is not updated for units that are not
+   * drawings, so the panel would have offered whichever circuit happened to be
+   * loaded last, presented as the answer.
+   */
+  reference: given = null,
+  title,
+  onClose,
+  onNext,
+  onRetry,
+}) {
+  // Null until the learner picks one, so the first tab is whichever this kind
+  // of unit leads with rather than always the drawing.
+  const [tab, setTab] = useState(null);
+  const derived = useMemo(() => solutionDoc(challenge), [challenge]);
+  const reference = given || derived;
+  const heading = title || challenge?.title || '';
   const diff = useMemo(
     () => (reference ? compareToSolution(doc, reference) : null),
     [doc, reference]
@@ -49,11 +101,16 @@ export default function SolutionOverlay({ challenge, doc, result, onClose, onNex
   }, [reference]);
   const landscape = shape > LANDSCAPE;
 
+  const voice = VOICE[kind] || VOICE.build;
   const unresolved = result ? result.errors.length + result.missing.length : 0;
   const tabs = [
-    ...(reference ? [{ id: 'circuit', label: 'Reference circuit' }] : []),
-    ...(diff ? [{ id: 'diff', label: 'Yours vs the reference' }] : []),
-    { id: 'why', label: 'Why it is that shape' },
+    // The answer leads for a unit that has one. A drawing is context there,
+    // not the point, and on a numeric unit there may be no drawing at all.
+    ...(workings.length ? [{ id: 'answer', label: kind === 'inspect' ? 'What was wrong' : 'The answer' }] : []),
+    ...(reference ? [{ id: 'circuit', label: voice.tab }] : []),
+    // Comparing two sheets is only meaningful when the learner drew one.
+    ...(diff && kind === 'build' ? [{ id: 'diff', label: 'Yours vs the reference' }] : []),
+    ...(challenge ? [{ id: 'why', label: 'Why it is that shape' }] : []),
   ];
   const active = tabs.some((t) => t.id === tab) ? tab : tabs[0].id;
 
@@ -69,11 +126,14 @@ export default function SolutionOverlay({ challenge, doc, result, onClose, onNex
         <header className="animate-rise-in text-center">
           <span className="chip bg-warn/12 text-warn">Three attempts used</span>
           <h1 className="mt-3 text-[28px] font-semibold leading-tight tracking-[-0.02em] text-zinc-900">
-            Here is the circuit that answers it
+            {voice.heading}
           </h1>
           <p className="mx-auto mt-2 max-w-xl text-[14px] leading-relaxed text-zinc-600">
-            {challenge?.title}, {unresolved > 0 ? `${unresolved} requirement${unresolved === 1 ? '' : 's'} still unmet.` : ''}{' '}
-            Your sheet is untouched. Read this, then rebuild it yourself.
+            {heading}
+            {kind === 'build' && unresolved > 0
+              ? `, ${unresolved} requirement${unresolved === 1 ? '' : 's'} still unmet.`
+              : '.'}{' '}
+            {voice.line}
           </p>
         </header>
 
@@ -98,6 +158,19 @@ export default function SolutionOverlay({ challenge, doc, result, onClose, onNex
           className="animate-rise-in panel mt-4 min-h-0 flex-1 overflow-auto p-4"
           style={{ animationDelay: '0.16s' }}
         >
+          {active === 'answer' && (
+            <div className="mx-auto max-w-2xl space-y-3">
+              {workings.map((w, i) => (
+                <div key={i} className="rounded-control bg-zinc-900/[0.04] px-4 py-3">
+                  <div className="text-[12.5px] font-semibold text-zinc-900">{w.label}</div>
+                  {w.detail && (
+                    <p className="mt-1 text-[13px] leading-relaxed text-zinc-700">{w.detail}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
           {active === 'circuit' && reference && (
             /* Sheet and parts list, as a drawing is actually issued: side by
                side for a ladder, stacked for a landscape sheet so the drawing
@@ -105,8 +178,10 @@ export default function SolutionOverlay({ challenge, doc, result, onClose, onNex
             <div className={`grid gap-4 ${landscape ? '' : 'md:grid-cols-[minmax(0,1fr)_13.5rem]'}`}>
               <SolutionView
                 doc={reference}
-                title={challenge?.title}
-                meta={`Level ${challenge?.level ?? '-'}`}
+                title={heading}
+                // The title block already says REFERENCE; repeating it there
+                // just fills the corner with the same word twice.
+                meta={challenge?.level ? `Level ${challenge.level}` : ''}
                 /* A ladder is constrained by height and derives its own width
                    from the drawing's proportions, so it gets a height and no
                    width: `w-full` there would letterbox it into a strip. A
@@ -159,10 +234,10 @@ export default function SolutionOverlay({ challenge, doc, result, onClose, onNex
           style={{ animationDelay: '0.24s' }}
         >
           <button className="btn-primary px-5 py-2.5 text-[14px]" onClick={onRetry}>
-            Rebuild it on my sheet
+            {voice.retry}
           </button>
           <button className="btn-quiet px-5 py-2.5 text-[14px]" onClick={onNext}>
-            Next challenge
+            {kind === 'build' ? 'Next challenge' : 'Next unit'}
           </button>
           <button className="btn-ghost px-4 py-2.5 text-[13px]" onClick={onClose}>
             Close

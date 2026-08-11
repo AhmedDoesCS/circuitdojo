@@ -14,6 +14,9 @@ import { TEMPLATES, instantiate, solutionDoc } from '../src/challenges/index.js'
 import { evaluateAttempt } from '../src/engine/evaluate.js';
 import { injectFault, applicableFaults, FAULTS } from '../src/engine/mutate.js';
 import { gradeAnalyse, gradeInspect, renderPrompt } from '../src/engine/answer.js';
+import { UNITS } from '../src/roadmap/index.js';
+import { instantiateUnit } from '../src/roadmap/instantiate.js';
+import { formatValue } from '../src/schematic/units.js';
 
 const SEEDS = [1, 7, 42, 1234, 555];
 
@@ -132,4 +135,74 @@ test('prompts take this instance own numbers', () => {
     renderPrompt(OHMS_LAW.prompt, { v: 5, r: 220 }),
     'A 220 resistor sits across 5. What current flows?'
   );
+});
+
+// ---------------------------------------------------------------------------
+// The authored roadmap content, held to the same standard as the schematics
+// ---------------------------------------------------------------------------
+
+const CONTENT_SEEDS = [1, 7, 42, 1234, 98765, 555, 31337, 2, 3, 4, 5, 6, 8, 9, 11, 13];
+
+test('every roadmap unit can be sat', () => {
+  const dead = [];
+  for (const unit of UNITS) {
+    for (const seed of CONTENT_SEEDS) {
+      if (!instantiateUnit(unit, seed)) dead.push(`${unit.id}#${seed}`);
+    }
+  }
+  assert.deepEqual(dead, [], `units that produce nothing to work on:\n${dead.join('\n')}`);
+});
+
+/**
+ * An Analyse unit whose own answer it will not accept is worse than no unit:
+ * it tells a learner who did the arithmetic correctly that they did not. The
+ * answer function is the specification, so grade it against itself, formatted
+ * the way a person would actually type it.
+ */
+test('every Analyse unit accepts its own answer', () => {
+  const rejected = [];
+  for (const unit of UNITS.filter((u) => u.kind === 'analyse')) {
+    for (const seed of CONTENT_SEEDS) {
+      const sat = instantiateUnit(unit, seed);
+      const expected = unit.answer(sat.params);
+      assert.ok(Number.isFinite(expected), `${unit.id}#${seed} has no finite answer`);
+      // Three significant figures in engineering notation: what a person writes.
+      const typed = formatValue(expected, '');
+      if (!gradeAnalyse(unit, typed, sat.params).passed) {
+        rejected.push(`${unit.id}#${seed}: answer ${expected}, typed as "${typed}"`);
+      }
+    }
+  }
+  assert.deepEqual(rejected, [], `Analyse units that reject their own answer:\n${rejected.join('\n')}`);
+});
+
+test('every Analyse prompt has its numbers filled in', () => {
+  const unfilled = [];
+  for (const unit of UNITS.filter((u) => u.kind === 'analyse')) {
+    const sat = instantiateUnit(unit, 1);
+    if (/\{\w+\}/.test(sat.prompt)) unfilled.push(`${unit.id}: ${sat.prompt}`);
+    if (!unit.hint || !unit.explain) unfilled.push(`${unit.id}: no hint or no explanation`);
+  }
+  assert.deepEqual(unfilled, [], `prompts with a placeholder nothing filled:\n${unfilled.join('\n')}`);
+});
+
+test('every Inspect unit is built on a fault the grader confirms', () => {
+  const unusable = [];
+  for (const unit of UNITS.filter((u) => u.kind === 'inspect')) {
+    const challenge = instantiate(unit.templateId, 1);
+    for (const seed of CONTENT_SEEDS) {
+      const sat = instantiateUnit(unit, seed);
+      if (!sat) {
+        unusable.push(`${unit.id}#${seed}: no fault could be injected`);
+        continue;
+      }
+      if (evaluateAttempt(sat.doc, challenge).passed) {
+        unusable.push(`${unit.id}#${seed}: the sheet still passes, so nothing is wrong with it`);
+      }
+      if (!gradeInspect(sat.fault, sat.fault.itemId).passed) {
+        unusable.push(`${unit.id}#${seed}: pointing at the culprit is not accepted`);
+      }
+    }
+  }
+  assert.deepEqual(unusable, [], `Inspect units that cannot be sat:\n${unusable.join('\n')}`);
 });

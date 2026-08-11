@@ -81,15 +81,21 @@ test('passing a capstone completes the whole block it ends', () => {
 });
 
 test('skipping offers the capstone, and nothing when the block is one unit', () => {
-  // Stage 1 block 1 has four units, so there is something ahead to sit.
+  // The opening block has something ahead of the cursor to sit.
   const target = skipTarget([]);
   assert.ok(target && target.capstone, 'a multi-unit block offers its capstone');
   assert.equal(target.kind, 'build', 'skipping is demonstrated by drawing, not by answering');
   assert.notEqual(target.id, nextUnit([]).id, 'and it is ahead of where you are');
 
-  // Stage 1 block 2 is a single unit and is already its own capstone.
-  let done = UNITS.filter((u) => u.stage === 1 && u.block === 1).map((u) => u.id);
-  assert.equal(skipTarget(done), null);
+  // A block of one unit is already its own capstone, so there is nothing to
+  // skip to. Found rather than hard-coded: which blocks are single changes as
+  // the curriculum is written, and the rule does not.
+  const single = UNITS.find(
+    (u) => UNITS.filter((v) => v.stage === u.stage && v.block === u.block).length === 1
+  );
+  assert.ok(single, 'the roadmap should still contain at least one single-unit block');
+  const upTo = UNITS.slice(0, indexOfUnit(single.id)).map((u) => u.id);
+  assert.equal(skipTarget(upTo), null);
 });
 
 test('progress reports the stage the learner is actually in', () => {

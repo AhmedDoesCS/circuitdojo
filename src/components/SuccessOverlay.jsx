@@ -33,7 +33,36 @@ function paletteFromTheme() {
   ];
 }
 
-export default function SuccessOverlay({ result, challenge, onNext, onStay }) {
+/**
+ * What passing means, in the words of the thing that was passed.
+ *
+ * "Circuit verified, 0 components, 0 nets" is what this said after a learner
+ * correctly worked out a current, because the panel was written when every unit
+ * was a drawing. Five of the first six units of the roadmap are not drawings,
+ * so that copy would have been most of a beginner's first hour.
+ */
+const VOICE = {
+  build: {
+    heading: 'Circuit verified',
+    line: (title) => `${title}: it meets the specification and passes the electrical rules check.`,
+    next: 'Next challenge',
+    stay: 'Stay on this sheet',
+  },
+  analyse: {
+    heading: 'That is the number',
+    line: (title) => `${title}: your working holds up.`,
+    next: 'Next unit',
+    stay: 'Read it again',
+  },
+  inspect: {
+    heading: 'Fault found',
+    line: (title) => `${title}: you picked out the one thing that was wrong.`,
+    next: 'Next unit',
+    stay: 'Look again',
+  },
+};
+
+export default function SuccessOverlay({ result, challenge, kind = 'build', onNext, onStay }) {
   const canvasRef = useRef(null);
   const reduced =
     typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -48,6 +77,13 @@ export default function SuccessOverlay({ result, challenge, onNext, onStay }) {
 
   const stats = result?.stats || { components: 0, nets: 0 };
   const checksPassed = result?.correct?.length ?? 0;
+  const voice = VOICE[kind] || VOICE.build;
+  /**
+   * A non-drawing unit has no components and no nets to count, and it does have
+   * something better: the worked reason it is right. That reason is already in
+   * the graded result and was being thrown away in favour of three zeroes.
+   */
+  const workings = kind === 'build' ? [] : (result?.correct || []).filter((c) => c.detail);
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center overflow-hidden">
@@ -77,30 +113,41 @@ export default function SuccessOverlay({ result, challenge, onNext, onStay }) {
           className="animate-rise-in text-[32px] font-semibold leading-tight tracking-[-0.02em] text-ink-950"
           style={{ animationDelay: '0.15s' }}
         >
-          Circuit verified
+          {voice.heading}
         </h1>
         <p className="animate-rise-in mt-2 text-[15px] text-ink-600" style={{ animationDelay: '0.25s' }}>
-          {challenge?.title}: it meets the specification and passes the electrical rules check.
+          {voice.line(challenge?.title || 'This one')}
         </p>
 
-        <div
-          className="animate-rise-in mt-7 flex items-center justify-center gap-8"
-          style={{ animationDelay: '0.35s' }}
-        >
-          <Stat value={checksPassed} label="checks passed" />
-          <Stat value={stats.components} label="components" />
-          <Stat value={stats.nets} label="nets" />
-        </div>
+        {workings.length > 0 ? (
+          <div className="animate-rise-in mt-6 space-y-2 text-left" style={{ animationDelay: '0.35s' }}>
+            {workings.map((c, i) => (
+              <div key={i} className="rounded-control surface-solid px-4 py-3 shadow-e1">
+                <div className="text-[12px] font-medium text-good">{c.label}</div>
+                <p className="mt-1 text-[13px] leading-relaxed text-ink-700">{c.detail}</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div
+            className="animate-rise-in mt-7 flex items-center justify-center gap-8"
+            style={{ animationDelay: '0.35s' }}
+          >
+            <Stat value={checksPassed} label="checks passed" />
+            <Stat value={stats.components} label="components" />
+            <Stat value={stats.nets} label="nets" />
+          </div>
+        )}
 
         <div
           className="animate-rise-in mt-9 flex items-center justify-center gap-2"
           style={{ animationDelay: '0.45s' }}
         >
           <button className="btn-primary px-5 py-2.5 text-[14px]" onClick={onNext}>
-            Next challenge
+            {voice.next}
           </button>
           <button className="btn-quiet px-5 py-2.5 text-[14px]" onClick={onStay}>
-            Stay on this sheet
+            {voice.stay}
           </button>
         </div>
       </div>

@@ -20,8 +20,14 @@ const SI_PREFIXES = {
   G: 1e9,
 };
 
-// Unit suffixes we strip before parsing (Ω, ohm, F, H, V, A, Hz, s).
-const UNIT_SUFFIX = /(ohms?|Ω|ω|farads?|henr(y|ies)|volts?|amps?|amperes?|hz|hertz|seconds?|[FHVAsΩ])\s*$/i;
+// Unit suffixes we strip before parsing (Ω, ohm, F, H, V, A, W, C, Hz, s).
+//
+// Watts and coulombs are here for the Analyse units rather than for any
+// component value: asked how much heat a resistor makes, people write "150mW",
+// and a grader that reads that as unparseable is telling them their correct
+// answer is not a number.
+const UNIT_SUFFIX =
+  /(ohms?|Ω|ω|farads?|henr(y|ies)|volts?|amps?|amperes?|watts?|coulombs?|hz|hertz|seconds?|[FHVAWCsΩ])\s*$/i;
 
 /**
  * Parse an engineering value string into a base-unit number.
