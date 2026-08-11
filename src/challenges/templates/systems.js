@@ -10,24 +10,7 @@
 
 import { band } from '../rng.js';
 import { formatValue } from '../../schematic/units.js';
-import { sheet, powerAndDecouple } from '../solution.js';
-
-/**
- * A chip's supply stubs and the capacitor across them.
- *
- * The same arrangement as the 74xx helper, for parts whose supply pins are on
- * the symbol itself rather than on a separate power unit. `tees` are the two
- * points on the supply stubs the capacitor is wired back to.
- */
-function supplyAndCap(s, part, { rail, top, bottom, capX, tees }) {
-  s.wire(s.rail(rail, { x: part.pin('VCC').x, y: top }).top(), part.pin('VCC'));
-  s.wire(part.pin('GND'), s.rail('ground', { x: part.pin('GND').x, y: bottom }).top());
-
-  const cap = s.place('C', { x: capX, y: 400, rot: 90, value: '100n' });
-  s.wire(cap.top(), { x: part.pin('VCC').x, y: tees[0] });
-  s.wire(cap.bottom(), { x: part.pin('GND').x, y: tees[1] });
-  return cap;
-}
+import { sheet, powerAndDecouple, supplyAndCap } from '../solution.js';
 
 export const tier6 = [
   {

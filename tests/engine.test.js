@@ -390,6 +390,28 @@ test('a supply pin wired above the positive rail is caught', () => {
   assert.ok(swapped[0].message.includes('negative side'));
 });
 
+test('a TVS across a protected rail is not a diode short', () => {
+  const doc = createDocument();
+  const blocker = place(doc, 'D_SCHOTTKY', 'A', 400, 300);
+  const [anode, cathode] = componentPins(blocker);
+  const clamp = place(doc, 'D_TVS', 'A', anode.x, 400, { rot: 90 });
+  const [clampTop, clampBottom] = componentPins(clamp);
+
+  const supply = place(doc, 'PWR_12V', 'A', 600, 200);
+  const gnd = place(doc, 'PWR_GND', 'A', clampBottom.x, 500);
+  wire(doc, cathode.x, cathode.y, supply.x, cathode.y);
+  wire(doc, supply.x, cathode.y, supply.x, supply.y);
+  wire(doc, anode.x, anode.y, clampTop.x, clampTop.y);
+  wire(doc, clampBottom.x, clampBottom.y, gnd.x, gnd.y);
+
+  const issues = runERC(doc, extractNetlist(doc), {});
+  assert.deepEqual(
+    issues.filter((i) => i.code === 'no_current_limit'),
+    [],
+    'a clamp stands off the rail it protects: it only conducts during a surge'
+  );
+});
+
 test('an input reached through a resistor from a driven net is not floating', () => {
   const doc = createDocument();
   const u = place(doc, 'OPAMP', 'A', 400, 300);

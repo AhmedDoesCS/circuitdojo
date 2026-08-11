@@ -10,6 +10,7 @@
 
 import { band } from '../rng.js';
 import { formatValue } from '../../schematic/units.js';
+import { sheet, powerAndDecouple, supplyAndCap } from '../solution.js';
 
 export const systems2 = [
   {
@@ -38,6 +39,36 @@ export const systems2 = [
         },
         solutionNote:
           '+5V → LDO IN (with input cap), LDO OUT → output cap → ferrite → +3V3 symbol, 100nF after the ferrite. The ferrite and the two capacitors form a π filter.',
+        /**
+         * One horizontal line with three capacitors hanging off it in a row.
+         * Drawn like that the filter is visible as a filter: capacitor,
+         * series element, capacitor, which is the shape of every pi filter
+         * anyone will ever ask for.
+         */
+        solution() {
+          const s = sheet();
+          const ldo = s.place('LDO_3V3', { x: 400, y: 300 });
+
+          s.wire(s.rail('+5V', { x: 200, y: 180 }).top(), ldo.pin('IN'));
+          s.wire(ldo.pin('GND'), s.rail('ground', { x: 400, y: 470 }).top());
+
+          const bead = s.place('FERRITE', { x: 680, y: 300 });
+          s.wire(ldo.pin('OUT'), bead.left());
+          s.wire(bead.right(), s.rail('+3V3', { x: 830, y: 180 }).top(), { horizontalFirst: true });
+
+          const shunts = [
+            [270, formatValue(cin, 'F')],
+            [540, formatValue(cout, 'F')],
+            [780, '100n'],
+          ];
+          for (const [x, value] of shunts) {
+            const cap = s.place('C', { x, y: 380, rot: 90, value });
+            s.wire(cap.top(), { x, y: 300 });
+            s.wire(cap.bottom(), s.rail('ground', { x, y: 470 }).top());
+          }
+
+          return s.done();
+        },
         requirements: {
           requiredComponents: [
             { type: 'LDO_3V3', min: 1, max: 1, label: 'LDO placed' },
@@ -142,6 +173,46 @@ export const systems2 = [
         solutionNote: isPfet
           ? `Connector → fuse → TVS to GND → P-FET (source in, drain out, gate to GND) → ${rail.name} → 10µF. Loss = I²·R_DS(on), typically milliwatts.`
           : `Connector → fuse → TVS to GND → Schottky (anode in, cathode out) → ${rail.name} → 10µF. Loss = I × 0.3V, which at 1A is 0.3W of heat.`,
+        /**
+         * Strictly in the order the hazards arrive: connector, fuse, clamp,
+         * reverse protection, then the rail. The order is the design, and a
+         * drawing that puts the TVS before the fuse describes a different and
+         * worse circuit even though every part is present.
+         *
+         * The connector is mirrored so its pins face into the sheet, which is
+         * the only way a left-hand input reads left to right.
+         */
+        solution() {
+          const s = sheet();
+          const inlet = s.place('CONN_2', { x: 150, y: 300, mirror: true });
+          const link = s.place('FUSE', { x: 320, y: 290, value: `${fuse}A` });
+
+          s.wire(inlet.pin('1'), link.left());
+          s.wire(inlet.pin('2'), s.rail('ground', { x: 180, y: 430 }).top());
+
+          s.wire(link.right(), { x: 450, y: 290 });
+          const clamp = s.place('D_TVS', { x: 450, y: 380, rot: 90 });
+          s.wire({ x: 450, y: 290 }, clamp.top());
+          s.wire(clamp.bottom(), s.rail('ground', { x: 450, y: 470 }).top());
+
+          if (isPfet) {
+            const fet = s.place('Q_PMOS', { x: 620, y: 290 });
+            s.wire({ x: 450, y: 290 }, fet.pin('S'));
+            s.wire(fet.pin('G'), s.rail('ground', { x: 590, y: 470 }).top());
+            s.wire(fet.pin('D'), { x: 800, y: 330 });
+            s.wire({ x: 800, y: 330 }, s.rail(rail.name, { x: 800, y: 180 }).top());
+          } else {
+            const blocker = s.place('D_SCHOTTKY', { x: 620, y: 290 });
+            s.wire({ x: 450, y: 290 }, blocker.left());
+            s.wire(blocker.right(), s.rail(rail.name, { x: 800, y: 180 }).top(), { horizontalFirst: true });
+          }
+
+          const bulk = s.place('C_POL', { x: 950, y: 300, rot: 90, value: '10u' });
+          s.wire(s.rail(rail.name, { x: 950, y: 180 }).top(), bulk.top());
+          s.wire(bulk.bottom(), s.rail('ground', { x: 950, y: 470 }).top());
+
+          return s.done();
+        },
         requirements: {
           requiredComponents: [
             { type: 'CONN_2', min: 1, max: 1, label: 'Input connector placed' },
@@ -261,11 +332,51 @@ export const systems2 = [
             'Without hysteresis, noise on a signal creeping past the threshold makes the output flip back and forth many times. Positive feedback moves the threshold as soon as the output changes, so it takes a real change to come back.',
         },
         solutionNote: `Sensor divider → IN−, reference divider → IN+, ${formatValue(fb, 'Ω')} from OUT to IN+, ${formatValue(pull, 'Ω')} pull-up on OUT. The feedback resistor and the reference divider set how wide the hysteresis band is.`,
+        /**
+         * The sensor divider sits above and the reference below, each with a
+         * clear run to its own input, so the two never appear to touch. The
+         * hysteresis resistor is drawn as a loop from the output back under the
+         * part to IN+, which is what positive feedback looks like: the output
+         * reaching back to move the threshold it was just compared against.
+         */
+        solution() {
+          const s = sheet();
+          const cmp = s.place('LM393', { x: 700, y: 400, unitId: 'A' });
+
+          const sensor = s.place('LDR', { x: 340, y: 140, rot: 90 });
+          const fixed = s.place('R', { x: 340, y: 250, rot: 90, value: '10k' });
+          s.chain(s.rail(rail.name, { x: 340, y: 60 }), sensor, fixed, s.rail('ground', { x: 340, y: 360 }));
+          s.label({ x: 340, y: 195 }, 'SENSE');
+          s.wire({ x: 340, y: 195 }, { x: 600, y: 195 });
+          s.wire({ x: 600, y: 195 }, cmp.pin('IN-'));
+
+          const refTop = s.place('R', { x: 200, y: 540, rot: 90, value: '10k' });
+          const refBottom = s.place('R', { x: 200, y: 650, rot: 90, value: '10k' });
+          s.chain(s.rail(rail.name, { x: 200, y: 460 }), refTop, refBottom, s.rail('ground', { x: 200, y: 760 }));
+          s.label({ x: 200, y: 595 }, 'VREF');
+          s.wire({ x: 200, y: 595 }, { x: 560, y: 595 });
+          s.wire({ x: 560, y: 595 }, cmp.pin('IN+'));
+
+          s.wire(cmp.pin('OUT'), { x: 900, y: 400 });
+          s.label({ x: 900, y: 400 }, 'DOUT');
+          const pullUp = s.place('R', { x: 900, y: 280, rot: 90, value: formatValue(pull, 'Ω') });
+          s.wire(s.rail(rail.name, { x: 900, y: 180 }).top(), pullUp.top());
+          s.wire(pullUp.bottom(), { x: 900, y: 400 });
+
+          const hysteresis = s.place('R', { x: 800, y: 500, value: formatValue(fb, 'Ω') });
+          s.wire({ x: 860, y: 400 }, hysteresis.right());
+          s.wire(hysteresis.left(), cmp.pin('IN+'));
+
+          powerAndDecouple(s, 'LM393', 1150);
+
+          return s.done();
+        },
         requirements: {
           requiredComponents: [
             { type: 'LM393', min: 1, max: 1, label: 'LM393 placed' },
             { type: 'LDR', min: 1, max: 1, label: 'Photoresistor placed' },
-            { type: 'resistor', min: 5, max: 5, label: 'Five resistors placed' },
+            // 'R' rather than the 'resistor' tag, which the LDR also carries.
+            { type: 'R', min: 5, max: 5, label: 'Five resistors placed' },
             { type: 'capacitor', min: 1, label: 'Decoupling capacitor placed' },
           ],
           checks: [
@@ -375,6 +486,38 @@ export const systems2 = [
           ],
         },
         solutionNote: `PB1 → R (${formatValue(ideal, 'Ω')}) → LED → GND. ${formatValue(pull, 'Ω')} from ${rail.name} to PB3, button from PB3 to GND. 10k from ${rail.name} to /RESET, 100nF across pins 8 and 4.`,
+        /**
+         * Inputs on the left, output on the right, which is the convention and
+         * is also what keeps the /RESET pull-up and the PB3 network from having
+         * to reach across each other. The button network is one column: pull-up
+         * above the node, switch below it, exactly as the pull-resistor block
+         * taught it.
+         */
+        solution() {
+          const s = sheet();
+          const mcu = s.place('ATTINY85', { x: 400, y: 400 });
+          supplyAndCap(s, mcu, { rail: rail.name, top: 200, bottom: 600, capX: 1000, tees: [250, 540] });
+
+          const reset = s.place('R', { x: 280, y: 180, rot: 90, value: '10k' });
+          s.wire(s.rail(rail.name, { x: 280, y: 60 }).top(), reset.top());
+          s.wire(reset.bottom(), mcu.pin('/RST'));
+
+          const up = s.place('R', { x: 180, y: 180, rot: 90, value: formatValue(pull, 'Ω') });
+          const button = s.place('SW_PUSH', { x: 180, y: 470, rot: 90 });
+          s.wire(s.rail(rail.name, { x: 180, y: 60 }).top(), up.top());
+          s.wire(up.bottom(), { x: 180, y: 380 });
+          s.wire({ x: 180, y: 380 }, mcu.pin('PB3'));
+          s.wire({ x: 180, y: 380 }, button.top());
+          s.wire(button.bottom(), s.rail('ground', { x: 180, y: 600 }).top());
+
+          const limit = s.place('R', { x: 620, y: 380, value: formatValue(ideal, 'Ω') });
+          const lamp = s.place('D_LED', { x: 820, y: 380 });
+          s.wire(mcu.pin('PB1'), limit.left());
+          s.chainX(limit, lamp);
+          s.wire(lamp.right(), s.rail('ground', { x: lamp.right().x, y: 520 }).top());
+
+          return s.done();
+        },
         requirements: {
           ercOptions: { allowUnconnected: ['ATTINY85:PB0*', 'ATTINY85:PB2*', 'ATTINY85:PB4'] },
           requiredComponents: [
@@ -497,6 +640,54 @@ export const systems2 = [
           ],
         },
         solutionNote: `+12V and bulk (${formatValue(bulk, 'F')}) + 100nF at the H-bridge VM pin, motor across OUT1/OUT2, PB0/PB1/PB2 → IN1/IN2/nSLEEP, pull-down on nSLEEP, MCU decoupled with /RESET pulled up, single common ground.`,
+        /**
+         * Logic on the left, power on the right, one signal per height, and
+         * nothing crossing. The three control wires stagger their turns so they
+         * stay in the order the pins are already in, which is the trick that
+         * makes a fan of parallel signals readable without a single junction.
+         */
+        solution() {
+          const s = sheet();
+          const mcu = s.place('ATTINY85', { x: 400, y: 400 });
+          const bridge = s.place('HBRIDGE', { x: 900, y: 400 });
+
+          supplyAndCap(s, mcu, { rail: '+5V', top: 200, bottom: 600, capX: 100, tees: [220, 540] });
+          const reset = s.place('R', { x: 220, y: 360, value: '10k' });
+          s.wire(s.rail('+5V', { x: 190, y: 280 }).top(), reset.left());
+          s.wire(reset.right(), mcu.pin('/RST'));
+
+          s.wire(s.rail('+12V', { x: 900, y: 200 }).top(), bridge.pin('VM'));
+          s.wire(bridge.pin('GND'), s.rail('ground', { x: 900, y: 620 }).top());
+
+          for (const [x, from, to] of [
+            [560, 'PB0/SDA', 'IN1'],
+            [520, 'PB1', 'IN2'],
+            [490, 'PB2/SCL', 'nSLEEP'],
+          ]) {
+            const corner = { x, y: mcu.pin(from).y };
+            s.wire(mcu.pin(from), corner);
+            s.wire(corner, bridge.pin(to));
+          }
+
+          // The bridge must stay asleep through the window between power-on and
+          // the firmware configuring PB2, so the pull-down is not optional.
+          const hold = s.place('R', { x: 700, y: 520, rot: 90, value: '47k' });
+          s.wire({ x: 700, y: 420 }, hold.top());
+          s.wire(hold.bottom(), s.rail('ground', { x: 700, y: 640 }).top());
+
+          const motor = s.place('MOTOR_DC', { x: 1150, y: 400 });
+          s.wire(bridge.pin('OUT1'), motor.pin('+'));
+          s.wire(bridge.pin('OUT2'), motor.pin('-'));
+
+          const reservoir = s.place('C_POL', { x: 1350, y: 400, rot: 90, value: formatValue(bulk, 'F') });
+          s.wire(reservoir.top(), { x: 900, y: 250 });
+          s.wire(reservoir.bottom(), { x: 900, y: 560 });
+          const local = s.place('C', { x: 1500, y: 400, rot: 90, value: '100n' });
+          s.wire(local.top(), { x: 900, y: 220 });
+          s.wire(local.bottom(), { x: 900, y: 600 });
+
+          return s.done();
+        },
         requirements: {
           ercOptions: { allowUnconnected: ['ATTINY85:PB3', 'ATTINY85:PB4'] },
           requiredComponents: [
@@ -628,6 +819,48 @@ export const systems2 = [
             'V_out = V_FB · (1 + R_top/R_bottom). The feedback divider is the only thing that tells the converter what voltage to make.',
         },
         solutionNote: `R_top = R_bot · (V_out/V_FB − 1) = ${formatValue(rbot, 'Ω')} · (${vout}/${vfb} − 1) ≈ ${formatValue(rtop, 'Ω')}. The input capacitor carries the highest di/dt on the board: in a real layout it goes right against the IC.`,
+        /**
+         * The power path runs straight across the top and the feedback divider
+         * hangs off the output, returning to FB underneath. Reading it, the
+         * loop is obvious: the converter makes a voltage, the divider measures
+         * it, and the answer comes back to the pin that decides what to do next.
+         */
+        solution() {
+          const s = sheet();
+          const buck = s.place('BUCK_IC', { x: 500, y: 400 });
+
+          s.wire(s.rail('+12V', { x: 300, y: 200 }).top(), buck.pin('VIN'));
+          s.wire(buck.pin('GND'), s.rail('ground', { x: 500, y: 620 }).top());
+
+          // EN is tee'd onto the input rather than given its own rail symbol,
+          // so the sheet says "enabled whenever there is input" in one wire.
+          s.wire(buck.pin('EN'), { x: 360, y: 420 });
+          s.wire({ x: 360, y: 420 }, { x: 360, y: 380 });
+
+          const inputCap = s.place('C', { x: 200, y: 400, rot: 90, value: '10u' });
+          s.wire(inputCap.top(), { x: 300, y: 340 });
+          s.wire(inputCap.bottom(), s.rail('ground', { x: 200, y: 560 }).top());
+
+          const coil = s.place('L', { x: 700, y: 380, value: formatValue(l, 'H') });
+          s.wire(buck.pin('SW'), coil.left());
+          s.wire(coil.right(), { x: 950, y: 380 });
+          s.label(coil.right(), 'VOUT');
+
+          const outputCap = s.place('C', { x: 950, y: 460, rot: 90, value: '22u' });
+          s.wire(outputCap.top(), { x: 950, y: 380 });
+          s.wire(outputCap.bottom(), s.rail('ground', { x: 950, y: 620 }).top());
+
+          const upper = s.place('R', { x: 780, y: 460, rot: 90, value: formatValue(rtop, 'Ω') });
+          const lower = s.place('R', { x: 780, y: 600, rot: 90, value: formatValue(rbot, 'Ω') });
+          s.wire(upper.top(), { x: 780, y: 380 });
+          s.wire(upper.bottom(), lower.top());
+          s.wire(lower.bottom(), s.rail('ground', { x: 780, y: 740 }).top());
+
+          s.wire(buck.pin('FB'), { x: 560, y: 530 });
+          s.wire({ x: 560, y: 530 }, { x: 780, y: 530 });
+
+          return s.done();
+        },
         requirements: {
           requiredComponents: [
             { type: 'BUCK_IC', min: 1, max: 1, label: 'Buck IC placed' },

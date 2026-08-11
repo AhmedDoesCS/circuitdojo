@@ -8,13 +8,22 @@
  *   zero     : a closed switch / jumper: a wire for DC purposes
  *   resistive: resistor, pot, thermistor, LDR, inductor, unknown external load
  *   diode    : diode / LED: conducts, drops ~0.7-2V, does NOT limit current
+ *   clamp    : TVS: off at the working voltage, so no DC path at all
  *   blocking : capacitor: no DC path
  *   active   : transistors, IC internals: not treated as a DC path
+ *
+ * A clamp is its own kind rather than a diode because of what the rules would
+ * otherwise conclude. A TVS is chosen to stand off the rail it protects and
+ * only conducts during a surge; counting it as a conducting diode makes every
+ * correctly protected supply input look like a diode short to ground, which is
+ * the opposite of what the part is for. No traversal asks for 'clamp', so a
+ * clamp is simply never a path, which is the truth at the working voltage.
  */
 
 const KIND_BY_TAG = [
   ['capacitor', 'blocking'],
   ['zero_impedance', 'zero'],
+  ['tvs', 'clamp'],
   ['led', 'diode'],
   ['zener', 'diode'],
   ['diode', 'diode'],

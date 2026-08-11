@@ -44,6 +44,22 @@ export function powerAndDecouple(s, part, x) {
 }
 
 /**
+ * The same arrangement for a part whose supply pins are on the symbol itself
+ * rather than on a separate power unit. `tees` are the two points on the supply
+ * stubs the capacitor is wired back to, which is what keeps it reading as
+ * "across this chip" rather than "somewhere on the rail".
+ */
+export function supplyAndCap(s, part, { rail, top, bottom, capX, tees, value = '100n' }) {
+  s.wire(s.rail(rail, { x: part.pin('VCC').x, y: top }).top(), part.pin('VCC'));
+  s.wire(part.pin('GND'), s.rail('ground', { x: part.pin('GND').x, y: bottom }).top());
+
+  const cap = s.place('C', { x: capX, y: 400, rot: 90, value });
+  s.wire(cap.top(), { x: part.pin('VCC').x, y: tees[0] });
+  s.wire(cap.bottom(), { x: part.pin('GND').x, y: tees[1] });
+  return cap;
+}
+
+/**
  * Power symbol for a rail name as the briefs write it ('+5V', 'GND', ...).
  * Reading the registry rather than hard-coding a table means a new rail symbol
  * is usable by every solution the moment it exists.
