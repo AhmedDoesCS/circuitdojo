@@ -348,6 +348,73 @@ test('a net the brief declares as driven satisfies an input behind a resistor', 
 });
 
 // ---------------------------------------------------------------------------
+// Dual supplies, and inputs held by feedback rather than by a rail
+// ---------------------------------------------------------------------------
+
+/** An op-amp with its two supply pins wired to the named rails. */
+function supplyOpamp(negativeRail) {
+  const doc = createDocument();
+  const u = place(doc, 'OPAMP', 'A', 400, 300);
+  const vPlus = componentPins(u).find((p) => p.name === 'V+');
+  const vMinus = componentPins(u).find((p) => p.name === 'V-');
+
+  const top = place(doc, 'PWR_12V', 'A', vPlus.x, 200);
+  const bottom = place(doc, negativeRail, 'A', vMinus.x, 400);
+  wire(doc, vPlus.x, vPlus.y, top.x, top.y);
+  wire(doc, vMinus.x, vMinus.y, bottom.x, bottom.y);
+
+  return runERC(doc, extractNetlist(doc), {}).filter((i) => i.code === 'power_pin_swapped');
+}
+
+test('an op-amp V- on a negative rail is correct, not a swapped supply', () => {
+  assert.deepEqual(
+    supplyOpamp('PWR_N12V'),
+    [],
+    '-12V is a supply symbol but it is below ground, which is exactly where V- belongs'
+  );
+});
+
+test('an op-amp V- on ground is still correct, because single supply is a real arrangement', () => {
+  assert.deepEqual(supplyOpamp('PWR_GND'), []);
+});
+
+test('a supply pin wired above the positive rail is caught', () => {
+  const doc = createDocument();
+  const u = place(doc, 'OPAMP', 'A', 400, 300);
+  const vMinus = componentPins(u).find((p) => p.name === 'V-');
+  const rail = place(doc, 'PWR_12V', 'A', vMinus.x, 400);
+  wire(doc, vMinus.x, vMinus.y, rail.x, rail.y);
+
+  const swapped = runERC(doc, extractNetlist(doc), {}).filter((i) => i.code === 'power_pin_swapped');
+  assert.equal(swapped.length, 1, 'V- on +12V is the mistake the rule exists to find');
+  assert.ok(swapped[0].message.includes('negative side'));
+});
+
+test('an input reached through a resistor from a driven net is not floating', () => {
+  const doc = createDocument();
+  const u = place(doc, 'OPAMP', 'A', 400, 300);
+  const inMinus = componentPins(u).find((p) => p.name === 'IN-');
+  const out = componentPins(u).find((p) => p.name === 'OUT');
+
+  // The feedback resistor, and nothing else: no route from IN- to any rail.
+  const rf = place(doc, 'R', 'A', 500, 150, { value: '10k' });
+  const [rfLeft, rfRight] = componentPins(rf);
+  wire(doc, inMinus.x, inMinus.y, 450, inMinus.y);
+  wire(doc, 450, inMinus.y, 450, rfLeft.y);
+  wire(doc, 450, rfLeft.y, rfLeft.x, rfLeft.y);
+  wire(doc, rfRight.x, rfRight.y, 620, rfRight.y);
+  wire(doc, 620, rfRight.y, 620, out.y);
+  wire(doc, 620, out.y, out.x, out.y);
+
+  const floating = runERC(doc, extractNetlist(doc), {}).filter((i) => i.code === 'floating_input');
+  assert.deepEqual(
+    floating,
+    [],
+    'feedback defines the inverting input more firmly than any pull resistor would'
+  );
+});
+
+// ---------------------------------------------------------------------------
 // A label that names nothing
 // ---------------------------------------------------------------------------
 

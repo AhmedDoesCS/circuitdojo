@@ -9,6 +9,22 @@
 
 import { band } from '../rng.js';
 import { formatValue } from '../../schematic/units.js';
+import { sheet } from '../solution.js';
+
+/**
+ * The feedback wire, drawn over the top of the part.
+ *
+ * An op-amp's inverting input and its output are on opposite sides of the
+ * symbol, so the shortest route between them runs straight through the
+ * triangle. Every published schematic instead takes the wire up and over, and
+ * so does this: a reference drawing that overlaps its own symbol teaches a
+ * habit that will be corrected in the learner's first design review.
+ */
+function feedbackOverTheTop(s, opamp, { out, height, back }) {
+  s.wire(opamp.pin('OUT'), { x: out, y: opamp.pin('OUT').y });
+  s.wire({ x: out, y: opamp.pin('OUT').y }, { x: back, y: height });
+  s.wire({ x: back, y: height }, opamp.pin('IN-'));
+}
 
 /** ±12V dual supply wiring checks for the generic op-amp symbol. */
 function dualSupplyChecks() {
@@ -56,6 +72,22 @@ export const tier4 = [
             'A buffer changes no voltage at all. Its job is impedance: a high-impedance source (a divider, a sensor) can drive a real load through it without sagging.',
         },
         solutionNote: 'Source → IN+, OUT → IN− (a plain wire), OUT labelled VOUT, V+ → +12V, V− → −12V.',
+        solution() {
+          const s = sheet();
+          const opamp = s.place('OPAMP', { x: 500, y: 300 });
+
+          s.wire(s.rail('+12V', { x: 500, y: 200 }).top(), opamp.pin('V+'));
+          s.wire(opamp.pin('V-'), s.rail('-12V', { x: 500, y: 400 }).top());
+
+          const source = s.place('V_AC', { x: 250, y: 320 });
+          s.wire(source.pin('1'), opamp.pin('IN+'));
+          s.wire(source.pin('2'), s.rail('ground', { x: 250, y: 480 }).top());
+
+          feedbackOverTheTop(s, opamp, { out: 620, height: 150, back: 400 });
+          s.label(opamp.pin('OUT'), 'VOUT');
+
+          return s.done();
+        },
         requirements: {
           requiredComponents: [
             { type: 'OPAMP', min: 1, max: 1, label: 'Op-amp placed' },
@@ -124,6 +156,38 @@ export const tier4 = [
           notes: 'Gain = 1 + Rf/Rg. Note the "1 +": a non-inverting stage can never have a gain below 1.',
         },
         solutionNote: `Rf = (G − 1)·Rg = (${gain} − 1)·${formatValue(rg, 'Ω')} = ${formatValue(rf, 'Ω')}. Source → IN+, Rg from IN− to GND, Rf from IN− to OUT.`,
+        /**
+         * The feedback divider is drawn as a divider: Rf above, Rg below, both
+         * hanging off one vertical node that runs down from the inverting
+         * input. Seen that way the "1 +" in the gain formula stops being
+         * arbitrary, because the output is being divided down and compared
+         * against the input.
+         */
+        solution() {
+          const s = sheet();
+          const opamp = s.place('OPAMP', { x: 600, y: 300 });
+
+          s.wire(s.rail('+12V', { x: 600, y: 200 }).top(), opamp.pin('V+'));
+          s.wire(opamp.pin('V-'), s.rail('-12V', { x: 600, y: 400 }).top());
+
+          const source = s.place('V_AC', { x: 300, y: 320 });
+          s.wire(source.pin('1'), opamp.pin('IN+'));
+          s.wire(source.pin('2'), s.rail('ground', { x: 300, y: 480 }).top());
+
+          const summing = { x: 450, y: 280 };
+          s.wire(opamp.pin('IN-'), summing);
+
+          const ground = s.place('R', { x: 450, y: 360, rot: 90, value: formatValue(rg, 'Ω') });
+          s.wire(summing, ground.top());
+          s.wire(ground.bottom(), s.rail('ground', { x: 450, y: 480 }).top());
+
+          const feedback = s.place('R', { x: 500, y: 150, value: formatValue(rf, 'Ω') });
+          s.wire(summing, feedback.left());
+          s.wire(feedback.right(), opamp.pin('OUT'), { horizontalFirst: true });
+          s.label(opamp.pin('OUT'), 'VOUT');
+
+          return s.done();
+        },
         requirements: {
           requiredComponents: [
             { type: 'OPAMP', min: 1, max: 1, label: 'Op-amp placed' },
@@ -212,6 +276,34 @@ export const tier4 = [
             'Because IN+ is at 0V and feedback forces IN− to match it, the inverting input sits at a "virtual ground": the input resistor sees the full input voltage across it.',
         },
         solutionNote: `Rf = G·Rin = ${gain}·${formatValue(rin, 'Ω')} = ${formatValue(rf, 'Ω')}. Source → Rin → IN−, Rf from IN− to OUT, IN+ → GND.`,
+        /**
+         * Rin and Rf are drawn end to end along one line, with the inverting
+         * input tapped off the middle of it. That is the shape worth
+         * remembering: the input current has nowhere to go except through the
+         * feedback resistor, because the tap is held at 0 V and draws none.
+         */
+        solution() {
+          const s = sheet();
+          const opamp = s.place('OPAMP', { x: 600, y: 300 });
+
+          s.wire(s.rail('+12V', { x: 600, y: 200 }).top(), opamp.pin('V+'));
+          s.wire(opamp.pin('V-'), s.rail('-12V', { x: 600, y: 400 }).top());
+          s.wire(opamp.pin('IN+'), s.rail('ground', { x: 570, y: 440 }).top());
+
+          const source = s.place('V_AC', { x: 250, y: 340 });
+          s.wire(source.pin('2'), s.rail('ground', { x: 250, y: 480 }).top());
+
+          const input = s.place('R', { x: 400, y: 280, value: formatValue(rin, 'Ω') });
+          s.wire(source.pin('1'), input.left());
+          s.wire(input.right(), opamp.pin('IN-'));
+
+          const feedback = s.place('R', { x: 500, y: 150, value: formatValue(rf, 'Ω') });
+          s.wire({ x: 480, y: 280 }, feedback.left());
+          s.wire(feedback.right(), opamp.pin('OUT'), { horizontalFirst: true });
+          s.label(opamp.pin('OUT'), 'VOUT');
+
+          return s.done();
+        },
         requirements: {
           requiredComponents: [
             { type: 'OPAMP', min: 1, max: 1, label: 'Op-amp placed' },
@@ -306,6 +398,39 @@ export const tier5 = [
             'Pairing the thermistor with a fixed resistor of the same nominal value puts the midpoint near half-rail at 25°C, which is where the divider is most sensitive.',
         },
         solutionNote: `${rail.name} → thermistor → TSENSE → ${formatValue(nominal, 'Ω')} → GND, TSENSE → PB4. (Swapping the two changes the sign of the response, not its validity.)`,
+        /**
+         * The signal leaves the divider sideways and only then turns down to
+         * meet PB4. Approaching the MCU vertically along its left edge would
+         * run the wire straight over /RESET and PB3, and a wire crossing a pin
+         * is a connection: the sheet would read as three shorted inputs.
+         */
+        solution() {
+          const s = sheet();
+          const mcu = s.place('ATTINY85', { x: 700, y: 300 });
+
+          s.wire(s.rail(rail.name, { x: 700, y: 120 }).top(), mcu.pin('VCC'));
+          s.wire(mcu.pin('GND'), s.rail('ground', { x: 700, y: 490 }).top());
+
+          const cap = s.place('C', { x: 900, y: 300, rot: 90, value: '100n' });
+          s.wire(cap.top(), { x: 700, y: 180 });
+          s.wire(cap.bottom(), { x: 700, y: 430 });
+
+          const x = 250;
+          const sensor = s.place('NTC', { x, y: 140, rot: 90, value: formatValue(nominal, 'Ω') });
+          const fixed = s.place('R', { x, y: 250, rot: 90, value: formatValue(nominal, 'Ω') });
+          s.chain(s.rail(rail.name, { x, y: 60 }), sensor, fixed, s.rail('ground', { x, y: 360 }));
+
+          const midpoint = { x, y: 195 };
+          s.label(midpoint, 'TSENSE');
+          s.wire(midpoint, { x: 400, y: 195 });
+          s.wire({ x: 400, y: 195 }, mcu.pin('PB4'));
+
+          const pullUp = s.place('R', { x: 520, y: 100, value: '10k' });
+          s.wire(pullUp.left(), s.rail(rail.name, { x: 490, y: 40 }).top());
+          s.wire(pullUp.right(), mcu.pin('/RST'));
+
+          return s.done();
+        },
         requirements: {
           ercOptions: { allowUnconnected: ['ATTINY85:PB0*', 'ATTINY85:PB1', 'ATTINY85:PB2*', 'ATTINY85:PB3'] },
           requiredComponents: [
@@ -336,12 +461,29 @@ export const tier5 = [
               label: 'Divider spans the rail',
               fail: 'The thermistor and the fixed resistor must form a chain from the rail to ground. A sensor with one leg unconnected produces no voltage at all.',
             },
+            /**
+             * Stated as two halves rather than as a series pair. The midpoint
+             * is deliberately tapped by PB4, so the two parts are not a strict
+             * series pair and never can be here; asking for one would be a
+             * requirement no correct answer could satisfy. Written this way it
+             * also stays neutral about which part goes on top, which the brief
+             * leaves open.
+             */
             {
-              kind: 'series',
-              a: { type: 'NTC' },
-              b: { type: 'resistor' },
-              label: 'Thermistor and fixed resistor meet at one node',
-              fail: 'They have to share exactly one node: that node is the measurement point.',
+              kind: 'path',
+              from: { rail: rail.name },
+              to: { net: 'TSENSE' },
+              through: ['resistive'],
+              label: 'Something resistive between the rail and TSENSE',
+              fail: 'TSENSE has to sit below the rail through one of the two parts. Wired straight to the rail it cannot move at all.',
+            },
+            {
+              kind: 'path',
+              from: { net: 'TSENSE' },
+              to: { rail: 'ground' },
+              through: ['resistive'],
+              label: 'Something resistive between TSENSE and ground',
+              fail: 'The other half of the divider is missing: TSENSE needs a resistive path down to ground as well, or no current flows and the node has no defined voltage.',
             },
             {
               kind: 'common_node',
@@ -408,6 +550,44 @@ export const tier5 = [
             'The TMP36 gives 0.5V at 0°C plus 10mV/°C. Driving a long trace or a switched ADC input directly from it makes the reading sag; the buffer isolates it.',
         },
         solutionNote: 'TMP36 OUT → op-amp IN+, op-amp OUT → IN− and → PB4 (labelled TEMP). Supplies and 100nF caps on both parts.',
+        /**
+         * Three parts in a row, signal flowing left to right, each with its own
+         * decoupling capacitor beside it. Drawn this way the buffer is visibly
+         * a stage between the sensor and the MCU rather than an extra part
+         * bolted on, which is the reason it is there.
+         */
+        solution() {
+          const s = sheet();
+          const sensor = s.place('TMP36', { x: 200, y: 300 });
+          const opamp = s.place('OPAMP', { x: 500, y: 300 });
+          const mcu = s.place('ATTINY85', { x: 900, y: 300 });
+
+          s.wire(s.rail('+5V', { x: 200, y: 140 }).top(), sensor.pin('VCC'));
+          s.wire(sensor.pin('GND'), s.rail('ground', { x: 200, y: 470 }).top());
+          const sensorCap = s.place('C', { x: 60, y: 300, rot: 90, value: '100n' });
+          s.wire(sensorCap.top(), { x: 200, y: 190 });
+          s.wire(sensorCap.bottom(), { x: 200, y: 410 });
+
+          s.wire(s.rail('+5V', { x: 500, y: 200 }).top(), opamp.pin('V+'));
+          s.wire(opamp.pin('V-'), s.rail('ground', { x: 500, y: 400 }).top());
+          s.wire(sensor.pin('OUT'), opamp.pin('IN+'));
+          feedbackOverTheTop(s, opamp, { out: 620, height: 150, back: 400 });
+
+          s.wire(s.rail('+5V', { x: 900, y: 120 }).top(), mcu.pin('VCC'));
+          s.wire(mcu.pin('GND'), s.rail('ground', { x: 900, y: 490 }).top());
+          const mcuCap = s.place('C', { x: 1080, y: 300, rot: 90, value: '100n' });
+          s.wire(mcuCap.top(), { x: 900, y: 180 });
+          s.wire(mcuCap.bottom(), { x: 900, y: 430 });
+
+          s.wire({ x: 620, y: 300 }, mcu.pin('PB4'));
+          s.label({ x: 720, y: 300 }, 'TEMP');
+
+          const pullUp = s.place('R', { x: 720, y: 200, value: '10k' });
+          s.wire(pullUp.left(), s.rail('+5V', { x: 690, y: 100 }).top());
+          s.wire(pullUp.right(), mcu.pin('/RST'));
+
+          return s.done();
+        },
         requirements: {
           ercOptions: { allowUnconnected: ['ATTINY85:PB0*', 'ATTINY85:PB1', 'ATTINY85:PB2*', 'ATTINY85:PB3'] },
           requiredComponents: [

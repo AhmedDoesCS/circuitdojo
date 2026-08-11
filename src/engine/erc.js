@@ -163,18 +163,35 @@ export function runERC(doc, netlist, ercOptions = {}) {
       });
       continue;
     }
-    // Supply pin landed on ground (or vice versa), a classic wiring slip.
-    const expectsGround = /^(gnd|vss|v-|vee)/i.test(pin.name);
-    const expectsSupply = /^(vcc|vdd|v\+|vin|in)/i.test(pin.name);
-    if (expectsGround && net.powerKind === 'supply') {
+    /**
+     * Supply pin landed on ground (or vice versa), a classic wiring slip.
+     *
+     * The test is on voltages, not on whether the symbol calls itself a supply
+     * or a ground. An op-amp's V− is the low side of its supply, and on a dual
+     * rail it belongs on −12V, which is a supply symbol: comparing the labels
+     * would flag every correctly drawn dual-supply amplifier. Comparing the
+     * voltages gets both cases right, because −12V really is below ground and
+     * ground really is below +5V.
+     */
+    const isGroundName = /^(gnd|vss)/i.test(pin.name);
+    const expectsLow = isGroundName || /^(v-|vee)/i.test(pin.name);
+    const expectsHigh = /^(vcc|vdd|v\+|vin|in)/i.test(pin.name);
+    const volts = net.powerKind === 'ground' ? 0 : net.voltage;
+
+    if (volts === null || volts === undefined) {
+      // A rail with no stated voltage (a bare VCC symbol) says nothing about
+      // which side it is, so there is nothing to check.
+    } else if (expectsLow && volts > 0) {
       add({
         code: 'power_pin_swapped',
         severity: 'error',
-        message: `${pin.ref} pin ${pin.num} (${pin.name}) is its ground pin, but you have wired it to ${net.name}. Reversing supply and ground on an IC usually destroys it.`,
+        message: isGroundName
+          ? `${pin.ref} pin ${pin.num} (${pin.name}) is its ground pin, but you have wired it to ${net.name}. Reversing supply and ground on an IC usually destroys it.`
+          : `${pin.ref} pin ${pin.num} (${pin.name}) is the negative side of the part's supply, but you have wired it to ${net.name}. It belongs on ground or on a negative rail, never above the positive supply.`,
         refs: [pin.ref],
         points: [{ x: pin.x, y: pin.y }],
       });
-    } else if (expectsSupply && net.powerKind === 'ground') {
+    } else if (expectsHigh && volts <= 0) {
       add({
         code: 'power_pin_swapped',
         severity: 'error',
@@ -247,7 +264,24 @@ export function runERC(doc, netlist, ercOptions = {}) {
   // A declared net is a source, exactly as a rail is: the base behind a series
   // resistor is driven by whatever drives DRIVE, so the search has to start
   // there too rather than only testing the labelled net itself.
-  const railReachable = reachableNets(adjacency, [...railNetIds, ...drivenNetIds], ['zero', 'resistive']);
+  /**
+   * A net an output is driving is a source too.
+   *
+   * The net a pin sits on is already excused when a driver is on that same
+   * net; the search has to carry that through a resistor for the same reason it
+   * carries a rail through one. An inverting amplifier is the case that proves
+   * it: its inverting input reaches no rail at all, only the op-amp's own
+   * output through the feedback resistor, and it is nonetheless the most
+   * firmly defined node on the sheet.
+   */
+  const drivenPinNetIds = netlist.nets
+    .filter((n) => n.pins.some((p) => DRIVERS.has(p.type)))
+    .map((n) => n.id);
+  const railReachable = reachableNets(
+    adjacency,
+    [...railNetIds, ...drivenNetIds, ...drivenPinNetIds],
+    ['zero', 'resistive']
+  );
   for (const pin of netlist.pins) {
     if (pin.type !== 'input') continue;
     if (hasNoConnect(doc, pin) || pinAllowedOpen(pin)) continue;

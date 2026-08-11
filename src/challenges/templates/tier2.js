@@ -3,7 +3,13 @@
  */
 
 import { band } from '../rng.js';
-import { formatValue } from '../../schematic/units.js';
+import { formatValue, nearestE24 } from '../../schematic/units.js';
+import { sheet } from '../solution.js';
+
+/** Vertical ladder geometry, the same one tier 1 uses, so the shapes rhyme. */
+const TOP = 60;
+const STEP = 120;
+const row = (n) => TOP + n * STEP;
 
 export const tier2 = [
   {
@@ -32,6 +38,30 @@ export const tier2 = [
         },
         solutionNote:
           '+12V → IN, GND → GND, OUT → +5V symbol. One capacitor from IN to GND, one from OUT to GND. Dissipation is (12 − 5) × I_load, which is why 7805s need heatsinks.',
+        /**
+         * Drawn the way a datasheet draws it: power flows left to right along
+         * one horizontal line, and both capacitors hang off that line straight
+         * down to ground. Reading it, the two capacitors are visibly on
+         * opposite sides of the regulator, which is the point being taught.
+         */
+        solution() {
+          const s = sheet();
+          const reg = s.place('LM7805', { x: 400, y: 300 });
+
+          s.wire(s.rail('+12V', { x: 200, y: 180 }).top(), reg.pin('IN'));
+          s.wire(reg.pin('OUT'), s.rail('+5V', { x: 640, y: 180 }).top(), { horizontalFirst: true });
+          s.wire(reg.pin('GND'), s.rail('ground', { x: 400, y: 470 }).top());
+
+          const input = s.place('C', { x: 270, y: 380, rot: 90, value: formatValue(cin, 'F') });
+          s.wire(input.top(), { x: 270, y: 300 });
+          s.wire(input.bottom(), s.rail('ground', { x: 270, y: 470 }).top());
+
+          const output = s.place('C', { x: 530, y: 380, rot: 90, value: formatValue(cout, 'F') });
+          s.wire(output.top(), { x: 530, y: 300 });
+          s.wire(output.bottom(), s.rail('ground', { x: 530, y: 470 }).top());
+
+          return s.done();
+        },
         requirements: {
           requiredComponents: [
             { type: 'LM7805', min: 1, max: 1, label: 'LM7805 placed' },
@@ -114,6 +144,20 @@ export const tier2 = [
           notes: 'The Zener must be reverse-biased: cathode toward the positive side.',
         },
         solutionNote: `R = (Vin − Vz) / (I_load + I_zener) = (${vin} − ${vz}) / ${(iLoad + iZener).toFixed(3)} ≈ ${formatValue(ideal, 'Ω')}.`,
+        /**
+         * The Zener is placed at 270° rather than 90°, which is what puts the
+         * cathode at the top. That single rotation is the whole difference
+         * between a working shunt reference and a diode dropping 0.7 V.
+         */
+        solution() {
+          const s = sheet();
+          const x = 300;
+          const series = s.place('R', { x, y: row(1), rot: 90, value: formatValue(nearestE24(ideal), 'Ω') });
+          const zener = s.place('D_ZENER', { x, y: row(2), rot: 270 });
+          s.chain(s.rail('+12V', { x, y: row(0) }), series, zener, s.rail('ground', { x, y: row(3) }));
+          s.label(series.bottom(), 'VREF');
+          return s.done();
+        },
         requirements: {
           requiredComponents: [
             { type: 'zener', min: 1, max: 1, label: 'Zener diode placed' },
@@ -195,6 +239,33 @@ export const tier2 = [
           notes: 'Two capacitors with different jobs: the small one is fast and local, the big one is slow and shared.',
         },
         solutionNote: `${rail.name} → pin 8, GND → pin 4, 100nF between them, ${formatValue(bulk, 'F')} across the rail, ${formatValue(pull, 'Ω')} from /RST to ${rail.name}.`,
+        /**
+         * The two capacitors are drawn at different distances from the chip on
+         * purpose. The 100nF sits right against the MCU's own supply pins; the
+         * bulk capacitor sits further out on the rail. That is the physical
+         * arrangement on a board, and the drawing should not hide it.
+         */
+        solution() {
+          const s = sheet();
+          const mcu = s.place('ATTINY85', { x: 400, y: 300 });
+
+          s.wire(s.rail(rail.name, { x: 400, y: 140 }).top(), mcu.pin('VCC'));
+          s.wire(mcu.pin('GND'), s.rail('ground', { x: 400, y: 500 }).top());
+
+          const local = s.place('C', { x: 600, y: 300, rot: 90, value: '100n' });
+          s.wire(local.top(), { x: 400, y: 190 });
+          s.wire(local.bottom(), { x: 400, y: 450 });
+
+          const reservoir = s.place('C_POL', { x: 760, y: 300, rot: 90, value: formatValue(bulk, 'F') });
+          s.wire(reservoir.top(), { x: 600, y: 190 });
+          s.wire(reservoir.bottom(), { x: 600, y: 450 });
+
+          const pullUp = s.place('R', { x: 200, y: 190, rot: 90, value: formatValue(pull, 'Ω') });
+          s.wire(pullUp.top(), { x: 400, y: 140 });
+          s.wire(pullUp.bottom(), mcu.pin('/RST'));
+
+          return s.done();
+        },
         requirements: {
           ercOptions: { allowUnconnected: ['ATTINY85:PB*'] },
           requiredComponents: [
@@ -267,6 +338,25 @@ export const tier2 = [
           notes: 'Above the corner the capacitor\'s impedance falls, shorting the signal to ground: the output rolls off at 20dB/decade.',
         },
         solutionNote: `R = 1 / (2π·f·C) = 1 / (2π·${fc}·${formatValue(c, 'F')}) ≈ ${formatValue(ideal, 'Ω')}. Source → R → VOUT, C from VOUT to GND.`,
+        /**
+         * Signal left to right, ground along the bottom. The capacitor hangs
+         * off the output node rather than sitting in the run, which is exactly
+         * the distinction between this filter and a high-pass one.
+         */
+        solution() {
+          const s = sheet();
+          const source = s.place('V_AC', { x: 200, y: 400 });
+          const series = s.place('R', { x: 340, y: 300, value: formatValue(nearestE24(ideal), 'Ω') });
+          const shunt = s.place('C', { x: 500, y: 380, rot: 90, value: formatValue(c, 'F') });
+
+          s.wire(source.pin('1'), series.left());
+          s.wire(source.pin('2'), s.rail('ground', { x: 200, y: 520 }).top());
+          s.wire(series.right(), shunt.top(), { horizontalFirst: true });
+          s.wire(shunt.bottom(), s.rail('ground', { x: 500, y: 520 }).top());
+          s.label(series.right(), 'VOUT');
+
+          return s.done();
+        },
         requirements: {
           requiredComponents: [
             { type: 'resistor', min: 1, max: 1, label: 'One resistor placed' },

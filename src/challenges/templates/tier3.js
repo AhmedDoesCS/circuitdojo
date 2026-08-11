@@ -8,7 +8,8 @@
  */
 
 import { band } from '../rng.js';
-import { formatValue } from '../../schematic/units.js';
+import { formatValue, nearestE24 } from '../../schematic/units.js';
+import { sheet } from '../solution.js';
 
 const LEDS = [
   { color: 'red', vf: 1.8 },
@@ -88,6 +89,57 @@ function gateDrivesLed(gate, outPin, rail, led, current) {
 
 const RAIL_5V = { name: '+5V', v: 5 };
 
+/**
+ * The drawing half of the same three patterns.
+ *
+ * Each of these templates is the same sheet with a different gate in the
+ * middle, so the reference solutions are built from shared pieces rather than
+ * four near-identical blocks of coordinates. Drawing them identically is part
+ * of the teaching: after the third one the learner should recognise the shape
+ * before reading the brief.
+ */
+
+/**
+ * The chip's power unit and its decoupling capacitor, parked to the right of
+ * the logic where a real sheet puts them. The capacitor is wired to the two
+ * short stubs either side of the power unit rather than to the rails directly,
+ * so the drawing says "across this chip's pins" and not "somewhere on the rail".
+ */
+function powerAndDecouple(s, part, x) {
+  const power = s.place(part, { x, y: 300, unitId: 'PWR' });
+  s.wire(s.rail('+5V', { x, y: 160 }).top(), power.pin('VCC'));
+  s.wire(power.pin('GND'), s.rail('ground', { x, y: 460 }).top());
+
+  const cap = s.place('C', { x: x + 130, y: 300, rot: 90, value: '100n' });
+  s.wire(cap.top(), { x, y: 220 });
+  s.wire(cap.bottom(), { x, y: 400 });
+  return power;
+}
+
+/**
+ * A pushbutton to the rail with a pull-down under it. Returns the point of the
+ * node between them, which is the one the gate input has to reach.
+ */
+function buttonLadder(s, x, top, net, pull) {
+  const button = s.place('SW_PUSH', { x, y: top + 80, rot: 90 });
+  const down = s.place('R', { x, y: top + 190, rot: 90, value: formatValue(pull, 'Ω') });
+  s.chain(s.rail('+5V', { x, y: top }), button, down, s.rail('ground', { x, y: top + 300 }));
+
+  const node = { x, y: top + 135 };
+  s.label(node, net);
+  return node;
+}
+
+/** Gate output, series resistor, LED, ground. Always left to right. */
+function ledBranch(s, from, led, current) {
+  const ideal = (RAIL_5V.v - led.vf) / current;
+  const limit = s.place('R', { x: from.x + 110, y: from.y, value: formatValue(nearestE24(ideal), 'Ω') });
+  const lamp = s.place('D_LED', { x: from.x + 300, y: from.y });
+  s.wire(from, limit.left());
+  s.chainX(limit, lamp);
+  s.wire(lamp.right(), s.rail('ground', { x: lamp.right().x, y: from.y + 160 }).top());
+}
+
 export const tier3 = [
   {
     id: 'and_two_buttons',
@@ -121,6 +173,23 @@ export const tier3 = [
         },
         solutionNote:
           'U1A: pin 1 ← BTN1, pin 2 ← BTN2, pin 3 → R → LED → GND. U1 power unit: pin 14 → +5V, pin 7 → GND, 100nF between them. Each BTN node: button up to +5V, pull-down to GND.',
+        /**
+         * The second button ladder is dropped 200 units below the first so the
+         * BTN1 branch runs clear over the top of it. Two wires crossing without
+         * a junction are not connected, which is true but is not something a
+         * reference drawing should ever make the reader work out.
+         */
+        solution() {
+          const s = sheet();
+          const gate = s.place('74HC08', { x: 600, y: 300, unitId: 'A' });
+
+          s.wire(buttonLadder(s, 200, 60, 'BTN1', pull), gate.pin('1'), { horizontalFirst: true });
+          s.wire(buttonLadder(s, 340, 260, 'BTN2', pull), gate.pin('2'), { horizontalFirst: true });
+          ledBranch(s, gate.pin('3'), led, current);
+          powerAndDecouple(s, '74HC08', 1140);
+
+          return s.done();
+        },
         requirements: {
           requiredComponents: [
             { type: '74HC08', min: 1, max: 1, label: '74HC08 placed' },
@@ -184,6 +253,22 @@ export const tier3 = [
           notes: 'Y = NOT(A·A) = NOT A. Leaving the second input dangling instead would give you an input that floats.',
         },
         solutionNote: 'U1A pins 1 and 2 both to IN, pin 3 → R → LED → GND, power unit to +5V/GND with 100nF.',
+        /**
+         * The short vertical wire joining pins 1 and 2 is the entire trick. It
+         * is drawn as its own segment rather than folded into the input run, so
+         * that it reads as a deliberate act.
+         */
+        solution() {
+          const s = sheet();
+          const gate = s.place('74HC00', { x: 600, y: 300, unitId: 'A' });
+
+          s.wire(buttonLadder(s, 200, 60, 'IN', pull), gate.pin('1'), { horizontalFirst: true });
+          s.wire(gate.pin('1'), gate.pin('2'));
+          ledBranch(s, gate.pin('3'), led, current);
+          powerAndDecouple(s, '74HC00', 1140);
+
+          return s.done();
+        },
         requirements: {
           requiredComponents: [
             { type: '74HC00', min: 1, max: 1, label: '74HC00 placed' },
@@ -249,6 +334,29 @@ export const tier3 = [
             'Grounding a node through a switch is more robust than pulling it up through one: ground is the quietest node on the board.',
         },
         solutionNote: '+5V → pull-up → nIN → button → GND. nIN → U1A pin 1, pin 2 → R → LED → GND.',
+        /**
+         * The same ladder as the other three, turned upside down: resistor on
+         * top, switch underneath. Placing them side by side in the roadmap is
+         * how the pull-up and pull-down arrangements stop being confusable.
+         */
+        solution() {
+          const s = sheet();
+          const inverter = s.place('74HC04', { x: 600, y: 195, unitId: 'A' });
+
+          const x = 200;
+          const pullUp = s.place('R', { x, y: 140, rot: 90, value: formatValue(pull, 'Ω') });
+          const button = s.place('SW_PUSH', { x, y: 250, rot: 90 });
+          s.chain(s.rail('+5V', { x, y: 60 }), pullUp, button, s.rail('ground', { x, y: 360 }));
+
+          const node = { x, y: 195 };
+          s.label(node, 'nIN');
+          s.wire(node, inverter.pin('1'), { horizontalFirst: true });
+
+          ledBranch(s, inverter.pin('2'), led, current);
+          powerAndDecouple(s, '74HC04', 1140);
+
+          return s.done();
+        },
         requirements: {
           requiredComponents: [
             { type: '74HC04', min: 1, max: 1, label: '74HC04 placed' },
@@ -349,6 +457,22 @@ export const tier3 = [
           notes: 'XOR is the "these two disagree" gate: the basis of comparators, parity checks and adders.',
         },
         solutionNote: 'U1A pin 1 ← SW_A, pin 2 ← SW_B, pin 3 → R → LED → GND, power unit on +5V/GND with 100nF.',
+        /**
+         * Identical to the AND sheet apart from the gate in the middle, which
+         * is the whole point: the input arrangement and the power rules do not
+         * change when the logic function does.
+         */
+        solution() {
+          const s = sheet();
+          const gate = s.place('74HC86', { x: 600, y: 300, unitId: 'A' });
+
+          s.wire(buttonLadder(s, 200, 60, 'SW_A', pull), gate.pin('1'), { horizontalFirst: true });
+          s.wire(buttonLadder(s, 340, 260, 'SW_B', pull), gate.pin('2'), { horizontalFirst: true });
+          ledBranch(s, gate.pin('3'), led, current);
+          powerAndDecouple(s, '74HC86', 1140);
+
+          return s.done();
+        },
         requirements: {
           requiredComponents: [
             { type: '74HC86', min: 1, max: 1, label: '74HC86 placed' },
