@@ -38,6 +38,7 @@ import { HOLD, LEVELS, masteryOf, claimedCount } from '../lib/level.js';
 export default function HomeScreen({
   onStart,
   onBrowse,
+  onOpenMap,
   onResume,
   onCalibrate,
   onOpenProfile,
@@ -95,13 +96,20 @@ export default function HomeScreen({
           onClick: onBrowse,
         },
         {
+          id: 'map',
+          label: 'The roadmap',
+          hint: roadmap ? `Where you are in all ${roadmap.unitCount} units` : 'See the whole curriculum',
+          meta: roadmap ? `${roadmap.unitsDone}` : undefined,
+          onClick: onOpenMap,
+        },
+        {
           id: 'level',
           label: 'Set my level',
           hint: 'Skip ahead in one step',
           onClick: onCalibrate,
         },
       ].filter(Boolean),
-    [recipeCount, onBrowse, onCalibrate]
+    [recipeCount, roadmap, onBrowse, onOpenMap, onCalibrate]
   );
 
   // The split occupies two cursor stops, so the keyboard walk still reaches

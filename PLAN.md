@@ -300,6 +300,16 @@ question, where a 0.6 V diode drop came out as "600m V".
 A view of where you are and what is ahead. Deliberately last: it is the part
 people imagine first and need least.
 
+**Done.** `src/components/RoadmapMap.jsx`, behind its own menu option. Twelve
+stage sections, the current one open and the rest folded, each block listing its
+units with a glyph for what kind of work each is. A completed unit can be sat
+again from here, which costs nothing and un-completes nothing; what is ahead is
+shown but not offered, because the order is the curriculum.
+
+It was moved ahead of P3 once the roadmap reached 137 units: a curriculum that
+large is not legible one unit at a time, and P3 is a large enough piece that
+leaving it half-built would be worse than not starting it.
+
 ### Where the remaining session goes
 
 P0 is the piece that changes the product, and it is self-contained. If there is

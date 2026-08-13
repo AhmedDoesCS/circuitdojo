@@ -18,6 +18,7 @@ import {
   skipTarget,
   roadmapProgress,
   unitTitle,
+  unitStatus,
 } from '../src/roadmap/index.js';
 import { TEMPLATES, getTemplate } from '../src/challenges/index.js';
 import { computeLevel, bandForStage } from '../src/lib/level.js';
@@ -148,4 +149,33 @@ test('without a roadmap the mastery model still answers', () => {
   const byMastery = computeLevel({});
   assert.equal(byMastery.level, 1);
   assert.ok(Number.isFinite(byMastery.expertise));
+});
+
+// ---------------------------------------------------------------------------
+// What the map is allowed to offer
+// ---------------------------------------------------------------------------
+
+test('every unit has a title to show, whatever kind it is', () => {
+  const nameless = UNITS.filter((u) => !unitTitle(u) || unitTitle(u) === u.templateId);
+  assert.deepEqual(nameless, [], 'a unit with no title is a blank row on the map');
+});
+
+test('a unit is done, current, or ahead, and only the first two are reachable', () => {
+  const done = UNITS.filter((u) => u.stage === 1).map((u) => u.id);
+  const current = nextUnit(done);
+
+  assert.equal(unitStatus(UNITS[0], done), 'done');
+  assert.equal(unitStatus(current, done), 'current');
+
+  // Everything after the cursor is ahead: the order is the curriculum, so the
+  // map shows what is coming without offering a way around it.
+  const later = UNITS[indexOfUnit(current.id) + 1];
+  assert.equal(unitStatus(later, done), 'ahead');
+});
+
+test('replaying a completed unit takes nothing away', () => {
+  const done = UNITS.filter((u) => u.stage <= 2).map((u) => u.id);
+  const again = completeUnit(done, UNITS[0].id);
+  assert.equal(again.length, done.length, 'sitting it again completes nothing new and loses nothing');
+  assert.equal(nextUnit(again).id, nextUnit(done).id, 'and leaves the cursor where it was');
 });

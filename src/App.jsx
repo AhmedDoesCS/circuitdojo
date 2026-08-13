@@ -14,6 +14,7 @@ import SuccessOverlay from './components/SuccessOverlay.jsx';
 import SolutionOverlay from './components/SolutionOverlay.jsx';
 import LifeLostOverlay from './components/LifeLostOverlay.jsx';
 import HomeScreen from './components/HomeScreen.jsx';
+import RoadmapMap from './components/RoadmapMap.jsx';
 import Calibrate from './components/Calibrate.jsx';
 import IrisTransition from './components/IrisTransition.jsx';
 import { LogoMark } from './components/MenuShell.jsx';
@@ -94,6 +95,7 @@ export default function App() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileTab, setProfileTab] = useState('progress');
   const [browserOpen, setBrowserOpen] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
   const [result, setResult] = useState(null);
   const [checking, setChecking] = useState(false);
   const [highlights, setHighlights] = useState([]);
@@ -462,6 +464,7 @@ export default function App() {
       <HomeScreen
         onStart={startNext}
         onBrowse={() => setBrowserOpen(true)}
+        onOpenMap={() => setMapOpen(true)}
         // Every other route into the workspace wipes. Resume used to snap, and
         // the sheet appearing without warning read as a glitch rather than a
         // return: the transition is what says "you are back where you were".
@@ -730,6 +733,18 @@ export default function App() {
         onRecalibrate={() => {
           setProfileOpen(false);
           beginTransition({ toView: 'calibrate' });
+        }}
+      />
+
+      <RoadmapMap
+        open={mapOpen}
+        onClose={() => setMapOpen(false)}
+        completed={profile.completedUnits}
+        // Revisiting is free and un-completes nothing, so a unit picked here
+        // goes through exactly the same door as one reached by the cursor.
+        onPick={(unit) => {
+          setMapOpen(false);
+          openUnit(unit);
         }}
       />
 

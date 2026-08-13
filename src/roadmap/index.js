@@ -1840,9 +1840,26 @@ export function indexOfUnit(id) {
   return INDEX_OF.has(id) ? INDEX_OF.get(id) : -1;
 }
 
-/** The title shown for a unit, taken from the template so it cannot drift. */
+/**
+ * The title shown for a unit.
+ *
+ * A Build unit takes its name from the template, so the two cannot drift apart.
+ * Everything else carries its own, because there is no template to ask: an
+ * Analyse unit is a question, and an Inspect unit is a review of a circuit
+ * rather than the circuit itself.
+ */
 export function unitTitle(unit) {
+  if (!unit) return '';
+  if (unit.title) return unit.title;
   return getTemplate(unit.templateId)?.title || unit.templateId;
+}
+
+/** Where a unit stands relative to the cursor: done, current, or ahead. */
+export function unitStatus(unit, completed = []) {
+  const done = completed instanceof Set ? completed : new Set(completed);
+  if (done.has(unit.id)) return 'done';
+  const current = nextUnit(done);
+  return current && current.id === unit.id ? 'current' : 'ahead';
 }
 
 /**

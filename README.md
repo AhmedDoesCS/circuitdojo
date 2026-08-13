@@ -90,6 +90,11 @@ what is wrong is known by construction rather than by assertion.
 Each block ends in a **capstone** Build unit. Pass it cold and the whole block is complete, which is how you skip
 material you already know: by examination rather than by claim, so it cannot leave a silent gap.
 
+**The roadmap** menu option shows the whole curriculum: twelve stages, the one you are in open and the rest folded,
+every unit marked done, current or ahead. Anything already done can be sat again from there with fresh numbers, which
+costs nothing and un-completes nothing. It is a destination and not a gate: Start Designing still goes straight to a
+brief.
+
 Your expertise band follows the stage you are in. Mastery still exists underneath, per concept, and still records what
 you have demonstrated by drawing; it no longer decides what you see next, and it is what practice mode will weight its
 projects by.
