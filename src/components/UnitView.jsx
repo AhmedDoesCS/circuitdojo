@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import MenuShell, { LogoMark, at } from './MenuShell.jsx';
 import SolutionView from './SolutionView.jsx';
 import LivesMeter from './LivesMeter.jsx';
+import { unitSymbol } from '../schematic/units.js';
 
 /**
  * The screen for a roadmap unit that is not a drawing.
@@ -94,7 +95,9 @@ export default function UnitView({ unit, tries, maxTries, onCheck, onBack, resul
                   aria-label="Your answer"
                 />
                 {unit.answerUnit && (
-                  <span className="font-mono text-[15px] text-zinc-500">{unit.answerUnit}</span>
+                  <span className="font-mono text-[15px] text-zinc-500">
+                    {unitSymbol(unit.answerUnit)}
+                  </span>
                 )}
                 <button
                   type="submit"

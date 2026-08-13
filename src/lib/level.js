@@ -233,7 +233,33 @@ export function levelCoverage(mastery, level) {
  * Progress is how far into the *next* band they are, which is what the home
  * screen shows as a bar.
  */
-export function computeLevel(mastery) {
+export function computeLevel(mastery, roadmap = null) {
+  /**
+   * The roadmap is the progression, so it is what the band reports.
+   *
+   * Mastery used to be the only answer to "what level am I", back when
+   * selection was a weighted draw over concepts. It is now one of two systems
+   * and the quieter one: most units on the roadmap are not drawings and do not
+   * move a concept's mastery at all, so a learner three quarters of the way
+   * through could stand on the home screen and be told they were a Newcomer at
+   * 0%. Mastery still exists, still records what has been demonstrated, and is
+   * what practice mode weights its projects by. It is no longer the headline.
+   */
+  if (roadmap && roadmap.stageCount) {
+    const level = bandForStage(roadmap.stage, roadmap.stageCount);
+    const info = LEVELS.find((l) => l.level === level) || LEVELS[0];
+    return {
+      level,
+      index: level - 1,
+      count: LEVELS.length,
+      name: info.name,
+      blurb: info.blurb,
+      progress: roadmap.stageProgress,
+      /** 0-100 "distance travelled toward industry practice". */
+      expertise: roadmap.expertise,
+    };
+  }
+
   let level = 1;
   for (const band of LEVELS) {
     if (levelCoverage(mastery, band.level) >= CLEAR_FRACTION) level = Math.min(LEVELS.length, band.level + 1);
@@ -248,9 +274,21 @@ export function computeLevel(mastery) {
     name: info.name,
     blurb: info.blurb,
     progress,
-    /** 0-100 "distance travelled toward industry practice". */
     expertise: Math.round(((level - 1 + progress) / LEVELS.length) * 100),
   };
+}
+
+/**
+ * Which of the eight expertise bands a roadmap stage sits in.
+ *
+ * The bands predate the roadmap and are kept because they name something the
+ * stages do not: how far along a career the work would be recognised from.
+ * Spreading twelve stages evenly over eight bands keeps both readings honest
+ * without either having to be renumbered.
+ */
+export function bandForStage(stage, stageCount) {
+  const band = Math.ceil((stage * LEVELS.length) / stageCount);
+  return Math.min(LEVELS.length, Math.max(1, band));
 }
 
 /** Concepts the learner is actively shaky on, the hint and selection targets. */

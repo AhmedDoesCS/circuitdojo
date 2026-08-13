@@ -20,6 +20,7 @@ import {
   unitTitle,
 } from '../src/roadmap/index.js';
 import { TEMPLATES, getTemplate } from '../src/challenges/index.js';
+import { computeLevel, bandForStage } from '../src/lib/level.js';
 
 test('every unit points at a template that exists', () => {
   const bad = UNITS.filter((u) => u.kind === 'build' && !getTemplate(u.templateId));
@@ -87,15 +88,14 @@ test('skipping offers the capstone, and nothing when the block is one unit', () 
   assert.equal(target.kind, 'build', 'skipping is demonstrated by drawing, not by answering');
   assert.notEqual(target.id, nextUnit([]).id, 'and it is ahead of where you are');
 
-  // A block of one unit is already its own capstone, so there is nothing to
-  // skip to. Found rather than hard-coded: which blocks are single changes as
-  // the curriculum is written, and the rule does not.
-  const single = UNITS.find(
-    (u) => UNITS.filter((v) => v.stage === u.stage && v.block === u.block).length === 1
-  );
-  assert.ok(single, 'the roadmap should still contain at least one single-unit block');
-  const upTo = UNITS.slice(0, indexOfUnit(single.id)).map((u) => u.id);
-  assert.equal(skipTarget(upTo), null);
+  // Standing on the capstone itself, there is nothing ahead to skip to: sitting
+  // it is already the whole of what skipping would ask for. Stated as the rule
+  // rather than as a block of a particular size, because block sizes change as
+  // the curriculum is written and the rule does not.
+  const capstone = UNITS.find((u) => u.capstone);
+  const upToCapstone = UNITS.slice(0, indexOfUnit(capstone.id)).map((u) => u.id);
+  assert.equal(nextUnit(upToCapstone).id, capstone.id, 'the cursor should be on the capstone');
+  assert.equal(skipTarget(upToCapstone), null);
 });
 
 test('progress reports the stage the learner is actually in', () => {
@@ -116,4 +116,36 @@ test('practice mode stays shut until six stages are cleared', () => {
   assert.equal(roadmapProgress(throughFive).practiceUnlocked, false);
   const throughSix = UNITS.filter((u) => u.stage <= 6).map((u) => u.id);
   assert.equal(roadmapProgress(throughSix).practiceUnlocked, true);
+});
+
+// ---------------------------------------------------------------------------
+// The band the home screen reports
+// ---------------------------------------------------------------------------
+
+test('the reported level follows the roadmap, not the mastery model', () => {
+  const throughEleven = UNITS.filter((u) => u.stage <= 11).map((u) => u.id);
+  const late = computeLevel({}, roadmapProgress(throughEleven));
+
+  // Empty mastery: on the old model this learner was a Newcomer at 0%.
+  assert.ok(late.level > 1, 'someone in stage 12 is not a beginner');
+  assert.ok(late.expertise > 50, 'nor are they 0% of the way there');
+
+  const fresh = computeLevel({}, roadmapProgress([]));
+  assert.equal(fresh.level, 1);
+  assert.equal(fresh.expertise, 0);
+});
+
+test('the bands still span one to eight across the twelve stages', () => {
+  const bands = STAGES.map((s) => bandForStage(s.stage, STAGE_COUNT));
+  assert.equal(bands[0], 1, 'stage 1 is the first band');
+  assert.equal(bands.at(-1), 8, 'the last stage reaches the last band');
+  for (let i = 1; i < bands.length; i++) {
+    assert.ok(bands[i] >= bands[i - 1], 'the mapping never goes backwards');
+  }
+});
+
+test('without a roadmap the mastery model still answers', () => {
+  const byMastery = computeLevel({});
+  assert.equal(byMastery.level, 1);
+  assert.ok(Number.isFinite(byMastery.expertise));
 });

@@ -80,7 +80,7 @@ export default function useProfile() {
     });
   }, []);
 
-  const level = useMemo(() => computeLevel(mastery), [mastery]);
+  const level = useMemo(() => computeLevel(mastery, roadmap), [mastery, roadmap]);
 
   /**
    * One-time repair of failures caused by the net-label bug.
@@ -223,6 +223,8 @@ export default function useProfile() {
     const next = stepUp(mastery, level.level);
     setMastery(next);
     localStore.setMastery(next);
+    // Mastery-only on purpose: this reports what claiming a band did to the
+    // mastery model, and claiming a band does not move the roadmap cursor.
     return { mastery: next, level: computeLevel(next) };
   }, [mastery, level.level]);
 

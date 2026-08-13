@@ -20,14 +20,14 @@ const SI_PREFIXES = {
   G: 1e9,
 };
 
-// Unit suffixes we strip before parsing (Ω, ohm, F, H, V, A, W, C, Hz, s).
+// Unit suffixes we strip before parsing (Ω, ohm, F, H, V, A, W, C, J, Hz, s).
 //
-// Watts and coulombs are here for the Analyse units rather than for any
+// Watts, coulombs and joules are here for the Analyse units rather than for any
 // component value: asked how much heat a resistor makes, people write "150mW",
 // and a grader that reads that as unparseable is telling them their correct
 // answer is not a number.
 const UNIT_SUFFIX =
-  /(ohms?|Ω|ω|farads?|henr(y|ies)|volts?|amps?|amperes?|watts?|coulombs?|hz|hertz|seconds?|[FHVAWCsΩ])\s*$/i;
+  /(ohms?|Ω|ω|farads?|henr(y|ies)|volts?|amps?|amperes?|watts?|coulombs?|joules?|hz|hertz|seconds?|[FHVAWCJsΩ])\s*$/i;
 
 /**
  * Parse an engineering value string into a base-unit number.
@@ -92,6 +92,39 @@ export function formatValue(value, unit = '') {
 
 function trimFloat(n) {
   return String(Number(n.toPrecision(3)));
+}
+
+/** Units the briefs name in words but nobody writes that way. */
+const UNIT_SYMBOL = { ohm: 'Ω', ohms: 'Ω' };
+
+/** The symbol a unit is actually written with ('ohm' -> 'Ω'). */
+export function unitSymbol(unit = '') {
+  return UNIT_SYMBOL[unit] || unit;
+}
+
+/**
+ * A quantity as a person would write it in a sentence.
+ *
+ * `formatValue` is for component values, where 4700 is "4.7k" and everyone
+ * expects it. It is wrong for the quantities that appear in a question: a
+ * 0.6 V diode drop came out as "600m V", a duty cycle of 0.548 as "548m", and
+ * an answer that reads like a typing error undermines a question that is
+ * otherwise correct.
+ *
+ * The rule is about whether a unit is attached. "4.4mA" is how an engineer says
+ * a current and "0.0044A" is not, so anything carrying a unit keeps engineering
+ * notation. A bare number in a sentence has its unit in the words around it, and
+ * a ratio has no unit at all: those read as ordinary decimals. Both forms parse
+ * back identically; this is only about reading.
+ */
+export function formatReadable(value, unit = '') {
+  if (!Number.isFinite(value)) return '';
+  const symbol = unitSymbol(unit);
+  if (symbol) return formatValue(value, symbol);
+
+  const abs = Math.abs(value);
+  if (abs !== 0 && abs < 1000 && abs >= 0.001) return String(Number(value.toPrecision(3)));
+  return formatValue(value, '');
 }
 
 /** Standard E-series (used to tell a student the nearest buyable resistor). */

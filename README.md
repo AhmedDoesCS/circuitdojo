@@ -24,7 +24,7 @@ No backend needed to start: guest mode stores everything locally.
 | **Challenge library** | 36 hand-authored recipes across 13 topics, each parameterised by a seed so the numbers change every time, and each shipping a reference schematic graded by the real checker. |
 | **Concept model** | 37 concepts from Ohm's law to mixed-signal partitioning, each with formulas, application notes, professional standards and further reading. |
 | **Symbol library** | 59 symbols: passives, discretes, 74HC logic, op-amps, comparators, MCUs, sensors, motor drivers, protection parts. |
-| **Roadmap** | Twelve stages of interleaved blocks, each ending in a capstone you can pass cold to skip the rest of it. |
+| **Roadmap** | Twelve stages, 137 units of three kinds, each block ending in a capstone you can pass cold to skip the rest of it. |
 | **Guided hints** | Three-step escalation after a failed check: where to look → the principle → the fix. |
 
 ---
@@ -71,20 +71,28 @@ Both passes always run: a circuit can be electrically clean and still fail the b
 
 ## The roadmap
 
-Twelve stages, from one closed loop to designing for production. A stage is a handful of **blocks**, and a block is a
-short arc of units around one idea, taken through analysis, real components, the canonical recipe and professional
-practice in the order that idea is actually learned. Progression is linear in sequence and deliberately not linear in
-subject.
+Twelve stages and 137 units, from one closed loop to designing for production. A stage is a handful of **blocks**, and
+a block is a short arc of units around one idea, taken through analysis, real components, the canonical recipe and
+professional practice in the order that idea is actually learned. Progression is linear in sequence and deliberately
+not linear in subject.
 
-Not every unit is a drawing. A **Build** unit is a blank sheet and a specification; an **Analyse** unit asks for a
-number; an **Inspect** unit hands you somebody else's schematic with one fault in it and asks you to find it. The
-faults are injected into the reference answers by seeded mutation, so what is wrong is known by construction.
+Not every unit is a drawing: 36 are, and 101 are not.
+
+| Kind | You do | Graded by |
+| --- | --- | --- |
+| **Build** (36) | Draw a schematic to a specification | The netlist, the ERC and the requirement checks |
+| **Analyse** (70) | Work out a number and type it | The value, to a tolerance, with the working shown afterwards |
+| **Inspect** (31) | Find the one fault on somebody else's sheet | Whether you clicked the item that is actually wrong |
+
+The faults are injected into the reference answers by seeded mutation and then put back through the real grader, so
+what is wrong is known by construction rather than by assertion.
 
 Each block ends in a **capstone** Build unit. Pass it cold and the whole block is complete, which is how you skip
 material you already know: by examination rather than by claim, so it cannot leave a silent gap.
 
-Mastery still exists underneath, per concept, and still moves on every pass and fail. It no longer decides what you
-see next; it is what practice mode will weight its projects by.
+Your expertise band follows the stage you are in. Mastery still exists underneath, per concept, and still records what
+you have demonstrated by drawing; it no longer decides what you see next, and it is what practice mode will weight its
+projects by.
 
 A challenge instance is a `(templateId, seed)` pair: the template hand-authors the topology so it always makes
 engineering sense, the seed randomises the numbers.
@@ -154,9 +162,13 @@ npm test
 - `tests/editor.test.js`: the document operations behind the canvas gestures, and the level model.
 - `tests/solutions.test.js`: every reference answer, graded by the real checker across sixteen seeds each, and checked
   as a *drawing*: no wire may cross a pin it does not connect to.
+- `tests/roadmap.test.js`: the curriculum's shape and the rules that move a learner through it.
+- `tests/units.test.js`: every roadmap unit instantiates across sixteen seeds; every Analyse unit accepts its own
+  answer, in both the notations a person would type it in; every Inspect unit is built on a fault the real grader
+  agrees is a fault.
 
 The audit matters: a typo in a pin name would otherwise ship as an unsolvable challenge. It has already caught two
-real geometry bugs.
+real geometry bugs, three engine faults and four challenges that nobody could have passed.
 
 ---
 

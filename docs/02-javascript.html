@@ -366,6 +366,31 @@ Math.<span class="f">abs</span>(a - b) &lt; <span class="n">1e-9</span>         
           </p>
         </div>
 
+        <h3>One parser, two formatters</h3>
+        <p>
+          Parsing is a funnel: many spellings, one number, one function. Formatting is not the mirror image of that,
+          and assuming it is caused a whole set of questions to read like typing errors. The same
+          <code>formatValue</code> that correctly writes a resistor as "4.7k" wrote a diode's forward drop as
+          "600m V" and a duty cycle of 0.548 as "548m".
+        </p>
+        <pre data-label="src/schematic/units.js"><code><span class="k">export function</span> <span class="f">formatReadable</span>(value, unit = <span class="s">''</span>) {
+  <span class="c">// "4.4mA" is how an engineer says a current; "0.0044A" is not.</span>
+  <span class="k">if</span> (unit) <span class="k">return</span> <span class="f">formatValue</span>(value, <span class="f">unitSymbol</span>(unit));
+  <span class="c">// A bare number in a sentence has its unit in the words around it.</span>
+  <span class="k">const</span> abs = Math.<span class="f">abs</span>(value);
+  <span class="k">if</span> (abs &amp;&amp; abs &lt; <span class="n">1000</span> &amp;&amp; abs &gt;= <span class="n">0.001</span>) <span class="k">return</span> <span class="f">String</span>(<span class="f">Number</span>(value.<span class="f">toPrecision</span>(<span class="n">3</span>)));
+  <span class="k">return</span> <span class="f">formatValue</span>(value, <span class="s">''</span>);
+}</code></pre>
+        <div class="note">
+          <strong>Pattern: parsing is one function, presentation is as many as there are contexts</strong>
+          <p>
+            Both of these produce strings the same parser reads back identically, so nothing about correctness is at
+            stake: it is entirely about what a person reads. That is the tell. When two callers want different
+            <em>output</em> from the same value and neither is wrong, you have two presentation concerns wearing one
+            function's name, and the fix is another function rather than a flag on the old one.
+          </p>
+        </div>
+
         <h2 id="errors">Errors and defensive code</h2>
         <pre data-label="src/engine/checks.js"><code><span class="k">export function</span> <span class="f">runCheck</span>(ctx, check) {
   <span class="k">const</span> fn = CHECKS[check.kind];

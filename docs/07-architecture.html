@@ -491,6 +491,37 @@ busy.current = <span class="k">true</span>;</code></pre>
           </ul>
         </div>
 
+        <h2 id="content-tests">Content that proves itself</h2>
+        <p>
+          Two thirds of the roadmap is authored content rather than code: numeric questions, their answers, their
+          worked explanations. None of it is reachable by a type checker and all of it is exactly the kind of thing
+          that rots quietly, because a wrong answer in a question nobody has reached yet looks identical to a right
+          one.
+        </p>
+        <p>
+          The discipline that worked for the schematics works here too, and it is the same idea each time:
+          <strong>grade the authored thing with the code that will grade the learner.</strong>
+        </p>
+        <pre data-label="tests/units.test.js"><code><span class="c">// An Analyse unit whose own answer it will not accept is worse than no unit.</span>
+<span class="k">const</span> expected = unit.<span class="f">answer</span>(sat.params);
+<span class="k">for</span> (<span class="k">const</span> typed <span class="k">of</span> [<span class="f">formatValue</span>(expected, <span class="s">''</span>), <span class="f">formatReadable</span>(expected)])
+  <span class="k">if</span> (!<span class="f">gradeAnalyse</span>(unit, typed, sat.params).passed) rejected.<span class="f">push</span>(...);</code></pre>
+        <p>
+          Both notations, because the question does not say which one it wants: someone will type <code>22m</code> and
+          someone else <code>0.022</code>, and a grader that takes only one of them is telling a correct learner they
+          are wrong. The Inspect units get the same treatment from the other direction: each is required to produce a
+          sheet the real checker <em>fails</em>, across every seed, before it is allowed to be shown to anybody.
+        </p>
+        <div class="note">
+          <strong>Why this keeps finding things</strong>
+          <p>
+            A test of the engine asks whether the code does what the author of the code intended. A test of the content
+            against the engine asks whether the two <em>agree</em>, and that is a different question with a different
+            answer. Every fault this project has found in its own grader was found by content disagreeing with it, and
+            never by a unit test of the grader alone.
+          </p>
+        </div>
+
         <h3>A reference drawing is held to a stricter standard than a correct one</h3>
         <p>
           Two wires crossing without a junction are not connected. That is true, it is deliberately modelled, and it is

@@ -442,7 +442,7 @@ export const STAGES = [
             title: 'How far the rail falls',
             prompt:
               'A chip draws a {ma} mA spike for {us} µs. The only thing supplying it that fast is a ' +
-              '{c} capacitor across the rail. How far does the rail droop?',
+              '{c}F capacitor across the rail. How far does the rail droop?',
             params: (rng) => ({
               ma: rng.pick([50, 100, 200]),
               us: rng.pick([1, 5, 10]),
@@ -492,7 +492,7 @@ export const STAGES = [
             kind: 'analyse',
             slug: 'rc-tau',
             title: 'The time constant',
-            prompt: 'What is the time constant of {r} and {c} together?',
+            prompt: 'What is the time constant of {r} and {c}F together?',
             params: (rng) => ({
               r: rng.pick([1000, 10000, 100000]),
               c: rng.pick([10e-9, 100e-9, 1e-6]),
@@ -509,7 +509,7 @@ export const STAGES = [
             slug: 'rc-settle',
             title: 'Waiting for it to arrive',
             prompt:
-              'A step is applied to an RC made of {r} and {c}. How long until the output has reached ' +
+              'A step is applied to an RC made of {r} and {c}F. How long until the output has reached ' +
               '90% of the way there?',
             params: (rng) => ({
               r: rng.pick([1000, 10000, 100000]),
@@ -526,7 +526,7 @@ export const STAGES = [
             kind: 'analyse',
             slug: 'rc-corner',
             title: 'The same circuit, measured in hertz',
-            prompt: 'What is the corner frequency of a low-pass filter made from {r} and {c}?',
+            prompt: 'What is the corner frequency of a low-pass filter made from {r} and {c}F?',
             params: (rng) => ({
               r: rng.pick([1000, 10000, 100000]),
               c: rng.pick([10e-9, 100e-9, 1e-6]),
@@ -555,33 +555,478 @@ export const STAGES = [
     stage: 5,
     name: 'Parts that only work one way',
     blurb: 'Diodes, clamping and polarity discipline.',
-    blocks: [{ block: 1, name: 'Clamping a rail', units: ['zener_shunt_reference'] }],
+    blocks: [
+      {
+        block: 1,
+        name: 'Clamping a rail',
+        units: [
+          {
+            kind: 'analyse',
+            slug: 'diode-forward-current',
+            title: 'Current through a forward diode',
+            prompt:
+              'A silicon diode drops {vd} V once it is conducting. It is fed from {v} V through a ' +
+              '{r} resistor. What current flows?',
+            params: (rng) => ({
+              vd: rng.pick([0.6, 0.7]),
+              v: rng.pick([5, 9, 12]),
+              r: rng.pick([220, 470, 1000]),
+            }),
+            answer: (p) => (p.v - p.vd) / p.r,
+            unit: 'A',
+            hint: 'The diode takes its drop off the top; the resistor sets the current with what is left.',
+            explain: (p) =>
+              `I = (${p.v} − ${p.vd}) / ${p.r}. A diode's forward drop barely moves with current, ` +
+              'which is exactly why it cannot limit its own: something else has to.',
+          },
+          {
+            kind: 'analyse',
+            slug: 'zener-series-resistor',
+            title: 'Feeding a shunt reference',
+            prompt:
+              'A {vz} V Zener runs from a {vin} V rail. The load takes {il} mA, and the Zener needs ' +
+              '{iz} mA of its own to stay in regulation. What series resistor feeds both?',
+            params: (rng) => ({
+              vz: rng.pick([3.3, 5.1, 6.2]),
+              vin: rng.pick([9, 12]),
+              il: rng.pick([2, 5, 10]),
+              iz: rng.pick([5, 10]),
+            }),
+            answer: (p) => (p.vin - p.vz) / ((p.il + p.iz) / 1000),
+            unit: 'ohm',
+            hint: 'One resistor carries both currents, so size it for their sum.',
+            explain: (p) =>
+              `R = (${p.vin} − ${p.vz}) / (${p.il} + ${p.iz}) mA. Size it for the load alone and the ` +
+              'Zener starves the moment the load draws anything, which is the failure that looks like ' +
+              'a reference that works on the bench and not in the product.',
+          },
+          {
+            kind: 'analyse',
+            strand: 'C',
+            slug: 'zener-power',
+            title: 'What the Zener has to survive',
+            prompt:
+              'The load is disconnected, so the whole {iz} mA now goes through the {vz} V Zener. ' +
+              'How much power does it dissipate?',
+            params: (rng) => ({ vz: rng.pick([3.3, 5.1, 6.2]), iz: rng.pick([10, 15, 20]) }),
+            answer: (p) => p.vz * (p.iz / 1000),
+            unit: 'W',
+            hint: 'The worst case for a shunt regulator is no load at all.',
+            explain: (p) =>
+              `P = ${p.vz} V × ${p.iz} mA. A shunt reference is at its hottest when nothing is using ` +
+              'it, which is the opposite of every other kind of supply and catches people out.',
+          },
+          'zener_shunt_reference',
+          {
+            kind: 'inspect',
+            slug: 'zener-review',
+            templateId: 'zener_shunt_reference',
+            title: 'Review: a shunt reference',
+            prompt: 'This reference does not hold its voltage. Find the item at fault.',
+          },
+        ],
+      },
+    ],
   },
   {
     stage: 6,
     name: 'Logic gates and real chips',
     blurb: 'A gate is one unit of a package that needs feeding.',
     blocks: [
-      { block: 1, name: 'A gate is part of a chip', units: ['and_two_buttons'] },
-      { block: 2, name: 'Making a gate do another job', units: ['nand_as_inverter', 'active_low_inverter'] },
-      { block: 3, name: 'Comparing two inputs', units: ['xor_difference_detector'] },
-      { block: 4, name: 'Cleaning up a real signal', units: ['rc_debounce'] },
+      {
+        block: 1,
+        name: 'A gate is part of a chip',
+        units: [
+          {
+            kind: 'analyse',
+            slug: 'logic-threshold',
+            title: 'What counts as low',
+            prompt:
+              'A 74HC part on a {v} V rail reads an input as LOW only below 0.3 × VCC, and as HIGH ' +
+              'only above 0.7 × VCC. What is the highest voltage that is still reliably a LOW?',
+            params: (rng) => ({ v: rng.pick([3.3, 5]) }),
+            answer: (p) => 0.3 * p.v,
+            unit: 'V',
+            hint: 'The thresholds are fractions of the supply, not fixed voltages.',
+            explain: (p) =>
+              `0.3 × ${p.v} V. Between that and 0.7 × ${p.v} V is the forbidden band: an input sitting ` +
+              'there is not read as either level, and the gate may oscillate rather than simply guess. ' +
+              'That band is the reason a floating input is a fault and not a coin toss.',
+          },
+          {
+            kind: 'analyse',
+            strand: 'C',
+            slug: 'gate-output-current',
+            title: 'What a logic output can actually drive',
+            prompt:
+              'A 74HC output sags to {vo} V when it sources {ma} mA. Driving an LED that drops {vf} V ' +
+              'at that current, what series resistor do you need?',
+            params: (rng) => ({
+              vo: rng.pick([4.1, 4.3]),
+              ma: rng.pick([3, 4, 5]),
+              vf: rng.pick([1.8, 2.1]),
+            }),
+            answer: (p) => (p.vo - p.vf) / (p.ma / 1000),
+            unit: 'ohm',
+            hint: 'Size it from the output voltage under load, not from the rail.',
+            explain: (p) =>
+              `R = (${p.vo} − ${p.vf}) / ${p.ma} mA. Using the 5 V rail in that sum instead of the ` +
+              'loaded output voltage is how people arrive at 20 mA from a part that cannot deliver it.',
+          },
+          'and_two_buttons',
+          {
+            kind: 'inspect',
+            slug: 'and-review',
+            templateId: 'and_two_buttons',
+            title: 'Review: a two-button AND',
+            prompt: 'The LED lights when it should not. Find what is wrong with this sheet.',
+          },
+        ],
+      },
+      {
+        block: 2,
+        name: 'Making a gate do another job',
+        units: [
+          {
+            kind: 'analyse',
+            slug: 'nand-truth',
+            title: 'Counting a truth table',
+            prompt:
+              'A 2-input NAND has four possible input combinations. In how many of them is the output HIGH?',
+            params: () => ({}),
+            answer: () => 3,
+            unit: '',
+            hint: 'A NAND is only LOW when an AND would be HIGH.',
+            explain: () =>
+              'Three. Only 1-1 gives a LOW output. That single asymmetry is why NAND is a universal ' +
+              'gate: every other function can be built from enough of them.',
+          },
+          {
+            kind: 'analyse',
+            slug: 'chained-delay',
+            title: 'Delay adds up',
+            prompt:
+              'A 74HC gate has a propagation delay of {ns} ns. A signal passes through {n} of them in ' +
+              'a chain. How long from the input changing to the last output settling?',
+            params: (rng) => ({ ns: rng.pick([8, 12, 15]), n: rng.pick([3, 4, 5]) }),
+            answer: (p) => p.n * p.ns * 1e-9,
+            unit: 's',
+            hint: 'Each stage waits for the one before it.',
+            explain: (p) =>
+              `${p.n} × ${p.ns} ns. Logic is fast but not instant, and depth costs time: this is why a ` +
+              'design is described by how many gates a signal passes through, not how many it contains.',
+          },
+          'nand_as_inverter',
+          'active_low_inverter',
+          {
+            kind: 'inspect',
+            slug: 'nand-review',
+            templateId: 'nand_as_inverter',
+            title: 'Review: a NAND as an inverter',
+            prompt: 'This inverter behaves unpredictably. Find the item responsible.',
+          },
+        ],
+      },
+      {
+        block: 3,
+        name: 'Comparing two inputs',
+        units: [
+          {
+            kind: 'analyse',
+            slug: 'xor-truth',
+            title: 'The disagreement gate',
+            prompt:
+              'A 2-input XOR has four possible input combinations. In how many of them is the output HIGH?',
+            params: () => ({}),
+            answer: () => 2,
+            unit: '',
+            hint: 'It is HIGH exactly when the two inputs differ.',
+            explain: () =>
+              'Two: 0-1 and 1-0. "These two disagree" is the whole function, which is why XOR turns up ' +
+              'in parity checks, comparators and every adder ever built.',
+          },
+          'xor_difference_detector',
+          {
+            kind: 'inspect',
+            slug: 'xor-review',
+            templateId: 'xor_difference_detector',
+            title: 'Review: a difference detector',
+            prompt: 'This detector never changes state. Find the reason.',
+          },
+        ],
+      },
+      {
+        block: 4,
+        name: 'Cleaning up a real signal',
+        units: [
+          {
+            kind: 'analyse',
+            slug: 'debounce-resistor',
+            title: 'Sizing the filter to the bounce',
+            prompt:
+              'Contact bounce on this switch lasts up to {ms} ms. You want an RC time constant at ' +
+              'least that long, and you have a {c}F capacitor. What resistor?',
+            params: (rng) => ({ ms: rng.pick([5, 10, 20]), c: rng.pick([100e-9, 1e-6]) }),
+            answer: (p) => p.ms / 1000 / p.c,
+            unit: 'ohm',
+            hint: 'τ = R·C, rearranged, with the bounce time as τ.',
+            explain: (p) =>
+              `R = ${p.ms} ms / ${formatValue(p.c, 'F')}. Too short and the bounce gets through; too ` +
+              'long and the button feels slow to respond. Bounce is the specification here.',
+          },
+          {
+            kind: 'analyse',
+            strand: 'C',
+            slug: 'switch-discharge-current',
+            title: 'What the contacts have to survive',
+            prompt:
+              'The {c}F filter capacitor is charged to {v} V when the button closes and shorts it out ' +
+              'through {mohm} mΩ of contact resistance. What is the peak current through the contacts?',
+            params: (rng) => ({
+              c: rng.pick([100e-9, 1e-6]),
+              v: rng.pick([3.3, 5]),
+              mohm: rng.pick([50, 100, 200]),
+            }),
+            answer: (p) => p.v / (p.mohm / 1000),
+            unit: 'A',
+            hint: 'Nothing but the contacts is in that loop.',
+            explain: (p) =>
+              `I = ${p.v} / ${p.mohm} mΩ. It lasts nanoseconds and does not trip anything, but it ` +
+              'pits the contacts a little on every press. A resistor in series with the switch costs ' +
+              'nothing and is why the good debounce circuits have one.',
+          },
+          'rc_debounce',
+          {
+            kind: 'inspect',
+            slug: 'debounce-review',
+            templateId: 'rc_debounce',
+            title: 'Review: a debounced input',
+            prompt: 'This input still registers multiple presses. Find the item at fault.',
+          },
+        ],
+      },
     ],
   },
   {
     stage: 7,
     name: 'Transistors as switches',
     blurb: 'A logic pin cannot drive a load. Something has to multiply its current.',
-    blocks: [{ block: 1, name: 'Driving a real load', units: ['transistor_load_switch'] }],
+    blocks: [
+      {
+        block: 1,
+        name: 'Driving a real load',
+        units: [
+          {
+            kind: 'analyse',
+            slug: 'base-current-needed',
+            title: 'How hard to drive the base',
+            prompt:
+              'The load draws {ic} mA. The transistor guarantees a current gain of only {hfe} down at ' +
+              'saturation, and good practice is to overdrive the base {k} times beyond the minimum. ' +
+              'What base current do you aim for?',
+            params: (rng) => ({
+              ic: rng.pick([100, 200, 500]),
+              hfe: rng.pick([20, 30, 50]),
+              k: rng.pick([2, 3, 5]),
+            }),
+            answer: (p) => ((p.ic / 1000) / p.hfe) * p.k,
+            unit: 'A',
+            hint: 'Collector current over the saturation gain, then multiply by the overdrive factor.',
+            explain: (p) =>
+              `I_B = ${p.ic} mA / ${p.hfe} × ${p.k}. The gain on the front of a datasheet is measured ` +
+              'in the active region and is not the number to use here: a switch has to be driven hard ' +
+              'enough to stay in saturation at the worst-case gain, not the typical one.',
+          },
+          {
+            kind: 'analyse',
+            slug: 'base-resistor',
+            title: 'The resistor that sets it',
+            prompt:
+              'You need {ib} mA into the base. It is driven from a logic output at {v} V, and the ' +
+              'base-emitter junction drops 0.7 V. What base resistor?',
+            params: (rng) => ({ ib: rng.pick([1, 2, 5, 10]), v: rng.pick([3.3, 5]) }),
+            answer: (p) => (p.v - 0.7) / (p.ib / 1000),
+            unit: 'ohm',
+            hint: 'The resistor drops whatever the base-emitter junction does not.',
+            explain: (p) =>
+              `R = (${p.v} − 0.7) / ${p.ib} mA. The base looks like a diode, so the drop across it ` +
+              'hardly moves and the resistor is what actually decides the current.',
+          },
+          {
+            kind: 'analyse',
+            strand: 'C',
+            slug: 'saturation-loss',
+            title: 'What the transistor turns into heat',
+            prompt:
+              'A saturated transistor drops {vce} V while carrying {ic} mA. How much power does it ' +
+              'dissipate?',
+            params: (rng) => ({ vce: rng.pick([0.2, 0.3, 0.5]), ic: rng.pick([100, 200, 500]) }),
+            answer: (p) => p.vce * (p.ic / 1000),
+            unit: 'W',
+            hint: 'The drop across it, times the current through it.',
+            explain: (p) =>
+              `P = ${p.vce} V × ${p.ic} mA. Small, and that is the point of saturating it: the same ` +
+              'transistor half-on would drop volts instead of tenths and cook itself.',
+          },
+          'transistor_load_switch',
+          {
+            kind: 'inspect',
+            slug: 'load-switch-review',
+            templateId: 'transistor_load_switch',
+            title: 'Review: a logic-driven load switch',
+            prompt: 'This switch does not turn the load fully on. Find the item responsible.',
+          },
+        ],
+      },
+    ],
   },
   {
     stage: 8,
     name: 'Powering a board',
     blurb: 'Getting a clean rail to every part that needs one.',
     blocks: [
-      { block: 1, name: 'Power entry', units: ['mcu_power_entry'] },
-      { block: 2, name: 'Regulating a rail', units: ['linear_regulator'] },
-      { block: 3, name: 'A quiet rail for analogue parts', units: ['ldo_analog_rail'] },
+      {
+        block: 1,
+        name: 'Power entry',
+        units: [
+          {
+            kind: 'analyse',
+            slug: 'bulk-versus-local',
+            title: 'Two capacitors, two jobs',
+            prompt:
+              'A 100nF decoupling capacitor and a {c}F bulk capacitor sit on the same rail at the same ' +
+              'voltage. How many times more charge does the bulk one hold?',
+            params: (rng) => ({ c: rng.pick([10e-6, 22e-6, 100e-6]) }),
+            answer: (p) => p.c / 100e-9,
+            unit: '',
+            hint: 'Charge is proportional to capacitance at a given voltage, so this is just a ratio.',
+            explain: (p) =>
+              `${formatValue(p.c, 'F')} / 100nF. The bulk capacitor holds hundreds of times more and ` +
+              'cannot deliver it quickly; the small one holds almost nothing and can deliver it in ' +
+              'nanoseconds. They are not redundant, they are a fast one and a deep one.',
+          },
+          {
+            kind: 'analyse',
+            strand: 'C',
+            slug: 'esr-ripple',
+            title: 'Why the capacitor is not a short',
+            prompt:
+              'An electrolytic with {mohm} mΩ of equivalent series resistance carries {ma} mA of ' +
+              'ripple current. How much ripple voltage does its ESR alone put back on the rail?',
+            params: (rng) => ({ mohm: rng.pick([100, 300, 600]), ma: rng.pick([50, 100, 500]) }),
+            answer: (p) => (p.mohm / 1000) * (p.ma / 1000),
+            unit: 'V',
+            hint: 'The ESR is a resistor in series with an otherwise ideal capacitor.',
+            explain: (p) =>
+              `V = ${p.mohm} mΩ × ${p.ma} mA. Above a few hundred kilohertz the ESR, not the ` +
+              'capacitance, is what decides how well a capacitor holds a rail up, and it is why a ' +
+              'ceramic sits next to the electrolytic rather than instead of it.',
+          },
+          'mcu_power_entry',
+          {
+            kind: 'inspect',
+            slug: 'power-entry-review',
+            templateId: 'mcu_power_entry',
+            title: 'Review: a microcontroller power entry',
+            prompt: 'This board resets at random. Find the item at fault.',
+          },
+        ],
+      },
+      {
+        block: 2,
+        name: 'Regulating a rail',
+        units: [
+          {
+            kind: 'analyse',
+            slug: 'regulator-dissipation',
+            title: 'The heat a linear regulator makes',
+            prompt:
+              'A 7805 turns {vin} V into 5 V and the load draws {ma} mA. How much power does the ' +
+              'regulator itself dissipate?',
+            params: (rng) => ({ vin: rng.pick([9, 12, 15]), ma: rng.pick([100, 250, 500]) }),
+            answer: (p) => (p.vin - 5) * (p.ma / 1000),
+            unit: 'W',
+            hint: 'It passes the load current and drops the difference in voltage.',
+            explain: (p) =>
+              `P = (${p.vin} − 5) × ${p.ma} mA. A linear regulator does not convert the excess, it ` +
+              'burns it, and the current through it is the load current whatever the input voltage is.',
+          },
+          {
+            kind: 'analyse',
+            strand: 'C',
+            slug: 'regulator-efficiency',
+            title: 'What fraction reaches the load',
+            prompt:
+              'The same regulator, {vin} V in and 5 V out. What fraction of the input power actually ' +
+              'reaches the load?',
+            params: (rng) => ({ vin: rng.pick([9, 12, 15, 24]) }),
+            answer: (p) => 5 / p.vin,
+            unit: '',
+            hint: 'The current is the same on both sides, so the ratio is just the voltages.',
+            explain: (p) =>
+              `5 / ${p.vin}. Nothing about the load changes that number, which is the whole case ` +
+              'against a linear regulator across a large drop, and the whole case for a switcher.',
+          },
+          'linear_regulator',
+          {
+            kind: 'inspect',
+            slug: 'regulator-review',
+            templateId: 'linear_regulator',
+            title: 'Review: a 5V regulator stage',
+            prompt: 'This regulator oscillates. Find the item responsible.',
+          },
+        ],
+      },
+      {
+        block: 3,
+        name: 'A quiet rail for analogue parts',
+        units: [
+          {
+            kind: 'analyse',
+            slug: 'ldo-dropout',
+            title: 'The lowest input it will take',
+            prompt:
+              'An LDO regulating to {vout} V needs {vdo} mV of dropout at the current you are drawing. ' +
+              'What is the lowest input voltage at which it still regulates?',
+            params: (rng) => ({ vout: rng.pick([1.8, 3.3, 5]), vdo: rng.pick([150, 300, 500]) }),
+            answer: (p) => p.vout + p.vdo / 1000,
+            unit: 'V',
+            hint: 'Dropout is the headroom it needs above its own output.',
+            explain: (p) =>
+              `${p.vout} + ${p.vdo} mV. Below that the output simply follows the input down, minus the ` +
+              'dropout, and stops being regulated at all: it does not fail loudly, it just stops working.',
+          },
+          {
+            kind: 'analyse',
+            strand: 'C',
+            slug: 'ferrite-dc-drop',
+            title: 'A ferrite is a wire at DC',
+            prompt:
+              'A ferrite bead is specified as {z} Ω at 100 MHz and {mohm} mΩ at DC. The analogue rail ' +
+              'behind it draws {ma} mA. How much voltage does the bead drop?',
+            params: (rng) => ({
+              z: rng.pick([120, 220, 600]),
+              mohm: rng.pick([50, 100, 300]),
+              ma: rng.pick([20, 50, 100]),
+            }),
+            answer: (p) => (p.mohm / 1000) * (p.ma / 1000),
+            unit: 'V',
+            hint: 'Only one of those two numbers matters to a DC load. Pick the right one.',
+            explain: (p) =>
+              `V = ${p.mohm} mΩ × ${p.ma} mA. The 100 MHz figure is what the bead does to noise; the ` +
+              'DC figure is what it costs you. A bead chosen only by its impedance rating can quietly ' +
+              'drop a tenth of a volt off the rail it was meant to clean.',
+          },
+          'ldo_analog_rail',
+          {
+            kind: 'inspect',
+            slug: 'ldo-review',
+            templateId: 'ldo_analog_rail',
+            title: 'Review: a filtered analogue rail',
+            prompt: 'Switching noise is still reaching the analogue parts. Find the item at fault.',
+          },
+        ],
+      },
     ],
   },
   {
@@ -589,9 +1034,173 @@ export const STAGES = [
     name: 'Operational amplifiers',
     blurb: 'Feedback sets the behaviour, not the part.',
     blocks: [
-      { block: 1, name: 'Buffering a signal', units: ['voltage_follower'] },
-      { block: 2, name: 'Setting a gain', units: ['noninverting_amp', 'inverting_amp'] },
-      { block: 3, name: 'Deciding, with hysteresis', units: ['comparator_hysteresis'] },
+      {
+        block: 1,
+        name: 'Buffering a signal',
+        units: [
+          {
+            kind: 'analyse',
+            strand: 'C',
+            slug: 'bias-current-offset',
+            title: 'What the input current costs you',
+            prompt:
+              'An op-amp draws {na} nA of bias current into its input. It is fed from a source whose ' +
+              'resistance is {r}. What offset voltage does that current create?',
+            params: (rng) => ({ na: rng.pick([1, 20, 100]), r: rng.pick([10000, 100000, 1000000]) }),
+            answer: (p) => p.r * (p.na / 1e9),
+            unit: 'V',
+            hint: 'The bias current has to flow through whatever resistance feeds the input.',
+            explain: (p) =>
+              `V = ${formatValue(p.r, 'Ω')} × ${p.na} nA. This is the number that decides whether a ` +
+              'part is suitable: a bipolar input is fine from a low-impedance source and hopeless from ' +
+              'a megohm divider, which is exactly what a FET-input op-amp exists to solve.',
+          },
+          {
+            kind: 'analyse',
+            slug: 'slew-limit',
+            title: 'The fastest signal it can follow',
+            prompt:
+              'An op-amp slews at {sr} V/µs. What is the highest frequency at which it can still ' +
+              'reproduce a {vpp} V peak-to-peak sine wave without distorting it?',
+            params: (rng) => ({ sr: rng.pick([0.5, 2, 13]), vpp: rng.pick([2, 5, 10]) }),
+            answer: (p) => (p.sr * 1e6) / (Math.PI * p.vpp),
+            unit: 'Hz',
+            hint: 'A sine is steepest at the zero crossing, where its slope is π·f·Vpp.',
+            explain: (p) =>
+              `f = SR / (π · Vpp) = ${p.sr} V/µs / (π × ${p.vpp} V). Above that the output stops being ` +
+              'a sine and becomes a triangle: the amplifier is no longer amplifying, it is running as ' +
+              'fast as it can. Note that it depends on amplitude, so the same part is faster on a ' +
+              'smaller signal.',
+          },
+          'voltage_follower',
+          {
+            kind: 'inspect',
+            slug: 'follower-review',
+            templateId: 'voltage_follower',
+            title: 'Review: a unity-gain buffer',
+            prompt: 'This buffer sits hard against one rail. Find the item at fault.',
+          },
+        ],
+      },
+      {
+        block: 2,
+        name: 'Setting a gain',
+        units: [
+          {
+            kind: 'analyse',
+            slug: 'noninverting-gain',
+            title: 'Reading the gain off the resistors',
+            prompt:
+              'A non-inverting stage has {rf} in the feedback path and {rg} from the inverting input ' +
+              'to ground. What is its voltage gain?',
+            params: (rng) => ({
+              rf: rng.pick([10000, 47000, 100000]),
+              rg: rng.pick([1000, 4700, 10000]),
+            }),
+            answer: (p) => 1 + p.rf / p.rg,
+            unit: '',
+            hint: 'Gain = 1 + Rf/Rg. Mind the one.',
+            explain: (p) =>
+              `1 + ${formatValue(p.rf, '')} / ${formatValue(p.rg, '')}. The one is the signal itself ` +
+              'arriving at the input; the ratio is what the feedback divider adds on top. That is why ' +
+              'a non-inverting stage can never have a gain below one.',
+          },
+          {
+            kind: 'analyse',
+            slug: 'inverting-feedback-resistor',
+            title: 'Working back to a feedback resistor',
+            prompt:
+              'You want an inverting stage with a gain of −{g}, and you have chosen {rin} as the input ' +
+              'resistor. What feedback resistor?',
+            params: (rng) => ({ g: rng.pick([2, 5, 10, 20]), rin: rng.pick([1000, 4700, 10000]) }),
+            answer: (p) => p.g * p.rin,
+            unit: 'ohm',
+            hint: 'For an inverting stage the gain is just the ratio, with no added one.',
+            explain: (p) =>
+              `Rf = ${p.g} × ${formatValue(p.rin, 'Ω')}. The input resistor also sets the impedance the ` +
+              'source sees, so it is not a free choice: pick it for the source, then size Rf for the gain.',
+          },
+          {
+            kind: 'analyse',
+            strand: 'C',
+            slug: 'gain-bandwidth',
+            title: 'Gain costs bandwidth',
+            prompt:
+              'An op-amp has a gain-bandwidth product of {gbw} MHz. You configure it for a gain of ' +
+              '{g}. What bandwidth do you get?',
+            params: (rng) => ({ gbw: rng.pick([1, 3, 10]), g: rng.pick([2, 10, 100]) }),
+            answer: (p) => (p.gbw * 1e6) / p.g,
+            unit: 'Hz',
+            hint: 'The product is constant: that is what makes it a product.',
+            explain: (p) =>
+              `${p.gbw} MHz / ${p.g}. Gain and bandwidth trade one for one, which is why a high-gain ` +
+              'stage is often split into two lower-gain ones: the same total gain arrives with far ' +
+              'more bandwidth left.',
+          },
+          'noninverting_amp',
+          'inverting_amp',
+          {
+            kind: 'inspect',
+            slug: 'amp-review',
+            templateId: 'inverting_amp',
+            title: 'Review: an inverting amplifier',
+            prompt: 'The gain is not what the brief asked for. Find the item responsible.',
+          },
+        ],
+      },
+      {
+        block: 3,
+        name: 'Deciding, with hysteresis',
+        units: [
+          {
+            kind: 'analyse',
+            slug: 'hysteresis-band',
+            title: 'How much hysteresis you get',
+            prompt:
+              'A comparator output swings between 0 and {v} V. A {rf} feedback resistor runs from the ' +
+              'output back to the non-inverting input, where the reference divider presents a source ' +
+              'resistance of {rth}. By how much does the threshold move when the output flips?',
+            params: (rng) => ({
+              v: rng.pick([3.3, 5]),
+              rf: rng.pick([100000, 220000, 470000]),
+              rth: rng.pick([2500, 5000, 10000]),
+            }),
+            answer: (p) => (p.v * p.rth) / (p.rth + p.rf),
+            unit: 'V',
+            hint: 'The output drives the threshold through a divider made of Rf and the reference impedance.',
+            explain: (p) =>
+              `ΔV = ${p.v} × ${formatValue(p.rth, '')} / (${formatValue(p.rth, '')} + ` +
+              `${formatValue(p.rf, '')}). Make Rf large and the band shrinks toward nothing, which is ` +
+              'the chattering you were trying to stop. Make it small and the comparator latches and ' +
+              'never comes back.',
+          },
+          {
+            kind: 'analyse',
+            strand: 'C',
+            slug: 'open-collector-rise',
+            title: 'What an open-collector output cannot do',
+            prompt:
+              'An open-collector output can only pull down. Its {r} pull-up has to charge {pf} pF of ' +
+              'wiring capacitance to get back high. How long is one time constant of that rise?',
+            params: (rng) => ({ r: rng.pick([1000, 4700, 10000]), pf: rng.pick([50, 100, 400]) }),
+            answer: (p) => p.r * (p.pf * 1e-12),
+            unit: 's',
+            hint: 'The same RC as ever, with the pull-up as R and the stray capacitance as C.',
+            explain: (p) =>
+              `τ = ${formatValue(p.r, 'Ω')} × ${p.pf} pF. Falling edges are fast because a transistor ` +
+              'drives them; rising edges are slow because only a resistor does. Every open-collector ' +
+              'bus in existence is asymmetric for this reason.',
+          },
+          'comparator_hysteresis',
+          {
+            kind: 'inspect',
+            slug: 'comparator-review',
+            templateId: 'comparator_hysteresis',
+            title: 'Review: a comparator with hysteresis',
+            prompt: 'This output chatters on a slow input. Find the item at fault.',
+          },
+        ],
+      },
     ],
   },
   {
@@ -599,8 +1208,104 @@ export const STAGES = [
     name: 'Sensing the physical world',
     blurb: 'Turning a physical quantity into a voltage something can read.',
     blocks: [
-      { block: 1, name: 'Resistive sensors', units: ['thermistor_adc'] },
-      { block: 2, name: 'Sensors that output a voltage', units: ['tmp36_buffer'] },
+      {
+        block: 1,
+        name: 'Resistive sensors',
+        units: [
+          {
+            kind: 'analyse',
+            slug: 'thermistor-midpoint',
+            title: 'Turning a resistance into a voltage',
+            prompt:
+              'An NTC thermistor reads {rt} at the temperature you care about. It sits on top of a ' +
+              'fixed {rf} resistor across a {v} V rail. What voltage appears at the midpoint?',
+            params: (rng) => ({
+              rt: rng.pick([4700, 10000, 22000]),
+              rf: rng.pick([4700, 10000]),
+              v: rng.pick([3.3, 5]),
+            }),
+            answer: (p) => (p.v * p.rf) / (p.rt + p.rf),
+            unit: 'V',
+            hint: 'It is an ordinary divider. The sensor is just the resistor that moves.',
+            explain: (p) =>
+              `V = ${p.v} × ${formatValue(p.rf, '')} / ${formatValue(p.rt + p.rf, '')}. A resistive ` +
+              'sensor measures nothing on its own: the divider is what turns its resistance into ' +
+              'something an ADC can read.',
+          },
+          {
+            kind: 'analyse',
+            strand: 'C',
+            slug: 'adc-lsb',
+            title: 'The smallest change a converter can see',
+            prompt:
+              'An ADC of {bits} bits is referenced to {v} V. What voltage does one count represent?',
+            params: (rng) => ({ bits: rng.pick([8, 10, 12]), v: rng.pick([3.3, 5]) }),
+            answer: (p) => p.v / 2 ** p.bits,
+            unit: 'V',
+            hint: 'The reference is divided into 2^bits steps.',
+            explain: (p) =>
+              `${p.v} / 2^${p.bits} = ${p.v} / ${2 ** p.bits}. Anything smaller than this is invisible ` +
+              'to the converter however clean the front end is, so it is the number that decides ' +
+              'whether the divider you designed has enough swing to be worth reading.',
+          },
+          'thermistor_adc',
+          {
+            kind: 'inspect',
+            slug: 'thermistor-review',
+            templateId: 'thermistor_adc',
+            title: 'Review: a thermistor front end',
+            prompt: 'This reading does not move with temperature. Find the item responsible.',
+          },
+        ],
+      },
+      {
+        block: 2,
+        name: 'Sensors that output a voltage',
+        units: [
+          {
+            kind: 'analyse',
+            slug: 'tmp36-temperature',
+            title: 'Reading the sensor back',
+            prompt:
+              'A TMP36 outputs 500 mV at 0 °C and rises 10 mV for every degree. It reads {mv} mV. ' +
+              'What temperature is that, in °C?',
+            params: (rng) => ({ mv: rng.pick([600, 700, 850, 950]) }),
+            answer: (p) => (p.mv - 500) / 10,
+            unit: '',
+            hint: 'Take off the offset first, then divide by the slope.',
+            explain: (p) =>
+              `(${p.mv} − 500) / 10. The 500 mV offset is there so the part can report temperatures ` +
+              'below zero on a single supply, which it could not do if 0 °C sat at 0 V.',
+          },
+          {
+            kind: 'analyse',
+            slug: 'sensor-adc-counts',
+            title: 'What the converter actually reports',
+            prompt:
+              'A sensor output of {mv} mV goes into a {bits}-bit ADC referenced to {v} V. What count does it read?',
+            params: (rng) => ({
+              mv: rng.pick([600, 700, 850, 950]),
+              bits: rng.pick([10, 12]),
+              v: rng.pick([3.3, 5]),
+            }),
+            answer: (p) => (p.mv / 1000 / p.v) * 2 ** p.bits,
+            unit: '',
+            hint: 'The count is the fraction of the reference, times the number of steps.',
+            explain: (p) =>
+              `${p.mv} mV / ${p.v} V × ${2 ** p.bits}. Notice how little of the range a 0.6 to 1.75 V ` +
+              'sensor uses on a 5 V reference: most of the converter is being spent on voltages the ' +
+              'sensor will never produce.',
+          },
+          'tmp36_buffer',
+          {
+            kind: 'inspect',
+            slug: 'tmp36-review',
+            templateId: 'tmp36_buffer',
+            title: 'Review: a buffered sensor',
+            prompt: 'This reading sags whenever the ADC samples. Find the item at fault.',
+          },
+        ],
+      },
     ],
   },
   {
@@ -608,9 +1313,164 @@ export const STAGES = [
     name: 'Digital interfaces and buses',
     blurb: 'Hardware that honours a contract the firmware depends on.',
     blocks: [
-      { block: 1, name: 'The microcontroller contract', units: ['mcu_gpio_contract'] },
-      { block: 2, name: 'A shared bus', units: ['i2c_pullups'] },
-      { block: 3, name: 'Expanding the pin count', units: ['shift_register_outputs'] },
+      {
+        block: 1,
+        name: 'The microcontroller contract',
+        units: [
+          {
+            kind: 'analyse',
+            slug: 'port-current-budget',
+            title: 'The whole port has a limit too',
+            prompt:
+              '{n} indicators are driven from one microcontroller, each at {ma} mA. The part allows ' +
+              '{max} mA in total across the whole package. How much of that budget is left?',
+            params: (rng) => ({ n: rng.pick([4, 6, 8]), ma: rng.pick([3, 5, 8]), max: rng.pick([100, 200]) }),
+            answer: (p) => (p.max - p.n * p.ma) / 1000,
+            unit: 'A',
+            hint: 'Total the pins first, then take it off the package limit.',
+            explain: (p) =>
+              `${p.max} − ${p.n} × ${p.ma} mA. Every pin can be within its own rating while the ` +
+              'package is not: the current all comes back through one ground pin, and that pin is ' +
+              'usually the real limit.',
+          },
+          {
+            kind: 'analyse',
+            strand: 'C',
+            slug: 'logic-level-margin',
+            title: 'How much margin the levels leave',
+            prompt:
+              'A pin sinking {ma} mA sits at {vol} V rather than at ground. The input it drives reads ' +
+              'LOW only below {vil} V. How much margin is there?',
+            params: (rng) => ({
+              ma: rng.pick([4, 8, 16]),
+              vol: rng.pick([0.3, 0.45, 0.6]),
+              vil: rng.pick([0.8, 1.0, 1.5]),
+            }),
+            answer: (p) => p.vil - p.vol,
+            unit: 'V',
+            hint: 'The difference between what the driver produces and what the receiver requires.',
+            explain: (p) =>
+              `${p.vil} − ${p.vol}. Noise, ground offsets and temperature all eat into this, so a ` +
+              'design with a couple of hundred millivolts of margin is not comfortable, it is marginal.',
+          },
+          'mcu_gpio_contract',
+          {
+            kind: 'inspect',
+            slug: 'gpio-review',
+            templateId: 'mcu_gpio_contract',
+            title: 'Review: a GPIO contract',
+            prompt: 'The firmware reads this input as random. Find what the hardware got wrong.',
+          },
+        ],
+      },
+      {
+        block: 2,
+        name: 'A shared bus',
+        units: [
+          {
+            kind: 'analyse',
+            strand: 'C',
+            slug: 'i2c-sink-limit',
+            title: 'The smallest pull-up the parts allow',
+            prompt:
+              'An I²C device can sink {ma} mA and still hold the line below its LOW threshold. On a ' +
+              '{v} V bus, what is the smallest pull-up resistor it can cope with?',
+            params: (rng) => ({ ma: rng.pick([3, 6, 20]), v: rng.pick([3.3, 5]) }),
+            answer: (p) => p.v / (p.ma / 1000),
+            unit: 'ohm',
+            hint: 'When the line is held low, the whole bus voltage is across the pull-up.',
+            explain: (p) =>
+              `R = ${p.v} / ${p.ma} mA. Anything smaller asks the device for more current than it has, ` +
+              'and the line never gets low enough to read as a zero. This is the floor; the rise time ' +
+              'sets the ceiling, and the answer lives between them.',
+          },
+          {
+            kind: 'analyse',
+            slug: 'i2c-rise-time',
+            title: 'How long the line takes to get back up',
+            prompt:
+              'The bus carries {pf} pF of capacitance and is pulled up through {r}. Taking the rise ' +
+              'time as 0.85 × R × C, how long is it?',
+            params: (rng) => ({ pf: rng.pick([50, 100, 400]), r: rng.pick([2200, 4700, 10000]) }),
+            answer: (p) => 0.85 * p.r * (p.pf * 1e-12),
+            unit: 's',
+            hint: 'The 0.85 is the 30% to 70% part of an exponential; the rest is RC.',
+            explain: (p) =>
+              `t = 0.85 × ${formatValue(p.r, 'Ω')} × ${p.pf} pF. Standard mode allows 1000 ns and fast ` +
+              'mode 300 ns, so this number is what decides whether the bus you have drawn can run at ' +
+              'the speed the firmware assumes.',
+          },
+          {
+            kind: 'analyse',
+            slug: 'i2c-pullup-max',
+            title: 'The largest pull-up that still makes the deadline',
+            prompt:
+              'The bus has {pf} pF and the rise time must stay under {us} µs, again taking it as ' +
+              '0.85 × R × C. What is the largest pull-up you can use?',
+            // Expressed in microseconds because the two limits that matter are
+            // 0.3 µs and 1 µs, and 1000 ns is a number nobody writes.
+            params: (rng) => ({ pf: rng.pick([50, 100, 200, 400]), us: rng.pick([0.3, 1]) }),
+            answer: (p) => (p.us * 1e-6) / (0.85 * p.pf * 1e-12),
+            unit: 'ohm',
+            hint: 'Same relation, rearranged for R.',
+            explain: (p) =>
+              `R = ${p.us} µs / (0.85 × ${p.pf} pF). More devices and longer tracks mean more ` +
+              'capacitance and therefore a smaller resistor, which is why a bus that worked with two ' +
+              'parts on it stops working with six.',
+          },
+          'i2c_pullups',
+          {
+            kind: 'inspect',
+            slug: 'i2c-review',
+            templateId: 'i2c_pullups',
+            title: 'Review: an I²C bus',
+            prompt: 'No transfer on this bus ever completes. Find the item at fault.',
+          },
+        ],
+      },
+      {
+        block: 3,
+        name: 'Expanding the pin count',
+        units: [
+          {
+            kind: 'analyse',
+            slug: 'shift-clocks',
+            title: 'Clocking a chain',
+            prompt:
+              '{k} eight-bit shift registers are cascaded, one feeding the next. How many clock ' +
+              'pulses does it take to load the whole chain?',
+            params: (rng) => ({ k: rng.pick([2, 3, 4, 8]) }),
+            answer: (p) => 8 * p.k,
+            unit: '',
+            hint: 'Every bit has to be shifted through every stage before it.',
+            explain: (p) =>
+              `8 × ${p.k}. Three wires drive ${8 * p.k} outputs, and the cost is time rather than ` +
+              'pins: this is the trade a shift register exists to make.',
+          },
+          {
+            kind: 'analyse',
+            slug: 'shift-refresh-time',
+            title: 'How long an update takes',
+            prompt:
+              'You clock {bits} bits out at {khz} kHz. How long does one full update of the outputs take?',
+            params: (rng) => ({ bits: rng.pick([16, 24, 64]), khz: rng.pick([100, 250, 500]) }),
+            answer: (p) => p.bits / (p.khz * 1000),
+            unit: 's',
+            hint: 'One bit per clock, so the time is bits divided by the clock rate.',
+            explain: (p) =>
+              `${p.bits} / ${p.khz} kHz. Multiply that by the refresh rate you want and you find out ` +
+              'whether the microcontroller has any time left over for anything else.',
+          },
+          'shift_register_outputs',
+          {
+            kind: 'inspect',
+            slug: 'shift-review',
+            templateId: 'shift_register_outputs',
+            title: 'Review: a shift register expansion',
+            prompt: 'None of the outputs ever turn on. Find the item responsible.',
+          },
+        ],
+      },
     ],
   },
   {
@@ -618,11 +1478,294 @@ export const STAGES = [
     name: 'Switching power, motion and production',
     blurb: 'The parts that bite, and designing so they do not.',
     blocks: [
-      { block: 1, name: 'Making a clock', units: ['astable_555'] },
-      { block: 2, name: 'Driving motion', units: ['mcu_motor_contract'] },
-      { block: 3, name: 'Switching supplies', units: ['buck_feedback_divider'] },
-      { block: 4, name: 'Protecting the product', units: ['supply_input_protection'] },
-      { block: 5, name: 'A whole product', units: ['light_threshold_alarm'] },
+      {
+        block: 1,
+        name: 'Making a clock',
+        units: [
+          {
+            kind: 'analyse',
+            slug: '555-frequency',
+            title: 'What the timing parts decide',
+            prompt:
+              'A 555 astable has R1 = {r1}, R2 = {r2} and a {c}F timing capacitor. Its frequency is ' +
+              '1.44 / ((R1 + 2·R2)·C). What frequency does it run at?',
+            params: (rng) => ({
+              r1: rng.pick([1000, 10000]),
+              r2: rng.pick([4700, 47000, 100000]),
+              c: rng.pick([100e-9, 1e-6, 10e-6]),
+            }),
+            answer: (p) => 1.44 / ((p.r1 + 2 * p.r2) * p.c),
+            unit: 'Hz',
+            hint: 'R2 appears twice because the capacitor discharges through it alone.',
+            explain: (p) =>
+              `f = 1.44 / ((${formatValue(p.r1, '')} + 2 × ${formatValue(p.r2, '')}) × ` +
+              `${formatValue(p.c, 'F')}). The capacitor charges through both resistors and discharges ` +
+              'through only R2, which is where the asymmetry in the formula comes from.',
+          },
+          {
+            kind: 'analyse',
+            slug: '555-duty',
+            title: 'Why it is never a square wave',
+            prompt:
+              'The same circuit, R1 = {r1} and R2 = {r2}. Its duty cycle is (R1 + R2) / (R1 + 2·R2). ' +
+              'What is it?',
+            params: (rng) => ({ r1: rng.pick([1000, 10000]), r2: rng.pick([4700, 47000, 100000]) }),
+            answer: (p) => (p.r1 + p.r2) / (p.r1 + 2 * p.r2),
+            unit: '',
+            hint: 'Look at what happens to the answer as R1 gets small compared with R2.',
+            explain: (p) =>
+              `(${formatValue(p.r1, '')} + ${formatValue(p.r2, '')}) / ` +
+              `(${formatValue(p.r1, '')} + 2 × ${formatValue(p.r2, '')}). It can approach 50% but never ` +
+              'reach it, because the charge path always contains one more resistor than the discharge ' +
+              'path. Getting below 50% needs a diode across R2 or a different chip.',
+          },
+          'astable_555',
+          {
+            kind: 'inspect',
+            slug: '555-review',
+            templateId: 'astable_555',
+            title: 'Review: a 555 blinker',
+            prompt: 'This oscillator sits still instead of running. Find the item at fault.',
+          },
+        ],
+      },
+      {
+        block: 2,
+        name: 'Driving motion',
+        units: [
+          {
+            kind: 'analyse',
+            slug: 'motor-stall-current',
+            title: 'The current that decides everything',
+            prompt:
+              'A DC motor has {ohm} Ω of winding resistance and runs from {v} V. When the shaft is ' +
+              'held still it generates no back-EMF at all. What current does it draw then?',
+            params: (rng) => ({ ohm: rng.pick([1.5, 3, 8]), v: rng.pick([6, 12, 24]) }),
+            answer: (p) => p.v / p.ohm,
+            unit: 'A',
+            hint: 'With no back-EMF, only the winding resistance is left to limit it.',
+            explain: (p) =>
+              `I = ${p.v} / ${p.ohm}. A running motor draws a fraction of this, which is why a design ` +
+              'sized for the running current works on the bench and fails the first time something ' +
+              'jams. Stall is the number the driver, the fuse and the supply all have to survive.',
+          },
+          {
+            kind: 'analyse',
+            strand: 'C',
+            slug: 'flyback-energy',
+            title: 'Where the winding energy goes',
+            prompt:
+              'A winding of {mh} mH is carrying {a} A when the drive transistor switches off. How ' +
+              'much energy has to go somewhere in that instant?',
+            params: (rng) => ({ mh: rng.pick([1, 5, 20]), a: rng.pick([0.5, 1, 2]) }),
+            answer: (p) => 0.5 * (p.mh / 1000) * p.a ** 2,
+            unit: 'J',
+            hint: 'E = ½·L·I². The current cannot stop instantly; the energy has to go somewhere.',
+            explain: (p) =>
+              `E = ½ × ${p.mh} mH × (${p.a} A)². Without a path for it, the inductor produces whatever ` +
+              'voltage it takes to keep the current flowing, which is usually the voltage that ' +
+              'destroys the transistor. The flyback diode is that path.',
+          },
+          'mcu_motor_contract',
+          {
+            kind: 'inspect',
+            slug: 'motor-review',
+            templateId: 'mcu_motor_contract',
+            title: 'Review: a motor drive',
+            prompt: 'This bridge drives the motor before the firmware is ready. Find the item at fault.',
+          },
+        ],
+      },
+      {
+        block: 3,
+        name: 'Switching supplies',
+        units: [
+          {
+            kind: 'analyse',
+            slug: 'buck-duty',
+            title: 'What fraction of the time the switch is on',
+            prompt:
+              'A buck converter makes {vout} V from {vin} V. Ignoring losses, what duty cycle does it run at?',
+            params: (rng) => ({ vout: rng.pick([1.8, 3.3, 5]), vin: rng.pick([12, 24]) }),
+            answer: (p) => p.vout / p.vin,
+            unit: '',
+            hint: 'A buck converter chops the input and averages it. The average is the output.',
+            explain: (p) =>
+              `D = ${p.vout} / ${p.vin}. Note what a linear regulator would have done with the same ` +
+              'two voltages: burned the difference. A switcher spends the time instead of the power.',
+          },
+          {
+            kind: 'analyse',
+            slug: 'buck-feedback-top',
+            title: 'Setting the output with two resistors',
+            prompt:
+              'The converter regulates its feedback pin to {vfb} V. With {rbot} on the bottom of the ' +
+              'divider, what top resistor gives {vout} V out?',
+            params: (rng) => ({
+              vfb: rng.pick([0.6, 0.8, 1.25]),
+              rbot: rng.pick([10000, 20000]),
+              vout: rng.pick([1.8, 3.3, 5]),
+            }),
+            answer: (p) => p.rbot * (p.vout / p.vfb - 1),
+            unit: 'ohm',
+            hint: 'The converter moves its output until the divider brings FB to its reference.',
+            explain: (p) =>
+              `R_top = ${formatValue(p.rbot, 'Ω')} × (${p.vout} / ${p.vfb} − 1). These two resistors ` +
+              'are the entire specification of the output voltage: a wrong value here does not make ' +
+              'the converter run badly, it makes it run correctly to the wrong number.',
+          },
+          {
+            kind: 'analyse',
+            strand: 'C',
+            slug: 'inductor-ripple',
+            title: 'How much the inductor current swings',
+            prompt:
+              'A buck at {khz} kHz with a {uh} µH inductor, {vin} V in and {vout} V out. Taking ' +
+              'ΔI = (Vin − Vout)·D / (L·f) with D = Vout/Vin, what is the peak-to-peak ripple current?',
+            params: (rng) => ({
+              khz: rng.pick([400, 800]),
+              uh: rng.pick([10, 22, 47]),
+              vin: rng.pick([12, 24]),
+              vout: rng.pick([3.3, 5]),
+            }),
+            answer: (p) =>
+              ((p.vin - p.vout) * (p.vout / p.vin)) / (p.uh * 1e-6 * p.khz * 1000),
+            unit: 'A',
+            hint: 'Bigger inductor or faster switching, less ripple. Both cost something.',
+            explain: (p) =>
+              `ΔI = (${p.vin} − ${p.vout}) × ${(p.vout / p.vin).toFixed(2)} / (${p.uh} µH × ` +
+              `${p.khz} kHz). Designers aim for roughly 30% of the load current: less needs a bigger ` +
+              'inductor for no real gain, more makes the output capacitor work far too hard.',
+          },
+          'buck_feedback_divider',
+          {
+            kind: 'inspect',
+            slug: 'buck-review',
+            templateId: 'buck_feedback_divider',
+            title: 'Review: a buck converter',
+            prompt: 'This converter produces the wrong output voltage. Find the item responsible.',
+          },
+        ],
+      },
+      {
+        block: 4,
+        name: 'Protecting the product',
+        units: [
+          {
+            kind: 'analyse',
+            slug: 'fuse-rating',
+            title: 'Choosing a fuse',
+            prompt:
+              'The board draws {ma} mA in normal operation. A fuse should be rated at least {k} times ' +
+              'the working current so it does not fatigue and open on its own. What rating?',
+            params: (rng) => ({ ma: rng.pick([120, 250, 400]), k: rng.pick([2, 2.5, 3]) }),
+            answer: (p) => (p.k * p.ma) / 1000,
+            unit: 'A',
+            hint: 'Round up to a value that exists after you have done the sum.',
+            explain: (p) =>
+              `${p.k} × ${p.ma} mA. A fuse sized exactly to the working current is a component that ` +
+              'will eventually fail for no reason, in the field, and look exactly like a real fault.',
+          },
+          {
+            kind: 'analyse',
+            strand: 'C',
+            slug: 'schottky-protection-loss',
+            title: 'What a series diode costs',
+            prompt:
+              'A series Schottky protecting against reversed supplies drops {vf} V and carries {ma} mA ' +
+              'continuously. How much power does it lose?',
+            params: (rng) => ({ vf: rng.pick([0.3, 0.4, 0.55]), ma: rng.pick([200, 500, 900]) }),
+            answer: (p) => p.vf * (p.ma / 1000),
+            unit: 'W',
+            hint: 'Its drop times the current, for as long as the product is switched on.',
+            explain: (p) =>
+              `P = ${p.vf} × ${p.ma} mA. Every second the product runs. Compare it with the next ` +
+              'question before deciding a diode is the simple option.',
+          },
+          {
+            kind: 'analyse',
+            strand: 'C',
+            slug: 'pfet-protection-loss',
+            title: 'What a P-FET costs instead',
+            prompt:
+              'A P-channel MOSFET doing the same job has {mohm} mΩ of on-resistance and carries the ' +
+              'same {ma} mA. How much power does it lose?',
+            params: (rng) => ({ mohm: rng.pick([20, 50, 100]), ma: rng.pick([200, 500, 900]) }),
+            answer: (p) => (p.mohm / 1000) * (p.ma / 1000) ** 2,
+            unit: 'W',
+            hint: 'I²R this time, not V·I. That difference is the whole argument.',
+            explain: (p) =>
+              `P = ${p.mohm} mΩ × (${p.ma} mA)². Orders of magnitude less than the diode, because a ` +
+              'resistance loses less as the current falls while a diode drop stays put. The FET costs ' +
+              'more and needs its gate thinking about; below a hundred milliamps the diode usually wins.',
+          },
+          'supply_input_protection',
+          {
+            kind: 'inspect',
+            slug: 'protection-review',
+            templateId: 'supply_input_protection',
+            title: 'Review: a protected input',
+            prompt: 'This input does not survive a reversed supply. Find the item at fault.',
+          },
+        ],
+      },
+      {
+        block: 5,
+        name: 'A whole product',
+        units: [
+          {
+            kind: 'analyse',
+            slug: 'ldr-dark-voltage',
+            title: 'What the sensor reads in the dark',
+            prompt:
+              'A photoresistor measures {rlight} in bright light and {rdark} in the dark. It sits on ' +
+              'top of a fixed {rf} resistor across a {v} V rail. What is the midpoint voltage in the dark?',
+            params: (rng) => ({
+              rlight: rng.pick([1000, 5000]),
+              rdark: rng.pick([100000, 500000]),
+              rf: rng.pick([10000, 22000]),
+              v: rng.pick([3.3, 5]),
+            }),
+            answer: (p) => (p.v * p.rf) / (p.rdark + p.rf),
+            unit: 'V',
+            hint: 'In the dark the sensor is the large resistance, so it takes most of the rail.',
+            explain: (p) =>
+              `V = ${p.v} × ${formatValue(p.rf, '')} / ${formatValue(p.rdark + p.rf, '')}. Work out the ` +
+              'bright case as well and the pair tells you the swing your comparator has to sit inside. ' +
+              'A threshold outside that swing is a circuit that never changes state.',
+          },
+          {
+            kind: 'analyse',
+            strand: 'P',
+            slug: 'threshold-margin',
+            title: 'Is the threshold in a sensible place',
+            prompt:
+              'The sensor node swings between {vlow} V and {vhigh} V across the conditions you care ' +
+              'about, and the reference divider sets the threshold at {vth} V. What is the smaller of ' +
+              'the two margins?',
+            params: (rng) => ({
+              vlow: rng.pick([0.4, 0.8, 1.1]),
+              vhigh: rng.pick([2.8, 3.4, 4.2]),
+              vth: rng.pick([1.65, 2.5]),
+            }),
+            answer: (p) => Math.min(p.vth - p.vlow, p.vhigh - p.vth),
+            unit: 'V',
+            hint: 'Two margins, one on each side. The design is only as good as the worse one.',
+            explain: (p) =>
+              `The smaller of (${p.vth} − ${p.vlow}) and (${p.vhigh} − ${p.vth}). Putting the threshold ` +
+              'exactly half way between the two rails is a habit, not an answer: half way between the ' +
+              'two states the sensor actually reaches is what gives both of them room.',
+          },
+          'light_threshold_alarm',
+          {
+            kind: 'inspect',
+            slug: 'alarm-review',
+            templateId: 'light_threshold_alarm',
+            title: 'Review: a light-threshold alarm',
+            prompt: 'This alarm never triggers, whatever the light does. Find the item at fault.',
+          },
+        ],
+      },
     ],
   },
 ];

@@ -10,7 +10,7 @@
  * results panel can render either without special cases.
  */
 
-import { parseValue, formatValue } from '../schematic/units.js';
+import { parseValue, formatReadable } from '../schematic/units.js';
 
 /**
  * A numeric answer, judged against a tolerance rather than an exact match.
@@ -50,7 +50,7 @@ export function gradeAnalyse(unit, raw, params) {
       empty: false,
       correct: [
         {
-          label: `${formatValue(given, unitLabel)} is right`,
+          label: `${formatReadable(given, unitLabel)} is right`,
           detail: unit.explain ? unit.explain(params) : '',
         },
       ],
@@ -79,7 +79,7 @@ export function gradeAnalyse(unit, raw, params) {
       {
         source: 'answer',
         label: 'Not the value this circuit produces',
-        why: `You answered ${formatValue(given, unitLabel)}.${diagnosis}`,
+        why: `You answered ${formatReadable(given, unitLabel)}.${diagnosis}`,
         detail: unit.hint || 'Work it through again from the quantities the question gives you.',
       },
     ],
@@ -158,7 +158,7 @@ export function revealFor(work) {
     const expected = work.unit.answer(work.params);
     return [
       {
-        label: `The answer is ${formatValue(expected, work.answerUnit || '')}`,
+        label: `The answer is ${formatReadable(expected, work.answerUnit || '')}`,
         detail: work.unit.explain ? work.unit.explain(work.params) : '',
       },
       ...(work.unit.hint ? [{ label: 'What to hold on to', detail: work.unit.hint }] : []),
@@ -180,6 +180,6 @@ export function renderPrompt(template, params) {
   return String(template).replace(/\{(\w+)\}/g, (whole, key) => {
     const value = params[key];
     if (value === undefined) return whole;
-    return typeof value === 'number' ? formatValue(value, '') : String(value);
+    return typeof value === 'number' ? formatReadable(value) : String(value);
   });
 }

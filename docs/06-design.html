@@ -868,6 +868,31 @@
           portrait sheet, exactly as it would on paper.
         </p>
 
+        <h3>Two numbers that disagree</h3>
+        <p>
+          The home screen carries one headline figure: a band name and a percentage, "how far along am I". It was
+          computed from concept mastery, which was the right answer when mastery decided what you saw next. Then the
+          roadmap replaced that, and most units on a roadmap are not drawings, and only drawings move mastery. A
+          learner three quarters of the way through the curriculum could open the app and be told they were a
+          Newcomer, 0% of the way to industry practice, directly underneath a line reading "Stage 12 of 12".
+        </p>
+        <p>
+          Nothing was broken. Both numbers were correct answers to the questions they were actually computing, and the
+          questions had quietly stopped being the same question. That is the failure mode worth naming, because it has
+          no error state and no stack trace: <strong>a derived figure outlives the model it was derived from.</strong>
+        </p>
+        <pre data-label="src/lib/level.js"><code><span class="k">export function</span> <span class="f">computeLevel</span>(mastery, roadmap = <span class="k">null</span>) {
+  <span class="c">// The roadmap is the progression, so it is what the band reports.</span>
+  <span class="k">if</span> (roadmap?.stageCount) <span class="k">return</span> { level: <span class="f">bandForStage</span>(...), expertise: roadmap.expertise, ... };
+  <span class="c">// Mastery still answers when nobody asked about the roadmap.</span></code></pre>
+        <p>
+          Two lessons. The first is that when a product's centre of gravity moves, the derived displays do not follow
+          on their own and will not complain: go and find them. The second is that the old model was kept rather than
+          deleted, because it still records something true and something the new one does not, namely what has been
+          demonstrated by drawing rather than merely worked through. It stopped being the headline; it did not stop
+          being useful.
+        </p>
+
         <h3>The panel has to know which way the drawing runs</h3>
         <p>
           Sizing the sheet to the drawing is only half of it. The panel around the sheet was laid out when every

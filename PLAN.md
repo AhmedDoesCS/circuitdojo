@@ -277,11 +277,24 @@ can carry an Inspect unit. That was the gate on P2 and P4, and it is open.
 The learner's current position. Roughly 55 units, mostly Analyse and Inspect
 around the Build units that already exist.
 
+**Done.** Forty-two units across the four stages.
+
 **P3. Practice mode.**
 Generator, banks, rating, tiers, unlock at stage 6.
 
 **P4. Content for stages 5 to 12.**
 The long tail, roughly 110 units. Sequenced so each stage ships complete.
+
+**Done.** Ninety-five units across the eight stages, for a roadmap of 137: 70
+Analyse, 36 Build, 31 Inspect. Every one of the twenty-one blocks that already
+had a circuit now has the arithmetic in front of it and a review of it behind.
+
+Two things fell out of writing it. The reported expertise band was still derived
+from concept mastery, and most units on the roadmap do not move mastery at all,
+so a learner in stage 12 was shown as a Newcomer at 0%: the band now follows the
+roadmap and mastery keeps the job it is still needed for. And the number
+formatter used for component values was being used for the quantities inside a
+question, where a 0.6 V diode drop came out as "600m V".
 
 **P5. The roadmap map screen.**
 A view of where you are and what is ahead. Deliberately last: it is the part

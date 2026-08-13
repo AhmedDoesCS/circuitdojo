@@ -16,7 +16,7 @@ import { injectFault, applicableFaults, FAULTS } from '../src/engine/mutate.js';
 import { gradeAnalyse, gradeInspect, renderPrompt } from '../src/engine/answer.js';
 import { UNITS } from '../src/roadmap/index.js';
 import { instantiateUnit } from '../src/roadmap/instantiate.js';
-import { formatValue } from '../src/schematic/units.js';
+import { formatValue, formatReadable } from '../src/schematic/units.js';
 
 const SEEDS = [1, 7, 42, 1234, 555];
 
@@ -166,10 +166,13 @@ test('every Analyse unit accepts its own answer', () => {
       const sat = instantiateUnit(unit, seed);
       const expected = unit.answer(sat.params);
       assert.ok(Number.isFinite(expected), `${unit.id}#${seed} has no finite answer`);
-      // Three significant figures in engineering notation: what a person writes.
-      const typed = formatValue(expected, '');
-      if (!gradeAnalyse(unit, typed, sat.params).passed) {
-        rejected.push(`${unit.id}#${seed}: answer ${expected}, typed as "${typed}"`);
+      // Both ways a person actually types it: engineering notation ("22m") and
+      // an ordinary decimal ("0.022"). Either has to be accepted, because the
+      // question does not say which one it wants.
+      for (const typed of [formatValue(expected, ''), formatReadable(expected)]) {
+        if (!gradeAnalyse(unit, typed, sat.params).passed) {
+          rejected.push(`${unit.id}#${seed}: answer ${expected}, typed as "${typed}"`);
+        }
       }
     }
   }
