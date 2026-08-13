@@ -11,7 +11,8 @@ npm install
 npm run dev      # http://localhost:5173
 ```
 
-No backend needed to start: guest mode stores everything locally.
+No backend needed to start: guest mode stores everything locally. To actually use it, and to set up
+accounts, see **[SETUP.md](SETUP.md)**.
 
 ---
 
@@ -144,6 +145,9 @@ updated with the app, see the changelog on its front page.
 ---
 
 ## Optional: accounts and cloud progress
+
+Full walkthrough, including what guest mode costs and how to protect it:
+**[SETUP.md](SETUP.md)**. The short version:
 
 1. Create a Supabase project.
 2. Run `supabase/migrations/0001_init.sql`, then `0002_roadmap.sql`, in the SQL editor.
