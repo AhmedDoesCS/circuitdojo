@@ -100,12 +100,21 @@ export const localStore = {
    */
   exportProfile: () => ({
     format: 'circuitdojo.profile',
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     progress: read(KEYS.progress, {}),
     mastery: read(KEYS.mastery, {}),
     attempts: read(KEYS.attempts, []),
     settings: read(KEYS.settings, {}),
+    /**
+     * Where the learner is in the curriculum.
+     *
+     * Added in version 2, and the most important field in the file: the roadmap
+     * cursor is the progression now. A version 1 backup carries mastery and
+     * settings but no position, so restoring one leaves the roadmap alone
+     * rather than resetting it to the first unit.
+     */
+    roadmap: read(KEYS.roadmap, null),
   }),
 
   /**
@@ -127,6 +136,10 @@ export const localStore = {
     write(KEYS.mastery, data.mastery || {});
     write(KEYS.attempts, Array.isArray(data.attempts) ? data.attempts.slice(0, 100) : []);
     write(KEYS.settings, { ...DEFAULT_SETTINGS, ...(data.settings || {}) });
+    // Only when the file actually carries one. A version 1 file has no roadmap
+    // field, and wiping the learner's position because their backup predates
+    // the curriculum would be the worst possible reading of "restore".
+    if (Array.isArray(data.roadmap)) write(KEYS.roadmap, data.roadmap);
     return { ok: true };
   },
 

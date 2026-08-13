@@ -5,7 +5,8 @@ CircuitDojo stores three things: **what can be practised** (challenge templates)
 Everything else: symbols, rules, generated challenges: lives in code, because it is
 logic, not data.
 
-The migration is [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql).
+The migrations are [`0001_init.sql`](supabase/migrations/0001_init.sql) and
+[`0002_roadmap.sql`](supabase/migrations/0002_roadmap.sql). Run them in order.
 
 If you have never designed a schema before, the short version is: each table below is a
 spreadsheet, `primary key` is the column combination that makes a row unique, and
@@ -99,7 +100,7 @@ loaded straight back into the canvas for review.
 
 ## Row level security
 
-RLS is on for all three tables.
+RLS is on for all four tables.
 
 - **`challenges`**: readable by everyone (including anonymous visitors), writable only
   with the service role key (`scripts/sync-challenges.mjs`).
@@ -133,7 +134,7 @@ still produces a real `auth.uid()`) rather than relaxing the policy.
 ## Setting it up
 
 1. Create a Supabase project.
-2. Run `supabase/migrations/0001_init.sql` in the SQL editor.
+2. Run `supabase/migrations/0001_init.sql`, then `0002_roadmap.sql`, in the SQL editor.
 3. Copy `.env.example` to `.env` and fill in `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
 4. Optional: `SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... node scripts/sync-challenges.mjs`
    to populate the catalogue table.

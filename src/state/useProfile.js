@@ -72,13 +72,38 @@ export default function useProfile() {
   }, []);
 
   /** Mark a unit finished. A capstone finishes its whole block. */
-  const completeRoadmapUnit = useCallback((unitId) => {
-    setCompletedUnits((prev) => {
-      const next = completeUnit(prev || [], unitId);
-      localStore.setRoadmap(next);
-      return next;
-    });
-  }, []);
+  const completeRoadmapUnit = useCallback(
+    (unitId) => {
+      setCompletedUnits((prev) => {
+        const next = completeUnit(prev || [], unitId);
+        localStore.setRoadmap(next);
+
+        /**
+         * Signed in, the position goes to the server too.
+         *
+         * Written as one row per unit and as whatever is newly done rather than
+         * the whole list, so two devices signed into the same account cannot
+         * overwrite each other: a capstone completing four units at once inserts
+         * four rows, and an insert that collides with a row already there is
+         * ignored rather than failing.
+         */
+        if (user && isSupabaseConfigured) {
+          const added = next.filter((id) => !(prev || []).includes(id));
+          if (added.length) {
+            supabase
+              .from('user_roadmap')
+              .upsert(
+                added.map((id) => ({ user_id: user.id, unit_id: id })),
+                { onConflict: 'user_id,unit_id', ignoreDuplicates: true }
+              )
+              .then(() => {});
+          }
+        }
+        return next;
+      });
+    },
+    [user]
+  );
 
   const level = useMemo(() => computeLevel(mastery, roadmap), [mastery, roadmap]);
 
@@ -165,6 +190,36 @@ export default function useProfile() {
       }
       setProgress(remoteProgress);
       setMastery(remoteMastery);
+
+      /**
+       * The position, merged rather than replaced.
+       *
+       * Signing in on a new device should not undo the units sat as a guest on
+       * that device a minute earlier, and signing in on the old one should not
+       * lose what was done elsewhere. A union of the two is the only answer
+       * that cannot take something away, and completed units never expire.
+       */
+      const { data: units } = await supabase
+        .from('user_roadmap')
+        .select('unit_id')
+        .eq('user_id', user.id);
+      if (cancelled) return;
+      const merged = new Set([...(localStore.getRoadmap() || []), ...(units || []).map((u) => u.unit_id)]);
+      const ordered = UNITS.filter((u) => merged.has(u.id)).map((u) => u.id);
+      setCompletedUnits(ordered);
+      localStore.setRoadmap(ordered);
+
+      // Anything this device knew and the server did not now goes up.
+      const remoteIds = new Set((units || []).map((u) => u.unit_id));
+      const missing = ordered.filter((id) => !remoteIds.has(id));
+      if (missing.length) {
+        await supabase
+          .from('user_roadmap')
+          .upsert(
+            missing.map((id) => ({ user_id: user.id, unit_id: id })),
+            { onConflict: 'user_id,unit_id', ignoreDuplicates: true }
+          );
+      }
 
       const { data: rows } = await supabase
         .from('attempts')
@@ -342,6 +397,19 @@ export default function useProfile() {
         })),
       ];
       if (rows.length) await supabase.from('user_progress').upsert(rows, { onConflict: 'user_id,topic' });
+
+      // The position matters more than the mastery it is carried beside: a
+      // learner who signs up forty units in and lands back at the first LED
+      // would be right to conclude the account cost them their work.
+      const done = localStore.getRoadmap() || [];
+      if (done.length) {
+        await supabase
+          .from('user_roadmap')
+          .upsert(
+            done.map((id) => ({ user_id: data.session.user.id, unit_id: id })),
+            { onConflict: 'user_id,unit_id', ignoreDuplicates: true }
+          );
+      }
     }
     return { data };
   }, []);

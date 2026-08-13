@@ -146,7 +146,7 @@ updated with the app, see the changelog on its front page.
 ## Optional: accounts and cloud progress
 
 1. Create a Supabase project.
-2. Run `supabase/migrations/0001_init.sql` in the SQL editor.
+2. Run `supabase/migrations/0001_init.sql`, then `0002_roadmap.sql`, in the SQL editor.
 3. Copy `.env.example` to `.env` and fill in `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
 4. Optional: `SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... node scripts/sync-challenges.mjs` to populate the
    challenge catalogue table.
