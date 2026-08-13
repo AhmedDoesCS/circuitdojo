@@ -188,8 +188,46 @@ export default function useProfile() {
           };
         }
       }
-      setProgress(remoteProgress);
-      setMastery(remoteMastery);
+      /**
+       * An account with nothing in it yet adopts what this device has.
+       *
+       * Supabase projects confirm email by default, and a sign-up awaiting
+       * confirmation returns no session, so the migration that runs at sign-up
+       * is skipped and the first real sign-in happens against an empty account.
+       * Replacing local state with that emptiness is how a learner loses
+       * everything by making an account, which is the opposite of the offer.
+       */
+      const serverIsEmpty = !(data || []).length;
+      if (serverIsEmpty) {
+        const local = localStore.snapshot();
+        const rows = [
+          ...Object.entries(local.progress || {}).map(([topic, t]) => ({
+            user_id: user.id,
+            topic,
+            mastery: t.mastery,
+            attempts: t.attempts,
+            passes: t.passes,
+            fails: t.fails,
+            streak: t.streak,
+            last_result: t.lastResult,
+            last_attempted_at: t.lastAttemptedAt,
+          })),
+          ...Object.entries(local.mastery || {}).map(([id, m]) => ({
+            user_id: user.id,
+            topic: `concept:${id}`,
+            mastery: m.value,
+            attempts: m.attempts,
+            passes: m.passes,
+            fails: m.fails,
+            streak: 0,
+            last_attempted_at: m.lastAt,
+          })),
+        ];
+        if (rows.length) await supabase.from('user_progress').upsert(rows, { onConflict: 'user_id,topic' });
+      } else {
+        setProgress(remoteProgress);
+        setMastery(remoteMastery);
+      }
 
       /**
        * The position, merged rather than replaced.
