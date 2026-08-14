@@ -479,10 +479,28 @@ export default function useProfile() {
   );
 
   // --- auth actions --------------------------------------------------------
-  const signUp = useCallback(async (email, password, { migrateGuestProgress = true } = {}) => {
+  const signUp = useCallback(async (email, password, { migrateGuestProgress = true, name = '' } = {}) => {
     if (!isSupabaseConfigured) return { error: 'Supabase is not configured.' };
     setBusy(true);
     setAuthError(null);
+
+    /**
+     * The name goes in at creation, not afterwards.
+     *
+     * Written into the account's metadata by the sign-up call itself, so there
+     * is never a moment where the account exists and the app does not know what
+     * to call the person: confirmation can take days, and the alternative is
+     * addressing them by their email handle in the meantime. It is stored
+     * locally in the same breath, because a guest who signs up carries on using
+     * the app while the link sits unread in their inbox.
+     */
+    const chosen = name.trim();
+    const identityAtSignup = { ...(localStore.getIdentity() || {}), ...(chosen ? { name: chosen } : {}) };
+    if (chosen) {
+      localStore.setIdentity(identityAtSignup);
+      setIdentityState(identityAtSignup);
+    }
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -494,7 +512,10 @@ export default function useProfile() {
        * localhost. Naming the current origin means the link always comes back
        * to the app they signed up from, including a preview deployment.
        */
-      options: { emailRedirectTo: `${window.location.origin}/?welcome=1` },
+      options: {
+        emailRedirectTo: `${window.location.origin}/?welcome=1`,
+        data: { circuitdojo: identityAtSignup },
+      },
     });
     setBusy(false);
     if (error) {

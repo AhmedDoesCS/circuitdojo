@@ -8,7 +8,18 @@ import { localStore } from '../lib/storage.js';
 import { THEMES, ACCENTS, resolveTheme } from '../lib/theme.js';
 import { RECIPE_COUNT } from '../challenges/index.js';
 import { CloseIcon } from './Widget.jsx';
-import Avatar, { displayName, AVATAR_SYMBOLS, AVATAR_COLOURS } from './Avatar.jsx';
+import Avatar, {
+  BenchCardArt,
+  displayName,
+  pronounsOf,
+  hasName,
+  AVATAR_SYMBOLS,
+  AVATAR_GROUPS,
+  AVATAR_COLOURS,
+  AVATAR_FRAMES,
+  BENCH_CARDS,
+  PRONOUN_PRESETS,
+} from './Avatar.jsx';
 import ProfileStats from './ProfileStats.jsx';
 import AuthPanel from './AuthPanel.jsx';
 
@@ -71,7 +82,7 @@ export default function ProfileModal({ open, onClose, profile, initialTab = 'pro
         <div className="p-5">
           {tab === 'progress' && (
             <div className="space-y-5">
-              <IdentityHeader profile={profile} />
+              <BenchCard profile={profile} />
               <ProfileStats
                 mastery={mastery}
                 level={level}
@@ -97,45 +108,84 @@ export default function ProfileModal({ open, onClose, profile, initialTab = 'pro
 /**
  * Choosing how you appear.
  *
- * A name, a mark and a line about yourself. Deliberately not a photograph: a
- * file upload would mean a storage bucket, a moderation question and a way to
- * be identified by strangers, and none of that is worth it for a corner icon.
- * A symbol from the library the learner already draws with is more personal
- * than a silhouette and costs two short strings.
+ * Seven choices: a name, pronouns, a line about yourself, a mark, a colour, how
+ * that mark is plated, and the drawing behind your header. Deliberately not a
+ * photograph: a file upload would mean a storage bucket, a moderation question
+ * and a way to be identified by strangers, and none of that is worth it for a
+ * corner icon. A symbol from the library the learner already draws with is more
+ * personal than a silhouette and costs a handful of short strings.
  *
- * Saved as you type, because a Save button on three fields is a button that
- * exists only to be forgotten.
+ * Everything is saved as you type. A Save button on seven controls is a button
+ * that exists only to be forgotten, and the live card at the top is the receipt:
+ * the change is visible before you could have looked for a button.
  */
 function IdentityTab({ profile }) {
   const { user, identity } = profile;
   const value = identity || {};
-
   const update = (patch) => profile.setIdentity(patch);
+
+  const [customPronouns, setCustomPronouns] = useState(
+    () => (value.pronouns && !PRONOUN_PRESETS.includes(value.pronouns) ? value.pronouns : '')
+  );
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-4 rounded-control bg-zinc-900/[0.04] p-4">
-        <Avatar user={user} identity={identity} size={60} />
-        <div className="min-w-0">
-          <p className="truncate text-[15px] font-semibold tracking-[-0.015em] text-zinc-900">
-            {displayName(user, identity)}
-          </p>
-          <p className="truncate text-[12px] text-zinc-500">
-            {value.bio?.trim() || 'This is how you appear across the app'}
-          </p>
+      {/* Every choice below lands here, at the size it is actually seen. */}
+      <BenchCard profile={profile} preview />
+
+      {!hasName(identity) && (
+        <p className="rounded-control bg-warn/[0.09] px-3.5 py-2.5 text-[12px] leading-relaxed text-zinc-700">
+          {user
+            ? 'Your account has no name on it yet, so the app is calling you "Designer". It will never use your email address instead.'
+            : 'Give yourself a name and the app will use it everywhere, account or no account.'}
+        </p>
+      )}
+
+      <div className="grid gap-4 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+        <label className="block">
+          <span className="mb-1 block text-[11.5px] font-medium text-zinc-500">Name</span>
+          <input
+            className="field w-full"
+            maxLength={32}
+            placeholder="What should we call you?"
+            value={value.name || ''}
+            onChange={(e) => update({ name: e.target.value })}
+          />
+        </label>
+
+        <div>
+          <span className="mb-1 block text-[11.5px] font-medium text-zinc-500">
+            Pronouns <span className="text-zinc-400">(optional)</span>
+          </span>
+          <div className="flex flex-wrap gap-1.5">
+            {PRONOUN_PRESETS.map((p) => (
+              <button
+                key={p}
+                onClick={() => update({ pronouns: value.pronouns === p ? '' : p })}
+                aria-pressed={value.pronouns === p}
+                className={`rounded-chip px-2.5 py-1.5 text-[11.5px] font-medium transition-colors duration-150 ${
+                  value.pronouns === p
+                    ? 'bg-accent text-on-accent'
+                    : 'bg-zinc-900/[0.05] text-zinc-600 hover:bg-zinc-900/[0.08]'
+                }`}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+          {/* A list of three is a guess, not an answer. */}
+          <input
+            className="field mt-1.5 w-full"
+            maxLength={20}
+            placeholder="or type your own"
+            value={customPronouns}
+            onChange={(e) => {
+              setCustomPronouns(e.target.value);
+              update({ pronouns: e.target.value });
+            }}
+          />
         </div>
       </div>
-
-      <label className="block">
-        <span className="mb-1 block text-[11.5px] font-medium text-zinc-500">Display name</span>
-        <input
-          className="field w-full"
-          maxLength={32}
-          placeholder={user ? user.email.split('@')[0] : 'Guest'}
-          value={value.name || ''}
-          onChange={(e) => update({ name: e.target.value })}
-        />
-      </label>
 
       <label className="block">
         <span className="mb-1 block text-[11.5px] font-medium text-zinc-500">
@@ -144,69 +194,139 @@ function IdentityTab({ profile }) {
         <textarea
           className="field w-full resize-none"
           rows={2}
-          maxLength={140}
+          maxLength={180}
           placeholder="Hobbyist, student, building a synth in the garage..."
           value={value.bio || ''}
           onChange={(e) => update({ bio: e.target.value })}
         />
         <span className="mt-1 block text-right font-mono text-[10.5px] text-zinc-400">
-          {(value.bio || '').length}/140
+          {(value.bio || '').length}/180
         </span>
       </label>
 
+      {/* ------------------------------------------------------------- mark */}
       <div>
         <p className="mb-2 text-[11.5px] font-medium text-zinc-500">Your mark</p>
-        <div className="grid grid-cols-5 gap-1.5 sm:grid-cols-10">
-          {Object.entries(AVATAR_SYMBOLS).map(([key, symbol]) => {
-            const active = (value.symbol || 'initials') === key;
+        <div className="space-y-2.5">
+          {AVATAR_GROUPS.map((group) => (
+            <div key={group.name}>
+              <p className="mb-1 text-[10px] uppercase tracking-[0.08em] text-zinc-400">{group.name}</p>
+              <div className="flex flex-wrap gap-1.5">
+                {group.keys.map((key) => {
+                  const symbol = AVATAR_SYMBOLS[key];
+                  const active = (value.symbol || 'junction') === key;
+                  return (
+                    <button
+                      key={key}
+                      title={symbol.label}
+                      aria-label={symbol.label}
+                      aria-pressed={active}
+                      onClick={() => update({ symbol: key })}
+                      className={`grid h-9 w-9 place-items-center rounded-control transition-all duration-150 ${
+                        active
+                          ? 'bg-accent/12 text-accent ring-1 ring-accent/40'
+                          : 'bg-zinc-900/[0.04] text-zinc-500 hover:bg-zinc-900/[0.07] hover:text-zinc-900'
+                      }`}
+                    >
+                      {symbol.path ? (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                          <path
+                            d={symbol.path}
+                            stroke="currentColor"
+                            strokeWidth="1.7"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      ) : (
+                        <span className="text-[11px] font-semibold">Aa</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ----------------------------------------------------------- colour */}
+      <div>
+        <p className="mb-2 text-[11.5px] font-medium text-zinc-500">Colour</p>
+        <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-6">
+          {Object.entries(AVATAR_COLOURS).map(([key, label]) => {
+            const active = value.colour === key;
             return (
               <button
                 key={key}
-                title={symbol.label}
-                aria-label={symbol.label}
-                onClick={() => update({ symbol: key })}
-                className={`grid aspect-square place-items-center rounded-control transition-all duration-150 ${
-                  active
-                    ? 'bg-accent/12 text-accent ring-1 ring-accent/40'
-                    : 'bg-zinc-900/[0.04] text-zinc-500 hover:bg-zinc-900/[0.07] hover:text-zinc-900'
+                aria-label={label}
+                aria-pressed={active}
+                onClick={() => update({ colour: key })}
+                /* The name is not a nicety. Twelve hues cannot all separate
+                   under colour blindness, so the label is what makes the choice
+                   unambiguous rather than the swatch. */
+                className={`flex items-center gap-2 rounded-control px-2 py-1.5 transition-all duration-150 ${
+                  active ? 'bg-accent/12 ring-1 ring-accent/40' : 'hover:bg-zinc-900/[0.05]'
                 }`}
               >
-                {symbol.path ? (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <path
-                      d={symbol.path}
-                      stroke="currentColor"
-                      strokeWidth="1.9"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                ) : (
-                  <span className="text-[11px] font-semibold">Aa</span>
-                )}
+                <span
+                  className="h-5 w-5 shrink-0 rounded-full"
+                  style={{ background: `rgb(var(--av-${key}))` }}
+                />
+                <span className={`truncate text-[11.5px] ${active ? 'text-zinc-900' : 'text-zinc-600'}`}>
+                  {label}
+                </span>
               </button>
             );
           })}
         </div>
       </div>
 
+      {/* ------------------------------------------------------------ plate */}
       <div>
-        <p className="mb-2 text-[11.5px] font-medium text-zinc-500">Colour</p>
-        <div className="flex flex-wrap gap-1.5">
-          {Object.entries(AVATAR_COLOURS).map(([key, hue]) => {
-            const active = value.colour === key;
+        <p className="mb-2 text-[11.5px] font-medium text-zinc-500">Plate</p>
+        <div className="grid grid-cols-3 gap-2">
+          {Object.entries(AVATAR_FRAMES).map(([key, frame]) => {
+            const active = (value.frame || 'disc') === key;
             return (
               <button
                 key={key}
-                title={hue.label}
-                aria-label={hue.label}
-                onClick={() => update({ colour: key })}
-                className={`h-9 w-9 rounded-full transition-all duration-150 ${
-                  active ? 'ring-2 ring-accent ring-offset-2 ring-offset-[rgb(var(--panel))]' : ''
+                aria-pressed={active}
+                onClick={() => update({ frame: key })}
+                className={`flex items-center gap-2.5 rounded-control px-3 py-2 text-left transition-all duration-150 ${
+                  active ? 'bg-accent/12 ring-1 ring-accent/40' : 'bg-zinc-900/[0.04] hover:bg-zinc-900/[0.07]'
                 }`}
-                style={{ background: hue.bg, color: hue.fg }}
               >
-                <span className="grid h-full w-full place-items-center text-[12px] font-semibold">A</span>
+                <Avatar user={user} identity={{ ...value, frame: key }} size={30} />
+                <span className="min-w-0">
+                  <span className="block truncate text-[12px] font-medium text-zinc-900">{frame.label}</span>
+                  <span className="block truncate text-[10.5px] text-zinc-500">{frame.hint}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ------------------------------------------------------- bench card */}
+      <div>
+        <p className="mb-2 text-[11.5px] font-medium text-zinc-500">Behind your header</p>
+        <div className="grid grid-cols-4 gap-2">
+          {Object.entries(BENCH_CARDS).map(([key, label]) => {
+            const active = (value.card || 'plain') === key;
+            return (
+              <button
+                key={key}
+                aria-pressed={active}
+                onClick={() => update({ card: key })}
+                className={`overflow-hidden rounded-control transition-all duration-150 ${
+                  active ? 'ring-2 ring-accent' : 'ring-1 ring-zinc-950/[0.08] hover:ring-zinc-950/20'
+                }`}
+              >
+                <span className="relative block h-11 w-full bg-zinc-900/[0.04]">
+                  <BenchCardArt identity={{ card: key }} />
+                </span>
+                <span className="block truncate px-1.5 py-1 text-[10.5px] text-zinc-600">{label}</span>
               </button>
             );
           })}
@@ -222,21 +342,41 @@ function IdentityTab({ profile }) {
   );
 }
 
-/** Who this profile belongs to, above the figures that describe them. */
-function IdentityHeader({ profile }) {
-  const { user, identity, roadmap } = profile;
+/**
+ * Who this profile belongs to.
+ *
+ * The one place with enough room to show all of it at once: the mark at a size
+ * where the drawing reads, the name, the pronouns if they gave any, and the
+ * line about themselves, over whichever sheet they picked.
+ */
+function BenchCard({ profile, preview = false }) {
+  const { user, identity, roadmap, level } = profile;
+  const pronouns = pronounsOf(identity);
+  const bio = identity?.bio?.trim();
+
   return (
-    <div className="flex items-center gap-3.5">
-      <Avatar user={user} identity={identity} size={52} />
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-[16px] font-semibold tracking-[-0.015em] text-zinc-900">
-          {displayName(user, identity)}
-        </p>
-        <p className="truncate text-[12px] text-zinc-500">
-          {identity?.bio?.trim() || (user ? user.email : 'Playing as a guest on this browser')}
-        </p>
+    <div className="relative overflow-hidden rounded-control bg-zinc-900/[0.04] p-4">
+      <BenchCardArt identity={identity} />
+      <div className="relative flex items-center gap-4">
+        <Avatar user={user} identity={identity} size={preview ? 58 : 52} />
+        <div className="min-w-0 flex-1">
+          <p className="flex min-w-0 items-baseline gap-2">
+            <span className="truncate text-[16px] font-semibold tracking-[-0.015em] text-zinc-900">
+              {displayName(user, identity)}
+            </span>
+            {pronouns && <span className="shrink-0 text-[11.5px] text-zinc-500">{pronouns}</span>}
+          </p>
+          <p className="truncate text-[12px] text-zinc-500">
+            {bio || (preview ? 'This is how you appear across the app' : user ? user.email : 'Playing as a guest on this browser')}
+          </p>
+        </div>
+        {!preview && (
+          <div className="shrink-0 text-right">
+            <span className="chip bg-accent/12 text-accent">Stage {roadmap.stage}</span>
+            {level && <p className="mt-1 text-[10.5px] text-zinc-500">{level.name}</p>}
+          </div>
+        )}
       </div>
-      <span className="chip shrink-0 bg-accent/12 text-accent">Stage {roadmap.stage}</span>
     </div>
   );
 }
@@ -543,12 +683,20 @@ function AccountTab({ profile, roadmap }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3.5 rounded-control bg-zinc-900/[0.04] p-4">
+      <div className="relative flex items-center gap-3.5 overflow-hidden rounded-control bg-zinc-900/[0.04] p-4">
+        <BenchCardArt identity={profile.identity} />
         <Avatar user={user} identity={profile.identity} size={52} />
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-[15px] font-semibold tracking-[-0.01em] text-zinc-900">
-            {displayName(user, profile.identity)}
+        <div className="relative min-w-0 flex-1">
+          <p className="flex min-w-0 items-baseline gap-2">
+            <span className="truncate text-[15px] font-semibold tracking-[-0.01em] text-zinc-900">
+              {displayName(user, profile.identity)}
+            </span>
+            {pronounsOf(profile.identity) && (
+              <span className="shrink-0 text-[11.5px] text-zinc-500">{pronounsOf(profile.identity)}</span>
+            )}
           </p>
+          {/* The address, labelled as an address. This is the one screen where
+              it is the subject rather than a stand-in for a name. */}
           <p className="truncate text-[12.5px] text-zinc-500">{user.email}</p>
           {since && (
             <p className="mt-1 text-[11.5px] text-zinc-400">
@@ -565,6 +713,7 @@ function AccountTab({ profile, roadmap }) {
           <SyncRow label="Stage" value={`${roadmap.stage} of ${roadmap.stageCount}`} />
           <SyncRow label="Concept mastery" value="Every concept you have shown" />
           <SyncRow label="Recent attempts" value="Last 50 checks" />
+          <SyncRow label="How you appear" value="Name, pronouns, mark and colours" />
         </ul>
         <p className="mt-2 text-[11.5px] leading-relaxed text-zinc-500">
           The sheet you have open stays on this device. It is working scratch rather than progress, and syncing a

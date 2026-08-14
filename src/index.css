@@ -87,6 +87,40 @@
   --viz-heat-3: rgba(0, 113, 227, 0.66);
   --viz-heat-4: rgba(0, 113, 227, 0.92);
 
+  /**
+   * Avatar hues.
+   *
+   * Twelve colours a person can pick for their own mark. They are properties
+   * rather than values in the component because an avatar is on screen in every
+   * theme, and the first version hardcoded light-mode rgb: a mark chosen in
+   * daylight went muddy and low-contrast the moment the app went dark.
+   *
+   * Chosen by solving rather than by eye. Eleven chromatic hues sit at even
+   * 33-degree spacing round the wheel plus one neutral, each solved for the
+   * lightness that puts it in a contrast band against the panel it sits on
+   * (~5.8:1 in light, ~9.0:1 in dark) at a fixed saturation, so no one colour
+   * shouts louder than the rest. Picking them by hand produced four pairs less
+   * than 18 degrees apart, all of them in the blues and the reds.
+   *
+   * Twelve hues cannot all stay separable under dichromacy and these do not
+   * pretend to: under protanopia amber and moss are three units apart. That is
+   * acceptable *here* because colour is the second channel. The mark itself is
+   * one of twenty-four shapes, and the picker names every swatch, so a colour
+   * is never the only thing telling two people apart.
+   */
+  --av-crimson: 195 37 37;
+  --av-copper: 141 90 27;
+  --av-amber: 98 107 20;
+  --av-moss: 55 114 22;
+  --av-emerald: 22 118 40;
+  --av-teal: 22 114 89;
+  --av-cyan: 27 109 139;
+  --av-cobalt: 60 89 218;
+  --av-indigo: 122 67 219;
+  --av-violet: 170 35 182;
+  --av-rose: 186 35 118;
+  --av-slate: 86 102 134;
+
   /* Text on a filled accent. Every accent in light mode is dark enough for
      white; in dark mode they lift and this flips with them. */
   --on-accent: 255 255 255;
@@ -174,6 +208,22 @@
   --viz-heat-2: rgba(91, 116, 238, 0.5);
   --viz-heat-3: rgba(91, 116, 238, 0.74);
   --viz-heat-4: rgba(91, 116, 238, 1);
+
+  /* The same twelve hues, re-solved against the dark panel rather than
+     brightened: a hue that reaches 5.8:1 on white is nowhere near legible on
+     near-black, and one that is legible on both is washed out on both. */
+  --av-crimson: 239 171 171;
+  --av-copper: 229 180 120;
+  --av-amber: 183 199 38;
+  --av-moss: 103 212 40;
+  --av-emerald: 52 216 82;
+  --av-teal: 40 212 166;
+  --av-cyan: 118 199 229;
+  --av-cobalt: 174 186 239;
+  --av-indigo: 201 178 240;
+  --av-violet: 232 167 238;
+  --av-rose: 238 167 206;
+  --av-slate: 180 189 207;
 
   --on-accent: 24 24 27;
 

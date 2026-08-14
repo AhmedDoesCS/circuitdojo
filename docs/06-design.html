@@ -751,6 +751,75 @@
           </p>
         </div>
 
+        <h2 id="identity">Identity: the email address is not a name</h2>
+        <p>
+          The profile had a display name from the start, and a fallback for when it was empty: the local part of the
+          email address. So an account belonging to somebody called Ahmed was greeted as <code>ahmedqhasabu</code> in
+          the corner of every screen, in the welcome toast, and at the top of their own profile.
+        </p>
+        <p>
+          It is worth being precise about why that is bad, because the fix is not "pick a nicer fallback".
+          <strong>An address is how a message is routed. A name is what a person is called.</strong> Substituting one
+          for the other is not a formatting choice, it is the app telling you it never asked. And it is a one-line
+          fallback that quietly decides the tone of every screen it appears on.
+        </p>
+        <pre data-label="src/lib/identity.js"><code><span class="k">export function</span> <span class="f">displayName</span>(user, identity) {
+  <span class="k">const</span> chosen = identity?.name?.<span class="f">trim</span>();
+  <span class="k">if</span> (chosen) <span class="k">return</span> chosen;
+  <span class="k">return</span> user ? <span class="s">'Designer'</span> : <span class="s">'Guest'</span>;   <span class="c">// never the address</span>
+}</code></pre>
+        <p>
+          Removing the fallback is only a third of it. The other two thirds are asking at the moment there is
+          something to ask about, and admitting it when nobody has said:
+        </p>
+        <ul>
+          <li><strong>Sign-up asks first.</strong> One field, above the credentials, so it reads as an introduction rather than as another thing to fill in. It is written into the account's metadata by the sign-up call itself, because email confirmation can take days and the alternative is guessing in the meantime.</li>
+          <li><strong>Where a name is missing, the app says so.</strong> A dot on the profile menu, the entry renamed to "Add your name", and a line in the editor that explicitly promises it will not fall back to the address.</li>
+          <li><strong>Guests get all of it.</strong> Identity is stored locally first and synced if an account appears, so somebody who has never signed up still sees their own name and mark in the corner.</li>
+        </ul>
+
+        <h3>How much customisation is the right amount</h3>
+        <p>
+          The instinct is a photo upload. That is a storage bucket, a moderation problem, an aspect-ratio cropper and a
+          way to be recognised by strangers, in an app whose entire account model is an email and a password. The
+          question to ask instead is: <em>what vocabulary does this product already own?</em>
+        </p>
+        <p>
+          This one draws schematics. So a mark is a symbol from the library the learner is already placing on sheets:
+          24 of them, in 12 colours, on 3 platings, over one of 4 drawn backdrops. That is 864 distinct marks plus a
+          backdrop, all of it legible at 24px, all of it two short strings in <code>user_metadata</code> with no
+          migration and no extra query on sign-in. Recognising your own mark in the corner should feel like
+          recognising a part on a sheet.
+        </p>
+        <div class="note">
+          <strong>Transferable idea</strong>
+          <p>
+            Customisation does not have to mean uploads. A generated identity assembled from your product's own
+            components is more personal than a cropped photo, costs nothing to store, moderate or serve, and cannot
+            look out of place because it is made of the same parts as everything around it.
+          </p>
+        </div>
+
+        <h3>The palette had to be solved, not chosen</h3>
+        <p>
+          Twelve avatar colours is a palette, and the first version was hand-picked light-mode hex. Two things were
+          wrong with it, and both were invisible until measured:
+        </p>
+        <ul>
+          <li><strong>It was one set of values for two themes.</strong> A mark picked in daylight went muddy and low-contrast the moment the app went dark, because <code>rgb(0 90 190)</code> does not know a theme exists. The colours are now custom properties defined per theme, and a test reads <code>index.css</code> and fails if any colour is defined in one theme and not the other.</li>
+          <li><strong>Hand-picked hues cluster.</strong> Measured, four pairs sat less than 18° apart, all of them in the blues and the reds, because those are the colours people reach for. The set is now solved: eleven chromatic hues at even 33° spacing plus one neutral, each solved for the lightness that lands it in a contrast band against the panel it sits on, at fixed saturation so none of them shouts louder than the rest.</li>
+        </ul>
+        <div class="why">
+          <strong>What the palette deliberately does not claim</strong>
+          <p>
+            Twelve hues cannot all stay separable under dichromacy, and these do not: under protanopia amber and moss
+            are three units apart. That is acceptable here only because colour is the <em>second</em> channel. The mark
+            is one of 24 shapes, and the picker prints the name of every colour beside its swatch, so the hue is never
+            the only thing carrying the choice. Naming that limit is better than a palette that quietly pretends to
+            solve it.
+          </p>
+        </div>
+
         <h2 id="progress">Designing progress: a checklist looks backwards</h2>
         <p>
           The first version of the roadmap screen was a modal holding twelve collapsible sections of unit rows. Nothing

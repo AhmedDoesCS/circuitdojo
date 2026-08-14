@@ -27,7 +27,8 @@ accounts, see **[SETUP.md](SETUP.md)**.
 | **Symbol library** | 59 symbols: passives, discretes, 74HC logic, op-amps, comparators, MCUs, sensors, motor drivers, protection parts. |
 | **Roadmap** | Twelve stages, 137 units of three kinds, each block ending in a capstone you can pass cold to skip the rest of it. |
 | **Guided hints** | Three-step escalation after a failed check: where to look → the principle → the fix. |
-| **Profile** | A statistics dashboard: stage bars, a twelve-week activity calendar, work by kind, strength by branch. Pick a name, a schematic symbol as your mark and a colour. |
+| **Profile** | A statistics dashboard: stage bars, a twelve-week activity calendar, work by kind, strength by branch. |
+| **Identity** | A name, pronouns, a description, and a mark: 24 schematic symbols × 12 colours × 3 platings, over one of four drawn backdrops. Your email address is never used as your name. |
 
 ---
 
@@ -178,6 +179,9 @@ npm test
 - `tests/solutions.test.js`: every reference answer, graded by the real checker across sixteen seeds each, and checked
   as a *drawing*: no wire may cross a pin it does not connect to.
 - `tests/roadmap.test.js`: the curriculum's shape and the rules that move a learner through it.
+- `tests/identity.test.js`: that a name is never derived from an email address, that every mark appears on exactly
+  one shelf of the picker and is drawn inside its box, and that every avatar colour has a token defined in **both**
+  themes: a colour missing from one of them renders transparent the moment the app changes theme.
 - `tests/units.test.js`: every roadmap unit instantiates across sixteen seeds; every Analyse unit accepts its own
   answer, in both the notations a person would type it in; every Inspect unit is built on a fault the real grader
   agrees is a fault.

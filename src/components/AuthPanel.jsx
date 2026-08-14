@@ -17,6 +17,9 @@ export default function AuthPanel({ profile, onDone, compact = false }) {
   const [mode, setMode] = useState('signup');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  // Seeded from whatever this browser already calls them, so a guest who has
+  // named themselves is not asked a second time.
+  const [name, setName] = useState(() => profile.identity?.name || '');
   const [show, setShow] = useState(false);
   const [resent, setResent] = useState(false);
 
@@ -121,8 +124,10 @@ export default function AuthPanel({ profile, onDone, compact = false }) {
   // ------------------------------------------------------------- the form
   const submit = async (event) => {
     event.preventDefault();
-    const action = mode === 'signin' ? profile.signIn : profile.signUp;
-    const result = await action(email, password);
+    const result =
+      mode === 'signin'
+        ? await profile.signIn(email, password)
+        : await profile.signUp(email, password, { name });
     setPassword('');
     // A pending confirmation is not a finish: the panel switches to telling
     // them to go and read their email, and the caller stays where it is.
@@ -137,6 +142,26 @@ export default function AuthPanel({ profile, onDone, compact = false }) {
             ? 'An account keeps your place in the roadmap and everything you have solved, on every machine you sign in from.'
             : 'Welcome back.'}
         </p>
+      )}
+
+      {/* Asked first, and asked at all, because the alternative is calling
+          somebody by the left half of their email address for the rest of the
+          time they use the app. One field, before the credentials, so it reads
+          as an introduction rather than as another thing to fill in. */}
+      {mode === 'signup' && (
+        <label className="block">
+          <span className="mb-1 block text-[11.5px] font-medium text-zinc-500">What should we call you?</span>
+          <input
+            className="field w-full"
+            type="text"
+            autoComplete="nickname"
+            maxLength={32}
+            placeholder="Your name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
+        </label>
       )}
 
       <label className="block">

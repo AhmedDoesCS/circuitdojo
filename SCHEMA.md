@@ -98,6 +98,24 @@ loaded straight back into the canvas for review.
 
 ---
 
+## Identity: no table
+
+How a person appears, name, pronouns, description, mark, colour, plating and backdrop,
+lives in Supabase's own `auth.users.user_metadata` under a single `circuitdojo` key, and
+in `localStorage` before an account exists.
+
+It is a handful of short strings belonging to the account rather than to the curriculum,
+so a table would mean a migration, a policy and an extra query on every sign-in, to store
+less than a kilobyte that the session already carries. The name is written at
+`auth.signUp` time rather than afterwards, because email confirmation can take days and
+the app must never fall back to addressing somebody by their email address in the
+meantime.
+
+The trade is real and worth naming: metadata is not queryable, so this could not back a
+"find other users called X" feature. There is no such feature and no plan for one.
+
+---
+
 ## Row level security
 
 RLS is on for all four tables.

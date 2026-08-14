@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import MenuShell, { LogoMark, MenuOption, MenuSplit, at } from './MenuShell.jsx';
-import Avatar, { displayName } from './Avatar.jsx';
+import Avatar, { displayName, hasName } from './Avatar.jsx';
 import { CONCEPTS } from '../challenges/concepts.js';
 import { HOLD, LEVELS, masteryOf, claimedCount } from '../lib/level.js';
 
@@ -440,8 +440,21 @@ function SystemMenu({ open, setOpen, onOpenProfile, user, identity }) {
     };
   }, [open, setOpen]);
 
+  const unnamed = !hasName(identity);
+  // Somebody the app can put a face to: an account, or a guest who has said
+  // what to call them.
+  const known = Boolean(user) || !unnamed;
   const items = [
     { tab: 'progress', label: 'Progress', hint: 'Skills, attempts and history' },
+    // Promoted to a first-class destination, and it says what is missing when
+    // something is: an app that has not been told a name should ask rather than
+    // quietly settle for the left half of an email address.
+    {
+      tab: 'identity',
+      label: unnamed ? 'Add your name' : 'Identity',
+      hint: unnamed ? 'Name, pronouns, mark and colours' : 'How you appear across the app',
+      nudge: unnamed,
+    },
     { tab: 'settings', label: 'Settings', hint: 'Preferences for the app' },
     { tab: 'shortcuts', label: 'Controls', hint: 'KiCad-style keyboard shortcuts' },
     { tab: 'account', label: user ? 'Account' : 'Sign in', hint: user ? 'Your account and sync' : 'Keep your progress on every device' },
@@ -457,9 +470,13 @@ function SystemMenu({ open, setOpen, onOpenProfile, user, identity }) {
         aria-label="Profile and settings"
         style={at(1)}
         className={`panel-pill animate-enter-up flex h-11 items-center justify-center transition-all duration-200 ease-smooth
-          active:scale-[0.96] ${user ? 'gap-2 px-3' : 'w-11'} ${open ? 'text-zinc-900' : 'text-zinc-600 hover:text-zinc-900'}`}
+          active:scale-[0.96] ${known ? 'gap-2 px-3' : 'w-11'} ${open ? 'text-zinc-900' : 'text-zinc-600 hover:text-zinc-900'}`}
       >
-        {user ? (
+        {/* A guest who has chosen a name and a mark gets to see them. Identity
+            is local first: it costs nothing to keep without an account, and
+            showing a stock silhouette to somebody who picked a transistor is
+            the app forgetting what it was told. */}
+        {known ? (
           <>
             <Avatar user={user} identity={identity} size={26} />
             <span className="hidden max-w-[7rem] truncate text-[13px] font-medium sm:block">
@@ -509,6 +526,7 @@ function SystemMenu({ open, setOpen, onOpenProfile, user, identity }) {
                 <span className="block truncate text-[13px] font-medium text-zinc-900">{item.label}</span>
                 <span className="block truncate text-[11px] text-zinc-500">{item.hint}</span>
               </span>
+              {item.nudge && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" aria-hidden="true" />}
             </button>
           ))}
         </div>

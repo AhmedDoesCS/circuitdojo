@@ -64,7 +64,7 @@ export default function AccountInvite({ profile, onSkip, onDone }) {
             </ul>
 
             <p className="animate-fade-in mt-6 text-[11.5px] text-zinc-400" style={at(3)}>
-              Email and password only. Nothing else is asked for and nothing is shared.
+              A name, an email and a password. Nothing else is asked for and nothing is shared.
             </p>
           </section>
 
