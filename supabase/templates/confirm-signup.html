@@ -1,0 +1,96 @@
+<!--
+  CircuitDojo: confirmation email.
+
+  Paste into Supabase: Authentication -> Emails -> Templates -> "Confirm signup".
+  Set the subject to:  Confirm your CircuitDojo account
+
+  Written the way email has to be written rather than the way the app is: tables
+  for layout, inline styles on every element, no external stylesheet and no web
+  font. Outlook renders through Word, Gmail strips <style> blocks in some
+  contexts, and a layout that relies on flexbox arrives as a stack of unstyled
+  paragraphs. The result should look plain and deliberate rather than clever.
+
+  Supabase substitutes {{ .ConfirmationURL }} and {{ .Email }}.
+-->
+<table
+  role="presentation"
+  width="100%"
+  cellpadding="0"
+  cellspacing="0"
+  style="margin:0;padding:0;background:#ececee;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;"
+>
+  <tr>
+    <td align="center" style="padding:32px 16px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;">
+        <!-- Wordmark. An inline SVG would be stripped by several clients, so the
+             mark is type: the name set the way the app sets it. -->
+        <tr>
+          <td style="padding:0 0 20px 4px;">
+            <span style="font-size:16px;font-weight:600;letter-spacing:-0.01em;color:#18181b;">
+              CircuitDojo
+            </span>
+          </td>
+        </tr>
+
+        <tr>
+          <td
+            style="background:#ffffff;border-radius:14px;padding:32px;border:1px solid rgba(9,9,11,0.07);"
+          >
+            <h1
+              style="margin:0 0 12px;font-size:21px;line-height:1.25;font-weight:600;letter-spacing:-0.02em;color:#18181b;"
+            >
+              One click and you are in
+            </h1>
+
+            <p style="margin:0 0 20px;font-size:14px;line-height:1.6;color:#52525b;">
+              Confirm <strong style="color:#18181b;font-weight:600;">{{ .Email }}</strong> and your progress will
+              follow you to any machine you sign in from: your place in the roadmap, and everything you have solved.
+            </p>
+
+            <!-- Bulletproof-ish button: a padded table cell rather than a
+                 styled <a>, because Outlook ignores padding on inline links. -->
+            <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 20px;">
+              <tr>
+                <td align="center" bgcolor="#0071e3" style="border-radius:10px;">
+                  <a
+                    href="{{ .ConfirmationURL }}"
+                    style="display:inline-block;padding:13px 26px;font-size:14px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px;"
+                  >
+                    Confirm my account
+                  </a>
+                </td>
+              </tr>
+            </table>
+
+            <p style="margin:0 0 6px;font-size:12px;line-height:1.6;color:#71717a;">
+              Or paste this into your browser:
+            </p>
+            <p style="margin:0 0 24px;font-size:11px;line-height:1.5;color:#a1a1aa;word-break:break-all;">
+              {{ .ConfirmationURL }}
+            </p>
+
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="border-top:1px solid rgba(9,9,11,0.07);padding-top:18px;">
+                  <p style="margin:0;font-size:12px;line-height:1.6;color:#71717a;">
+                    Nothing is lost while you decide. CircuitDojo works without an account, and anything you have
+                    already done comes with you when you confirm.
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:18px 4px 0;">
+            <p style="margin:0;font-size:11.5px;line-height:1.6;color:#a1a1aa;">
+              If you did not sign up for CircuitDojo, ignore this email and nothing will happen. The link expires on
+              its own.
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>

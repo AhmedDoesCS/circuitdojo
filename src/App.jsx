@@ -16,7 +16,9 @@ import LifeLostOverlay from './components/LifeLostOverlay.jsx';
 import HomeScreen from './components/HomeScreen.jsx';
 import RoadmapMap from './components/RoadmapMap.jsx';
 import Calibrate from './components/Calibrate.jsx';
+import AccountInvite from './components/AccountInvite.jsx';
 import IrisTransition from './components/IrisTransition.jsx';
+import WelcomeToast from './components/WelcomeToast.jsx';
 import { LogoMark } from './components/MenuShell.jsx';
 
 import useSchematic from './state/useSchematic.js';
@@ -450,11 +452,27 @@ export default function App() {
         firstRun={!profile.settings.onboarded}
         onCancel={() => beginTransition({ toView: 'home' })}
         onDone={({ level, conceptIds }) => {
+          const first = !profile.settings.onboarded;
           profile.calibrate({ level, conceptIds });
           // First run has no menu behind it to wipe from, so it lands directly.
-          if (profile.settings.onboarded) beginTransition({ toView: 'home' });
-          else setView('home');
+          // It also gets the account offer, which is placed here rather than
+          // earlier because this is the first moment there is anything to lose.
+          // The offer only exists where accounts do. Deciding that here rather
+          // than inside the invite keeps the screen a pure render: a component
+          // that navigates away while rendering is a state update during
+          // another component's render, which React is right to complain about.
+          if (first && profile.supabaseEnabled) setView('invite');
+          else if (first) setView('home');
+          else beginTransition({ toView: 'home' });
         }}
+      />
+    );
+  } else if (view === 'invite') {
+    body = (
+      <AccountInvite
+        profile={profile}
+        onSkip={() => setView('home')}
+        onDone={() => setView('home')}
       />
     );
   } else if (view === 'home') {
@@ -471,6 +489,7 @@ export default function App() {
         onResume={() => beginTransition({ toView: 'workspace' })}
         onCalibrate={() => beginTransition({ toView: 'calibrate' })}
         onOpenProfile={openProfile}
+        user={profile.user}
         hasSession={hasSession}
         roadmap={profile.roadmap}
         level={profile.level}
@@ -554,7 +573,7 @@ export default function App() {
             focus={focus}
             onToggleFocus={toggleFocus}
             onOpenProfile={() => openProfile('progress')}
-            guestLabel={profile.user ? profile.user.email?.split('@')[0] || 'Account' : 'Guest'}
+            user={profile.user}
           />
 
           {widgets.properties && (
@@ -759,6 +778,10 @@ export default function App() {
           beginTransition({ next: instantiate(templateId, randomSeed()), toView: 'workspace' });
         }}
       />
+
+      {profile.justConfirmed && (
+        <WelcomeToast user={profile.user} onDone={profile.clearJustConfirmed} />
+      )}
 
       <IrisTransition run={Boolean(iris)} onMidpoint={applyTransition} onComplete={() => setIris(null)} />
     </div>

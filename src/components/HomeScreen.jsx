@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import MenuShell, { LogoMark, MenuOption, MenuSplit, at } from './MenuShell.jsx';
+import Avatar, { displayName } from './Avatar.jsx';
 import { CONCEPTS } from '../challenges/concepts.js';
 import { HOLD, LEVELS, masteryOf, claimedCount } from '../lib/level.js';
 
@@ -42,6 +43,7 @@ export default function HomeScreen({
   onResume,
   onCalibrate,
   onOpenProfile,
+  user = null,
   hasSession,
   roadmap,
   level,
@@ -194,7 +196,7 @@ export default function HomeScreen({
               <span className="text-[12.5px] font-semibold text-zinc-900">Lv {level.level}</span>
               <span className="font-mono text-[11px] text-zinc-500">{level.expertise}%</span>
             </div>
-            <SystemMenu open={menuOpen} setOpen={setMenuOpen} onOpenProfile={onOpenProfile} />
+            <SystemMenu open={menuOpen} setOpen={setMenuOpen} onOpenProfile={onOpenProfile} user={user} />
           </div>
         </header>
 
@@ -413,7 +415,7 @@ function ConfirmNewChallenge({ onCancel, onConfirm }) {
  * Top-right system button. Everything that is housekeeping rather than play
  * lives behind it, which is what keeps the main menu down to one real choice.
  */
-function SystemMenu({ open, setOpen, onOpenProfile }) {
+function SystemMenu({ open, setOpen, onOpenProfile, user }) {
   const ref = useRef(null);
 
   useEffect(() => {
@@ -439,7 +441,7 @@ function SystemMenu({ open, setOpen, onOpenProfile }) {
     { tab: 'progress', label: 'Progress', hint: 'Skills, attempts and history' },
     { tab: 'settings', label: 'Settings', hint: 'Preferences for the app' },
     { tab: 'shortcuts', label: 'Controls', hint: 'KiCad-style keyboard shortcuts' },
-    { tab: 'account', label: 'Account', hint: 'Sign in and sync progress' },
+    { tab: 'account', label: user ? 'Account' : 'Sign in', hint: user ? 'Your account and sync' : 'Keep your progress on every device' },
   ];
 
   return (
@@ -451,18 +453,27 @@ function SystemMenu({ open, setOpen, onOpenProfile }) {
         aria-expanded={open}
         aria-label="Profile and settings"
         style={at(1)}
-        className={`panel-pill animate-enter-up flex h-11 w-11 items-center justify-center transition-all duration-200 ease-smooth
-          active:scale-[0.96] ${open ? 'text-zinc-900' : 'text-zinc-600 hover:text-zinc-900'}`}
+        className={`panel-pill animate-enter-up flex h-11 items-center justify-center transition-all duration-200 ease-smooth
+          active:scale-[0.96] ${user ? 'gap-2 px-3' : 'w-11'} ${open ? 'text-zinc-900' : 'text-zinc-600 hover:text-zinc-900'}`}
       >
-        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-          <circle cx="9" cy="6.2" r="2.9" stroke="currentColor" strokeWidth="1.6" />
-          <path
-            d="M3.4 15.2a5.8 5.8 0 0111.2 0"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinecap="round"
-          />
-        </svg>
+        {user ? (
+          <>
+            <Avatar user={user} size={26} />
+            <span className="hidden max-w-[7rem] truncate text-[13px] font-medium sm:block">
+              {displayName(user)}
+            </span>
+          </>
+        ) : (
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+            <circle cx="9" cy="6.2" r="2.9" stroke="currentColor" strokeWidth="1.6" />
+            <path
+              d="M3.4 15.2a5.8 5.8 0 0111.2 0"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+            />
+          </svg>
+        )}
       </button>
 
       {open && (
@@ -470,6 +481,16 @@ function SystemMenu({ open, setOpen, onOpenProfile }) {
           role="menu"
           className="panel animate-widget-in absolute right-0 top-[calc(100%+0.55rem)] z-50 w-[17rem] p-1.5"
         >
+          {/* Who is signed in, at the top of the menu that acts on their behalf. */}
+          <div className="mb-1 flex items-center gap-2.5 border-b border-zinc-950/[0.07] px-3 pb-2.5 pt-2">
+            <Avatar user={user} size={32} />
+            <div className="min-w-0">
+              <p className="truncate text-[13px] font-medium text-zinc-900">{displayName(user)}</p>
+              <p className="truncate text-[11px] text-zinc-500">
+                {user ? user.email : 'Progress saved in this browser'}
+              </p>
+            </div>
+          </div>
           {items.map((item) => (
             <button
               key={item.tab}

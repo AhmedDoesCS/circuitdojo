@@ -6,9 +6,11 @@ import React from 'react';
  * and the brief.
  */
 
+import Avatar, { displayName } from './Avatar.jsx';
+
 const S = { stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round', strokeLinejoin: 'round', fill: 'none' };
 
-export default function ViewBar({ widgets, toggle, focus, onToggleFocus, onOpenProfile, guestLabel }) {
+export default function ViewBar({ widgets, toggle, focus, onToggleFocus, onOpenProfile, user }) {
   return (
     <div className="pointer-events-auto flex animate-widget-in items-center gap-2">
       {/* Toggles stay available in focus view: the brief has to be reachable
@@ -42,16 +44,17 @@ export default function ViewBar({ widgets, toggle, focus, onToggleFocus, onOpenP
         {focus ? 'Focused' : 'Focus'}
       </button>
 
+      {/* Who you are, always in the same corner. Signed in it is your mark and
+          your name; as a guest it is a neutral one, because guest is a way to
+          use this rather than a state to be nagged out of. */}
       {!focus && (
         <button
           onClick={onOpenProfile}
-          title="Progress and account"
-          className="panel-pill panel-float flex h-11 items-center gap-2 px-4 text-[13px] font-medium text-ink-700 transition-all duration-200 ease-smooth hover:text-ink-950 active:scale-[0.97]"
+          title={user ? `Signed in as ${user.email}` : 'Progress and account'}
+          className="panel-pill panel-float flex h-11 items-center gap-2 px-3.5 text-[13px] font-medium text-ink-700 transition-all duration-200 ease-smooth hover:text-ink-950 active:scale-[0.97]"
         >
-          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-accent/15 text-[11px] font-semibold text-accent">
-            {guestLabel.slice(0, 1).toUpperCase()}
-          </span>
-          {guestLabel}
+          <Avatar user={user} size={24} />
+          <span className="max-w-[8rem] truncate">{displayName(user)}</span>
         </button>
       )}
     </div>

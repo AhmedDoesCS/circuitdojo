@@ -8,6 +8,8 @@ import { localStore } from '../lib/storage.js';
 import { THEMES, ACCENTS, resolveTheme } from '../lib/theme.js';
 import { RECIPE_COUNT } from '../challenges/index.js';
 import { CloseIcon } from './Widget.jsx';
+import Avatar, { displayName } from './Avatar.jsx';
+import AuthPanel from './AuthPanel.jsx';
 
 /**
  * Profile: level, skills, settings, shortcuts and account.
@@ -24,30 +26,9 @@ export default function ProfileModal({ open, onClose, profile, initialTab = 'pro
   useEffect(() => {
     if (open) setTab(initialTab);
   }, [open, initialTab]);
-  const [mode, setMode] = useState('signin');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [message, setMessage] = useState(null);
-
   if (!open) return null;
 
-  const { user, mastery, level, progress, attempts, settings, setSettings, supabaseEnabled, authError, busy } =
-    profile;
-
-  const submit = async (event) => {
-    event.preventDefault();
-    setMessage(null);
-    const action = mode === 'signin' ? profile.signIn : profile.signUp;
-    const { error } = await action(email, password);
-    if (!error) {
-      setMessage(
-        mode === 'signup'
-          ? 'Account created. If your project requires email confirmation, check your inbox before signing in.'
-          : 'Signed in.'
-      );
-      setPassword('');
-    }
-  };
+  const { user, mastery, level, progress, attempts, settings, setSettings } = profile;
 
   const tabs = [
     { id: 'progress', label: 'Progress' },
@@ -93,23 +74,7 @@ export default function ProfileModal({ open, onClose, profile, initialTab = 'pro
             <SettingsTab settings={settings} setSettings={setSettings} onRecalibrate={onRecalibrate} />
           )}
           {tab === 'shortcuts' && <ShortcutsTab />}
-          {tab === 'account' && (
-            <AccountTab
-              user={user}
-              supabaseEnabled={supabaseEnabled}
-              mode={mode}
-              setMode={setMode}
-              email={email}
-              setEmail={setEmail}
-              password={password}
-              setPassword={setPassword}
-              submit={submit}
-              authError={authError}
-              message={message}
-              busy={busy}
-              onSignOut={profile.signOut}
-            />
-          )}
+          {tab === 'account' && <AccountTab profile={profile} roadmap={profile.roadmap} />}
         </div>
       </div>
     </div>
@@ -480,83 +445,90 @@ function ProfileBackup() {
   );
 }
 
-function AccountTab({
-  user,
-  supabaseEnabled,
-  mode,
-  setMode,
-  email,
-  setEmail,
-  password,
-  setPassword,
-  submit,
-  authError,
-  message,
-  busy,
-  onSignOut,
-}) {
-  if (!supabaseEnabled) {
+/**
+ * Account: who you are, what that is doing for you, and the way out.
+ *
+ * When signed out this is the offer and the form. When signed in it is a real
+ * account page rather than a sign-out button: the address, when it was made,
+ * and a plain statement of what is being kept in sync, because "your progress
+ * is saved" is only reassuring if it says what and where.
+ */
+function AccountTab({ profile, roadmap }) {
+  const { user, supabaseEnabled } = profile;
+
+  if (!user) {
     return (
-      <div className="space-y-2">
-        <div className="rounded-control bg-zinc-900/[0.04] p-4">
-          <p className="text-[12.5px] leading-relaxed text-zinc-700">
-            Running in guest mode. Progress is saved in this browser only.
-          </p>
-          <p className="mt-2 text-[11.5px] leading-relaxed text-zinc-500">{supabaseStatus}</p>
+      <div className="space-y-4">
+        <AuthPanel profile={profile} />
+        <div className="border-t border-zinc-950/[0.07] pt-4">
+          <ProfileBackup />
         </div>
-        <ProfileBackup />
       </div>
     );
   }
 
-  if (user) {
-    return (
-      <div className="max-w-sm rounded-control bg-zinc-900/[0.04] p-4">
-        <p className="text-[12px] text-zinc-500">Signed in as</p>
-        <p className="truncate text-[13.5px] font-medium text-zinc-900">{user.email}</p>
-        <button className="btn-quiet mt-3 w-full" onClick={onSignOut}>
-          Sign out
-        </button>
-      </div>
-    );
-  }
+  const since = user.created_at ? new Date(user.created_at) : null;
 
   return (
-    <form className="max-w-sm space-y-2" onSubmit={submit}>
-      <p className="text-[12.5px] leading-relaxed text-zinc-600">
-        You are playing as a guest: everything works. Create an account to keep progress across devices; what you
-        have already done comes with you.
-      </p>
-      <input
-        className="field"
-        type="email"
-        placeholder="you@example.com"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        required
-      />
-      <input
-        className="field"
-        type="password"
-        placeholder="password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        minLength={6}
-        required
-      />
-      <button className="btn-primary w-full" disabled={busy}>
-        {mode === 'signin' ? 'Sign in' : 'Create account'}
+    <div className="space-y-4">
+      <div className="flex items-center gap-3.5 rounded-control bg-zinc-900/[0.04] p-4">
+        <Avatar user={user} size={52} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[15px] font-semibold tracking-[-0.01em] text-zinc-900">
+            {displayName(user)}
+          </p>
+          <p className="truncate text-[12.5px] text-zinc-500">{user.email}</p>
+          {since && (
+            <p className="mt-1 text-[11.5px] text-zinc-400">
+              Member since {since.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div>
+        <p className="widget-title mb-2">Kept in sync</p>
+        <ul className="space-y-1">
+          <SyncRow label="Roadmap position" value={`${roadmap.unitsDone} of ${roadmap.unitCount} units`} />
+          <SyncRow label="Stage" value={`${roadmap.stage} of ${roadmap.stageCount}`} />
+          <SyncRow label="Concept mastery" value="Every concept you have shown" />
+          <SyncRow label="Recent attempts" value="Last 50 checks" />
+        </ul>
+        <p className="mt-2 text-[11.5px] leading-relaxed text-zinc-500">
+          The sheet you have open stays on this device. It is working scratch rather than progress, and syncing a
+          half-drawn schematic between machines would only create conflicts.
+        </p>
+      </div>
+
+      <div className="border-t border-zinc-950/[0.07] pt-4">
+        <ProfileBackup />
+      </div>
+
+      <button className="btn-quiet w-full" onClick={profile.signOut} disabled={profile.busy}>
+        Sign out
       </button>
-      <button
-        type="button"
-        className="btn-ghost w-full text-[12px]"
-        onClick={() => setMode(mode === 'signin' ? 'signup' : 'signin')}
-      >
-        {mode === 'signin' ? 'Need an account? Sign up' : 'Already registered? Sign in'}
-      </button>
-      {authError && <p className="text-[12px] text-bad">{authError}</p>}
-      {message && <p className="text-[12px] text-good">{message}</p>}
-    </form>
+      {!supabaseEnabled && <p className="text-[11.5px] text-zinc-500">{supabaseStatus}</p>}
+    </div>
+  );
+}
+
+function SyncRow({ label, value }) {
+  return (
+    <li className="flex items-center gap-2 rounded-control bg-zinc-900/[0.035] px-3 py-2">
+      <span className="text-good">
+        <svg width="12" height="12" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+          <path
+            d="M3 7.2 L5.6 9.8 L11 3.8"
+            stroke="currentColor"
+            strokeWidth="1.7"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </span>
+      <span className="flex-1 text-[12.5px] text-zinc-700">{label}</span>
+      <span className="font-mono text-[11.5px] text-zinc-500">{value}</span>
+    </li>
   );
 }
 

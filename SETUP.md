@@ -99,6 +99,51 @@ Row-level security is switched on for every table by those files, so one
 account can never read another's progress. That is not something you have to
 configure; it is in the migration.
 
+### Make the confirmation email yours
+
+Out of the box the email is Supabase's: their wording, their sender address, and
+a link that goes through their domain. Two of those three you can fix from the
+dashboard in a minute. The third needs a domain of your own, and it is worth
+knowing which is which before you start.
+
+**The wording and the design.** Go to **Authentication → Emails → Templates →
+Confirm signup**. Replace the subject with:
+
+```
+Confirm your CircuitDojo account
+```
+
+and paste the contents of `supabase/templates/confirm-signup.html` over the
+message body. That is a real email template: CircuitDojo's name, its type, its
+accent colour, and copy that says what the account is actually for. Save.
+
+**Where the link lands.** Already handled in the app. Sign-up asks Supabase to
+send people back to the address they signed up from, and arriving there shows a
+confirmation rather than dropping them on a menu with no explanation.
+
+**The sender address.** This one is not free. By default mail comes from
+`noreply@mail.app.supabase.io`, and no amount of template editing changes that,
+because the address belongs to whoever operates the mail server. To send from
+`hello@yourdomain.com` you need:
+
+1. A domain you own.
+2. An account with an email service. Resend, Postmark, Mailgun and Amazon SES
+   all have free tiers far larger than this needs.
+3. DNS records from that service added to your domain, to prove you are allowed
+   to send as it.
+4. The SMTP details pasted into **Project Settings → Authentication → SMTP
+   Settings** in Supabase.
+
+Without a domain, none of that is possible: an email service will not let you
+send as an address you cannot prove you control, and that restriction is the
+only reason email is not entirely overrun with forgeries. So the honest order is
+**domain first, custom sender second.**
+
+> **One more reason to do this eventually.** Supabase's built-in email service is
+> rate limited to a handful of messages an hour and is explicitly not meant for
+> production. It is fine while it is you and a few people. It is not fine on the
+> day you share the link somewhere busy.
+
 ### Decide about email confirmation
 
 **Authentication → Providers → Email → Confirm email.**

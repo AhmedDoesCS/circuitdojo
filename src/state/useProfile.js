@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { supabase, isSupabaseConfigured } from '../lib/supabase.js';
+import { supabase, isSupabaseConfigured, humanAuthError } from '../lib/supabase.js';
 import { localStore, DEFAULT_SETTINGS } from '../lib/storage.js';
 import { applyResult, emptyProgress } from '../lib/progress.js';
 import { UNITS, completeUnit, roadmapProgress } from '../roadmap/index.js';
@@ -37,6 +37,15 @@ export default function useProfile() {
   const [attempts, setAttempts] = useState(() => localStore.getAttempts());
   const [authError, setAuthError] = useState(null);
   const [busy, setBusy] = useState(false);
+  /**
+   * An account created but not yet confirmed.
+   *
+   * Supabase returns a user and no session in that case, which is easy to read
+   * as failure and is the opposite: the account exists and is one click away.
+   * Holding the address lets the screen say so, and lets it offer to send the
+   * email again without asking the learner to type it a second time.
+   */
+  const [pendingEmail, setPendingEmail] = useState(null);
 
   /**
    * Roadmap position: the units finished, in order.
@@ -134,6 +143,25 @@ export default function useProfile() {
     // Mount only: the stored mastery is what needs repairing, not whatever it
     // becomes afterwards.
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /**
+   * Arrived from the confirmation link.
+   *
+   * Supabase sends people back to the address we asked for with the tokens in
+   * the URL fragment, the client library consumes them, and the app would
+   * otherwise just be sitting there signed in with no explanation of what
+   * happened. `?welcome=1` is our own marker on the redirect, and it is cleared
+   * from the address bar immediately so a refresh does not replay the greeting.
+   */
+  const [justConfirmed, setJustConfirmed] = useState(false);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('welcome') !== '1') return;
+    setJustConfirmed(true);
+    url.searchParams.delete('welcome');
+    window.history.replaceState({}, '', url.pathname + url.search);
   }, []);
 
   // --- session ------------------------------------------------------------
@@ -403,12 +431,31 @@ export default function useProfile() {
     if (!isSupabaseConfigured) return { error: 'Supabase is not configured.' };
     setBusy(true);
     setAuthError(null);
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      /**
+       * Where the confirmation link lands.
+       *
+       * Left unset, Supabase sends people to whatever Site URL is configured in
+       * a dashboard they have never seen, which on a misconfigured project is
+       * localhost. Naming the current origin means the link always comes back
+       * to the app they signed up from, including a preview deployment.
+       */
+      options: { emailRedirectTo: `${window.location.origin}/?welcome=1` },
+    });
     setBusy(false);
     if (error) {
-      setAuthError(error.message);
-      return { error: error.message };
+      const human = humanAuthError(error.message);
+      setAuthError(human);
+      return { error: human };
     }
+    // A user with no session is an account awaiting its confirmation link.
+    if (!data.session && data.user) {
+      setPendingEmail(email);
+      return { pending: true, data };
+    }
+    setPendingEmail(null);
     if (migrateGuestProgress && data.session?.user) {
       const snapshot = localStore.snapshot();
       const rows = [
@@ -459,16 +506,50 @@ export default function useProfile() {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     setBusy(false);
     if (error) {
-      setAuthError(error.message);
-      return { error: error.message };
+      const human = humanAuthError(error.message);
+      setAuthError(human);
+      return { error: human };
     }
+    setPendingEmail(null);
     return { data };
   }, []);
+
+  /**
+   * Send the confirmation link again.
+   *
+   * The commonest reason an account never gets used is that the first email
+   * went to spam or was closed by accident, and the only recovery on offer
+   * elsewhere is to try to sign up again and be told the account already
+   * exists. One button beats that.
+   */
+  const resendConfirmation = useCallback(async (email) => {
+    if (!isSupabaseConfigured) return { error: 'Accounts are not set up on this deployment.' };
+    setBusy(true);
+    setAuthError(null);
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email,
+      options: { emailRedirectTo: `${window.location.origin}/?welcome=1` },
+    });
+    setBusy(false);
+    if (error) {
+      const human = humanAuthError(error.message);
+      setAuthError(human);
+      return { error: human };
+    }
+    return { ok: true };
+  }, []);
+
+  const clearAuthError = useCallback(() => setAuthError(null), []);
+  const clearPending = useCallback(() => setPendingEmail(null), []);
+  const clearJustConfirmed = useCallback(() => setJustConfirmed(false), []);
 
   const signOut = useCallback(async () => {
     if (!isSupabaseConfigured) return;
     await supabase.auth.signOut();
     setUser(null);
+    setPendingEmail(null);
+    setAuthError(null);
     setProgress(localStore.getProgress() || emptyProgress());
     setMastery(localStore.getMastery() || emptyMastery());
     setAttempts(localStore.getAttempts());
@@ -492,7 +573,13 @@ export default function useProfile() {
     signIn,
     signUp,
     signOut,
+    resendConfirmation,
+    pendingEmail,
+    clearPending,
+    justConfirmed,
+    clearJustConfirmed,
     authError,
+    clearAuthError,
     busy,
     supabaseEnabled: isSupabaseConfigured,
   };
