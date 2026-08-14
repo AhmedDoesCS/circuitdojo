@@ -27,6 +27,7 @@ accounts, see **[SETUP.md](SETUP.md)**.
 | **Symbol library** | 59 symbols: passives, discretes, 74HC logic, op-amps, comparators, MCUs, sensors, motor drivers, protection parts. |
 | **Roadmap** | Twelve stages, 137 units of three kinds, each block ending in a capstone you can pass cold to skip the rest of it. |
 | **Guided hints** | Three-step escalation after a failed check: where to look → the principle → the fix. |
+| **Profile** | A statistics dashboard: stage bars, a twelve-week activity calendar, work by kind, strength by branch. Pick a name, a schematic symbol as your mark and a colour. |
 
 ---
 

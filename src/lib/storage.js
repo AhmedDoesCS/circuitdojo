@@ -13,7 +13,18 @@ const KEYS = {
   attempts: 'circuitdojo.attempts.v1',
   settings: 'circuitdojo.settings.v1',
   roadmap: 'circuitdojo.roadmap.v1',
+  activity: 'circuitdojo.activity.v1',
+  identity: 'circuitdojo.identity.v1',
 };
+
+/**
+ * How many checks to remember.
+ *
+ * Enough for a twelve-week activity chart at a heavy pace, and small enough
+ * that the whole profile stays a few tens of kilobytes. Older entries fall off
+ * the end; the counts they contributed to are already in mastery and progress.
+ */
+const ACTIVITY_LIMIT = 400;
 
 export const DEFAULT_SETTINGS = {
   /** Has the learner been placed at a level yet? Drives the first-run flow. */
@@ -64,6 +75,25 @@ export const localStore = {
   getRoadmap: () => read(KEYS.roadmap, null),
   setRoadmap: (completed) => write(KEYS.roadmap, completed),
 
+  /**
+   * Every check, of every kind of unit.
+   *
+   * `attempts` only ever recorded drawings, because it predates the roadmap and
+   * mirrors a server table keyed by challenge template. Three quarters of the
+   * curriculum is now not a drawing, so a history built from attempts alone
+   * describes someone who has barely used the app.
+   */
+  getActivity: () => read(KEYS.activity, []),
+  addActivity: (entry) => {
+    const next = [{ ...entry, at: entry.at || new Date().toISOString() }, ...read(KEYS.activity, [])];
+    write(KEYS.activity, next.slice(0, ACTIVITY_LIMIT));
+    return next;
+  },
+
+  /** Display name, mark and description. Local until an account carries them. */
+  getIdentity: () => read(KEYS.identity, null),
+  setIdentity: (identity) => write(KEYS.identity, identity),
+
   getMastery: () => read(KEYS.mastery, {}),
   setMastery: (mastery) => write(KEYS.mastery, mastery),
 
@@ -100,7 +130,7 @@ export const localStore = {
    */
   exportProfile: () => ({
     format: 'circuitdojo.profile',
-    version: 2,
+    version: 3,
     exportedAt: new Date().toISOString(),
     progress: read(KEYS.progress, {}),
     mastery: read(KEYS.mastery, {}),
@@ -115,6 +145,8 @@ export const localStore = {
      * rather than resetting it to the first unit.
      */
     roadmap: read(KEYS.roadmap, null),
+    activity: read(KEYS.activity, []),
+    identity: read(KEYS.identity, null),
   }),
 
   /**
@@ -140,6 +172,8 @@ export const localStore = {
     // field, and wiping the learner's position because their backup predates
     // the curriculum would be the worst possible reading of "restore".
     if (Array.isArray(data.roadmap)) write(KEYS.roadmap, data.roadmap);
+    if (Array.isArray(data.activity)) write(KEYS.activity, data.activity.slice(0, ACTIVITY_LIMIT));
+    if (data.identity && typeof data.identity === 'object') write(KEYS.identity, data.identity);
     return { ok: true };
   },
 

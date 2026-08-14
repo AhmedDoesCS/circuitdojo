@@ -8,7 +8,8 @@ import { localStore } from '../lib/storage.js';
 import { THEMES, ACCENTS, resolveTheme } from '../lib/theme.js';
 import { RECIPE_COUNT } from '../challenges/index.js';
 import { CloseIcon } from './Widget.jsx';
-import Avatar, { displayName } from './Avatar.jsx';
+import Avatar, { displayName, AVATAR_SYMBOLS, AVATAR_COLOURS } from './Avatar.jsx';
+import ProfileStats from './ProfileStats.jsx';
 import AuthPanel from './AuthPanel.jsx';
 
 /**
@@ -32,6 +33,7 @@ export default function ProfileModal({ open, onClose, profile, initialTab = 'pro
 
   const tabs = [
     { id: 'progress', label: 'Progress' },
+    { id: 'identity', label: 'Identity' },
     { id: 'settings', label: 'Settings' },
     { id: 'shortcuts', label: 'Shortcuts' },
     { id: 'account', label: 'Account' },
@@ -68,8 +70,19 @@ export default function ProfileModal({ open, onClose, profile, initialTab = 'pro
 
         <div className="p-5">
           {tab === 'progress' && (
-            <ProgressTab mastery={mastery} level={level} progress={progress} attempts={attempts} />
+            <div className="space-y-5">
+              <IdentityHeader profile={profile} />
+              <ProfileStats
+                mastery={mastery}
+                level={level}
+                roadmap={profile.roadmap}
+                completedUnits={profile.completedUnits}
+                activity={profile.activity}
+              />
+              <RecentAttempts attempts={attempts} />
+            </div>
           )}
+          {tab === 'identity' && <IdentityTab profile={profile} />}
           {tab === 'settings' && (
             <SettingsTab settings={settings} setSettings={setSettings} onRecalibrate={onRecalibrate} />
           )}
@@ -81,123 +94,182 @@ export default function ProfileModal({ open, onClose, profile, initialTab = 'pro
   );
 }
 
-function ProgressTab({ mastery, level, progress, attempts }) {
-  const held = CONCEPTS.filter((c) => masteryOf(mastery, c.id) >= HOLD).length;
+/**
+ * Choosing how you appear.
+ *
+ * A name, a mark and a line about yourself. Deliberately not a photograph: a
+ * file upload would mean a storage bucket, a moderation question and a way to
+ * be identified by strangers, and none of that is worth it for a corner icon.
+ * A symbol from the library the learner already draws with is more personal
+ * than a silhouette and costs two short strings.
+ *
+ * Saved as you type, because a Save button on three fields is a button that
+ * exists only to be forgotten.
+ */
+function IdentityTab({ profile }) {
+  const { user, identity } = profile;
+  const value = identity || {};
+
+  const update = (patch) => profile.setIdentity(patch);
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-control bg-zinc-900/[0.04] p-4">
-        <div className="flex items-baseline gap-2">
-          <span className="widget-title">Level {level.level}</span>
-          <span className="text-[15px] font-semibold text-zinc-900">{level.name}</span>
-          <span className="ml-auto text-[12px] text-zinc-500">{level.expertise}% toward industry practice</span>
+    <div className="space-y-5">
+      <div className="flex items-center gap-4 rounded-control bg-zinc-900/[0.04] p-4">
+        <Avatar user={user} identity={identity} size={60} />
+        <div className="min-w-0">
+          <p className="truncate text-[15px] font-semibold tracking-[-0.015em] text-zinc-900">
+            {displayName(user, identity)}
+          </p>
+          <p className="truncate text-[12px] text-zinc-500">
+            {value.bio?.trim() || 'This is how you appear across the app'}
+          </p>
         </div>
-        <p className="mt-1 text-[12.5px] leading-relaxed text-zinc-600">{level.blurb}</p>
-        <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-zinc-900/[0.08]">
-          <div
-            className="h-full rounded-full bg-accent transition-all duration-700 ease-smooth"
-            style={{ width: `${Math.round(level.progress * 100)}%` }}
-          />
-        </div>
-        <div className="mt-2 flex flex-wrap gap-2 text-[12px] text-zinc-600">
-          <span>{held} of {CONCEPTS.length} concepts held</span>
-          <span className="text-zinc-300">·</span>
-          <span>{totalSolved(progress)} challenges solved</span>
-          <span className="text-zinc-300">·</span>
-          <span>{RECIPE_COUNT} recipes in the library</span>
-        </div>
-      </section>
+      </div>
 
-      <section>
-        <h3 className="widget-title mb-2">Skills</h3>
-        <div className="space-y-4">
-          {Object.entries(DOMAINS).map(([domainId, domainName]) => {
-            const concepts = CONCEPTS.filter((c) => c.domain === domainId);
-            if (!concepts.length) return null;
+      <label className="block">
+        <span className="mb-1 block text-[11.5px] font-medium text-zinc-500">Display name</span>
+        <input
+          className="field w-full"
+          maxLength={32}
+          placeholder={user ? user.email.split('@')[0] : 'Guest'}
+          value={value.name || ''}
+          onChange={(e) => update({ name: e.target.value })}
+        />
+      </label>
+
+      <label className="block">
+        <span className="mb-1 block text-[11.5px] font-medium text-zinc-500">
+          About you <span className="text-zinc-400">(optional)</span>
+        </span>
+        <textarea
+          className="field w-full resize-none"
+          rows={2}
+          maxLength={140}
+          placeholder="Hobbyist, student, building a synth in the garage..."
+          value={value.bio || ''}
+          onChange={(e) => update({ bio: e.target.value })}
+        />
+        <span className="mt-1 block text-right font-mono text-[10.5px] text-zinc-400">
+          {(value.bio || '').length}/140
+        </span>
+      </label>
+
+      <div>
+        <p className="mb-2 text-[11.5px] font-medium text-zinc-500">Your mark</p>
+        <div className="grid grid-cols-5 gap-1.5 sm:grid-cols-10">
+          {Object.entries(AVATAR_SYMBOLS).map(([key, symbol]) => {
+            const active = (value.symbol || 'initials') === key;
             return (
-              <div key={domainId}>
-                <p className="mb-1.5 text-[12px] font-medium text-zinc-700">{domainName}</p>
-                <div className="grid gap-1.5 sm:grid-cols-2">
-                  {concepts.map((c) => {
-                    const value = masteryOf(mastery, c.id);
-                    return (
-                      <div key={c.id} className="flex items-center gap-2" title={c.applies}>
-                        <span className="w-4 shrink-0 text-[10px] text-zinc-400">L{c.level}</span>
-                        <span className="min-w-0 flex-1 truncate text-[12px] text-zinc-700">{c.name}</span>
-                        <span className="h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-zinc-900/[0.08]">
-                          <span
-                            className={`block h-full rounded-full transition-all duration-500 ${
-                              value >= HOLD ? 'bg-good' : value > 0 ? 'bg-warn' : 'bg-transparent'
-                            }`}
-                            style={{ width: `${Math.round(value * 100)}%` }}
-                          />
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+              <button
+                key={key}
+                title={symbol.label}
+                aria-label={symbol.label}
+                onClick={() => update({ symbol: key })}
+                className={`grid aspect-square place-items-center rounded-control transition-all duration-150 ${
+                  active
+                    ? 'bg-accent/12 text-accent ring-1 ring-accent/40'
+                    : 'bg-zinc-900/[0.04] text-zinc-500 hover:bg-zinc-900/[0.07] hover:text-zinc-900'
+                }`}
+              >
+                {symbol.path ? (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path
+                      d={symbol.path}
+                      stroke="currentColor"
+                      strokeWidth="1.9"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                ) : (
+                  <span className="text-[11px] font-semibold">Aa</span>
+                )}
+              </button>
             );
           })}
         </div>
-      </section>
+      </div>
 
-      <section>
-        <h3 className="widget-title mb-2">Levels</h3>
-        <div className="grid gap-1.5 sm:grid-cols-2">
-          {LEVELS.map((band) => (
-            <div
-              key={band.level}
-              className={`rounded-control px-3 py-2 ${
-                band.level === level.level ? 'bg-accent text-on-accent' : 'bg-zinc-900/[0.04]'
-              }`}
-            >
-              <div className="flex items-baseline gap-2">
-                <span className={`text-[11px] ${band.level === level.level ? 'text-on-accent/70' : 'text-zinc-500'}`}>
-                  L{band.level}
-                </span>
-                <span className="text-[12.5px] font-medium">{band.name}</span>
-              </div>
-              <p className={`mt-0.5 text-[11px] leading-relaxed ${band.level === level.level ? 'text-on-accent/70' : 'text-zinc-500'}`}>
-                {band.blurb}
-              </p>
-            </div>
-          ))}
+      <div>
+        <p className="mb-2 text-[11.5px] font-medium text-zinc-500">Colour</p>
+        <div className="flex flex-wrap gap-1.5">
+          {Object.entries(AVATAR_COLOURS).map(([key, hue]) => {
+            const active = value.colour === key;
+            return (
+              <button
+                key={key}
+                title={hue.label}
+                aria-label={hue.label}
+                onClick={() => update({ colour: key })}
+                className={`h-9 w-9 rounded-full transition-all duration-150 ${
+                  active ? 'ring-2 ring-accent ring-offset-2 ring-offset-[rgb(var(--panel))]' : ''
+                }`}
+                style={{ background: hue.bg, color: hue.fg }}
+              >
+                <span className="grid h-full w-full place-items-center text-[12px] font-semibold">A</span>
+              </button>
+            );
+          })}
         </div>
-      </section>
+      </div>
 
-      {attempts.length > 0 && (
-        <section>
-          <h3 className="widget-title mb-1.5">Recent attempts</h3>
-          <ul className="space-y-1">
-            {attempts.slice(0, 8).map((a) => (
-              <li key={a.id} className="flex items-center gap-2 text-[12.5px]">
-                <span className={a.passed ? 'text-good' : 'text-bad'}>{a.passed ? '✓' : '✕'}</span>
-                <span className="truncate text-zinc-700">{a.title || a.templateId}</span>
-                <span className="ml-auto shrink-0 text-zinc-400">
-                  {new Date(a.createdAt).toLocaleString(undefined, {
-                    month: 'short',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      <p className="text-[11.5px] leading-relaxed text-zinc-500">
+        {user
+          ? 'Saved to your account, so this is how you look on every device you sign in from.'
+          : 'Saved in this browser. Create an account and it comes with you.'}
+      </p>
     </div>
   );
 }
 
-/**
- * Appearance: theme and accent, the two axes described in lib/theme.js.
- *
- * Both apply the instant they are chosen, no save button, no preview pane.
- * The theme buttons carry a miniature of the thing they produce (a ground, a
- * pane of panel, a wire) so the choice is legible before you make it.
- */
+/** Who this profile belongs to, above the figures that describe them. */
+function IdentityHeader({ profile }) {
+  const { user, identity, roadmap } = profile;
+  return (
+    <div className="flex items-center gap-3.5">
+      <Avatar user={user} identity={identity} size={52} />
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-[16px] font-semibold tracking-[-0.015em] text-zinc-900">
+          {displayName(user, identity)}
+        </p>
+        <p className="truncate text-[12px] text-zinc-500">
+          {identity?.bio?.trim() || (user ? user.email : 'Playing as a guest on this browser')}
+        </p>
+      </div>
+      <span className="chip shrink-0 bg-accent/12 text-accent">Stage {roadmap.stage}</span>
+    </div>
+  );
+}
+
+/** The last few checks, as a list. The charts carry the shape; this is detail. */
+function RecentAttempts({ attempts }) {
+  if (!attempts.length) return null;
+  return (
+    <div>
+      <h4 className="mb-2 text-[12.5px] font-semibold tracking-[-0.01em] text-zinc-900">Recent sheets</h4>
+      <ul className="space-y-1">
+        {attempts.slice(0, 6).map((a) => (
+          <li
+            key={a.id}
+            className="flex items-center gap-2 rounded-control bg-zinc-900/[0.035] px-3 py-1.5"
+          >
+            <span
+              className={`h-1.5 w-1.5 shrink-0 rounded-full ${a.passed ? 'bg-good' : 'bg-zinc-400'}`}
+              aria-hidden="true"
+            />
+            <span className="min-w-0 flex-1 truncate text-[12px] text-zinc-700">
+              {a.title || a.templateId}
+            </span>
+            <span className="shrink-0 font-mono text-[10.5px] text-zinc-400">
+              {new Date(a.createdAt).toLocaleDateString()}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function Appearance({ settings, setSettings }) {
   const dark = resolveTheme(settings.theme) === 'dark';
 
@@ -472,10 +544,10 @@ function AccountTab({ profile, roadmap }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3.5 rounded-control bg-zinc-900/[0.04] p-4">
-        <Avatar user={user} size={52} />
+        <Avatar user={user} identity={profile.identity} size={52} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[15px] font-semibold tracking-[-0.01em] text-zinc-900">
-            {displayName(user)}
+            {displayName(user, profile.identity)}
           </p>
           <p className="truncate text-[12.5px] text-zinc-500">{user.email}</p>
           {since && (

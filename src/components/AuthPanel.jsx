@@ -39,9 +39,9 @@ export default function AuthPanel({ profile, onDone, compact = false }) {
     return (
       <div className={compact ? '' : 'mx-auto max-w-sm'}>
         <div className="flex items-center gap-3 rounded-control bg-zinc-900/[0.04] p-4">
-          <Avatar user={user} size={44} />
+          <Avatar user={user} identity={profile.identity} size={44} />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[14px] font-semibold text-zinc-900">{displayName(user)}</p>
+            <p className="truncate text-[14px] font-semibold text-zinc-900">{displayName(user, profile.identity)}</p>
             <p className="truncate text-[12px] text-zinc-500">{user.email}</p>
           </div>
         </div>

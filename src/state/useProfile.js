@@ -35,6 +35,16 @@ export default function useProfile() {
   const [mastery, setMastery] = useState(() => localStore.getMastery() || emptyMastery());
   const [settings, setSettingsState] = useState(() => localStore.getSettings());
   const [attempts, setAttempts] = useState(() => localStore.getAttempts());
+  /**
+   * Every check, of every unit kind, for the history charts.
+   *
+   * Separate from `attempts`, which mirrors a server table keyed by challenge
+   * template and therefore cannot hold a numeric question. This one is local
+   * and lightweight, and is what makes a history worth drawing now that most
+   * of the roadmap is not a drawing.
+   */
+  const [activity, setActivity] = useState(() => localStore.getActivity());
+  const [identity, setIdentityState] = useState(() => localStore.getIdentity());
   const [authError, setAuthError] = useState(null);
   const [busy, setBusy] = useState(false);
   /**
@@ -258,6 +268,22 @@ export default function useProfile() {
       }
 
       /**
+       * Identity travels with the account.
+       *
+       * A name chosen on one machine should be the name on the next, and an
+       * account that has never been given one adopts whatever this device is
+       * already using rather than resetting to the email address.
+       */
+      const remoteIdentity = user.user_metadata?.circuitdojo;
+      const localIdentity = localStore.getIdentity();
+      if (remoteIdentity) {
+        localStore.setIdentity(remoteIdentity);
+        setIdentityState(remoteIdentity);
+      } else if (localIdentity) {
+        await supabase.auth.updateUser({ data: { circuitdojo: localIdentity } });
+      }
+
+      /**
        * The position, merged rather than replaced.
        *
        * Signing in on a new device should not undo the units sat as a guest on
@@ -426,6 +452,32 @@ export default function useProfile() {
     [progress, mastery, user]
   );
 
+  /** One check, of any kind, for the record. */
+  const recordActivity = useCallback((entry) => {
+    setActivity(localStore.addActivity(entry));
+  }, []);
+
+  /**
+   * Name, mark and description.
+   *
+   * Kept in Supabase's own user metadata rather than a table of our own: it is
+   * a handful of short strings that belong to the account rather than to the
+   * curriculum, and putting them there means no migration and no extra query on
+   * every sign-in.
+   */
+  const setIdentity = useCallback(
+    async (patch) => {
+      const next = { ...(localStore.getIdentity() || {}), ...patch };
+      localStore.setIdentity(next);
+      setIdentityState(next);
+      if (user && isSupabaseConfigured) {
+        await supabase.auth.updateUser({ data: { circuitdojo: next } });
+      }
+      return next;
+    },
+    [user]
+  );
+
   // --- auth actions --------------------------------------------------------
   const signUp = useCallback(async (email, password, { migrateGuestProgress = true } = {}) => {
     if (!isSupabaseConfigured) return { error: 'Supabase is not configured.' };
@@ -565,6 +617,10 @@ export default function useProfile() {
     setSettings,
     attempts,
     recordAttempt,
+    activity,
+    recordActivity,
+    identity,
+    setIdentity,
     calibrate,
     skipUp,
     roadmap,

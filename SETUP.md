@@ -243,7 +243,8 @@ given it to. There is no invite system.
 | --- | --- |
 | Roadmap position (units completed) | The sheet you have open right now |
 | Concept mastery | Theme, accent and other preferences |
-| Attempt history (last 50) | |
+| Attempt history (last 50) | The activity calendar, which is per device |
+| Your name, mark and description | |
 
 The open sheet is deliberately local: it is scratch work, and syncing a
 half-finished drawing between devices would create conflicts nobody asked for.

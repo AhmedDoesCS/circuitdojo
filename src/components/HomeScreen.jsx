@@ -44,6 +44,7 @@ export default function HomeScreen({
   onCalibrate,
   onOpenProfile,
   user = null,
+  identity = null,
   hasSession,
   roadmap,
   level,
@@ -196,7 +197,7 @@ export default function HomeScreen({
               <span className="text-[12.5px] font-semibold text-zinc-900">Lv {level.level}</span>
               <span className="font-mono text-[11px] text-zinc-500">{level.expertise}%</span>
             </div>
-            <SystemMenu open={menuOpen} setOpen={setMenuOpen} onOpenProfile={onOpenProfile} user={user} />
+            <SystemMenu open={menuOpen} setOpen={setMenuOpen} onOpenProfile={onOpenProfile} user={user} identity={identity} />
           </div>
         </header>
 
@@ -415,7 +416,7 @@ function ConfirmNewChallenge({ onCancel, onConfirm }) {
  * Top-right system button. Everything that is housekeeping rather than play
  * lives behind it, which is what keeps the main menu down to one real choice.
  */
-function SystemMenu({ open, setOpen, onOpenProfile, user }) {
+function SystemMenu({ open, setOpen, onOpenProfile, user, identity }) {
   const ref = useRef(null);
 
   useEffect(() => {
@@ -458,9 +459,9 @@ function SystemMenu({ open, setOpen, onOpenProfile, user }) {
       >
         {user ? (
           <>
-            <Avatar user={user} size={26} />
+            <Avatar user={user} identity={identity} size={26} />
             <span className="hidden max-w-[7rem] truncate text-[13px] font-medium sm:block">
-              {displayName(user)}
+              {displayName(user, identity)}
             </span>
           </>
         ) : (
@@ -483,9 +484,9 @@ function SystemMenu({ open, setOpen, onOpenProfile, user }) {
         >
           {/* Who is signed in, at the top of the menu that acts on their behalf. */}
           <div className="mb-1 flex items-center gap-2.5 border-b border-zinc-950/[0.07] px-3 pb-2.5 pt-2">
-            <Avatar user={user} size={32} />
+            <Avatar user={user} identity={identity} size={32} />
             <div className="min-w-0">
-              <p className="truncate text-[13px] font-medium text-zinc-900">{displayName(user)}</p>
+              <p className="truncate text-[13px] font-medium text-zinc-900">{displayName(user, identity)}</p>
               <p className="truncate text-[11px] text-zinc-500">
                 {user ? user.email : 'Progress saved in this browser'}
               </p>

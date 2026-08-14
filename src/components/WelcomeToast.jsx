@@ -14,7 +14,7 @@ import Avatar, { displayName } from './Avatar.jsx';
  */
 const LIFETIME_MS = 6000;
 
-export default function WelcomeToast({ user, onDone }) {
+export default function WelcomeToast({ user, identity, onDone }) {
   const [leaving, setLeaving] = useState(false);
 
   useEffect(() => {
@@ -47,7 +47,7 @@ export default function WelcomeToast({ user, onDone }) {
         </span>
         <div className="min-w-0">
           <p className="text-[13.5px] font-semibold tracking-[-0.01em] text-zinc-900">
-            {user ? `You are all set, ${displayName(user)}` : 'Email confirmed'}
+            {user ? `You are all set, ${displayName(user, identity)}` : 'Email confirmed'}
           </p>
           <p className="truncate text-[12px] text-zinc-600">
             {user
@@ -55,7 +55,7 @@ export default function WelcomeToast({ user, onDone }) {
               : 'Sign in and your progress will follow you from here.'}
           </p>
         </div>
-        {user && <Avatar user={user} size={30} className="ml-1" />}
+        {user && <Avatar user={user} identity={identity} size={30} className="ml-1" />}
         <button
           onClick={onDone}
           aria-label="Dismiss"

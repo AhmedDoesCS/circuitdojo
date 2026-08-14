@@ -10,7 +10,7 @@ import Avatar, { displayName } from './Avatar.jsx';
 
 const S = { stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round', strokeLinejoin: 'round', fill: 'none' };
 
-export default function ViewBar({ widgets, toggle, focus, onToggleFocus, onOpenProfile, user }) {
+export default function ViewBar({ widgets, toggle, focus, onToggleFocus, onOpenProfile, user, identity }) {
   return (
     <div className="pointer-events-auto flex animate-widget-in items-center gap-2">
       {/* Toggles stay available in focus view: the brief has to be reachable
@@ -53,8 +53,8 @@ export default function ViewBar({ widgets, toggle, focus, onToggleFocus, onOpenP
           title={user ? `Signed in as ${user.email}` : 'Progress and account'}
           className="panel-pill panel-float flex h-11 items-center gap-2 px-3.5 text-[13px] font-medium text-ink-700 transition-all duration-200 ease-smooth hover:text-ink-950 active:scale-[0.97]"
         >
-          <Avatar user={user} size={24} />
-          <span className="max-w-[8rem] truncate">{displayName(user)}</span>
+          <Avatar user={user} identity={identity} size={24} />
+          <span className="max-w-[8rem] truncate">{displayName(user, identity)}</span>
         </button>
       )}
     </div>

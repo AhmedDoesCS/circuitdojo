@@ -64,6 +64,29 @@
   --panel-3: 236 236 238; /* pressed / deeper recess */
   --outline: rgba(24, 24, 27, 0.09); /* dividers only, never decoration */
 
+  /**
+   * Chart colours.
+   *
+   * The three categorical hues are the three kinds of roadmap unit, and they
+   * are the only categorical set in the app. Chosen by running the palette
+   * through a colour-vision validator rather than by eye: lightness band,
+   * chroma floor, adjacent separation under protanopia, deuteranopia and
+   * tritanopia, and contrast against the surface. Dark mode below is a separate
+   * set of steps rather than these brightened, because a hue that separates on
+   * white can collapse against a dark panel.
+   */
+  --viz-build: #0071e3;
+  --viz-analyse: #0f9488;
+  --viz-inspect: #b45309;
+  --viz-accent: #0071e3;
+  --viz-done: #15803d;
+  /* One hue in five steps for the activity calendar: sequential data. */
+  --viz-heat-0: rgba(24, 24, 27, 0.055);
+  --viz-heat-1: rgba(0, 113, 227, 0.22);
+  --viz-heat-2: rgba(0, 113, 227, 0.42);
+  --viz-heat-3: rgba(0, 113, 227, 0.66);
+  --viz-heat-4: rgba(0, 113, 227, 0.92);
+
   /* Text on a filled accent. Every accent in light mode is dark enough for
      white; in dark mode they lift and this flips with them. */
   --on-accent: 255 255 255;
@@ -138,6 +161,19 @@
   --panel-2: 35 35 39;
   --panel-3: 43 43 48;
   --outline: rgba(255, 255, 255, 0.11);
+
+  /* Re-stepped for the dark panel, then re-validated: the blue moves toward
+     indigo because blue and teal collapse into each other at these lightnesses. */
+  --viz-build: #5b74ee;
+  --viz-analyse: #0f9e8e;
+  --viz-inspect: #c9803a;
+  --viz-accent: #5b74ee;
+  --viz-done: #3fa860;
+  --viz-heat-0: rgba(255, 255, 255, 0.07);
+  --viz-heat-1: rgba(91, 116, 238, 0.28);
+  --viz-heat-2: rgba(91, 116, 238, 0.5);
+  --viz-heat-3: rgba(91, 116, 238, 0.74);
+  --viz-heat-4: rgba(91, 116, 238, 1);
 
   --on-accent: 24 24 27;
 

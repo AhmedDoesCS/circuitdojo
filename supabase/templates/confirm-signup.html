@@ -2,13 +2,24 @@
   CircuitDojo: confirmation email.
 
   Paste into Supabase: Authentication -> Emails -> Templates -> "Confirm signup".
-  Set the subject to:  Confirm your CircuitDojo account
+  Subject:  Confirm your CircuitDojo account
 
-  Written the way email has to be written rather than the way the app is: tables
-  for layout, inline styles on every element, no external stylesheet and no web
-  font. Outlook renders through Word, Gmail strips <style> blocks in some
-  contexts, and a layout that relies on flexbox arrives as a stack of unstyled
-  paragraphs. The result should look plain and deliberate rather than clever.
+  ## Why it is built like this
+
+  Email is not the web. Outlook renders through Word, Gmail strips <style>
+  blocks in several contexts, and dark mode is applied by the client rather than
+  asked for. So: tables for layout, inline styles on every element, no external
+  stylesheet, no web font, no flexbox, no CSS variables. A layout that relies on
+  any of those arrives as a stack of unstyled paragraphs.
+
+  ## Where the identity comes from
+
+  Everything here is borrowed from the app rather than invented for the email.
+  The header is a real schematic fragment, drawn in the same idiom as the
+  challenges: a supply, a resistor, an LED, a return to ground. The one circuit
+  every learner draws first, and the one this email is inviting them to go and
+  draw. The rule under it is a ground symbol. The corner marks on the card are
+  the drawing-frame corners from the reference-answer sheet.
 
   Supabase substitutes {{ .ConfirmationURL }} and {{ .Email }}.
 -->
@@ -17,64 +28,139 @@
   width="100%"
   cellpadding="0"
   cellspacing="0"
+  border="0"
   style="margin:0;padding:0;background:#ececee;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;"
 >
   <tr>
-    <td align="center" style="padding:32px 16px;">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;">
-        <!-- Wordmark. An inline SVG would be stripped by several clients, so the
-             mark is type: the name set the way the app sets it. -->
+    <td align="center" style="padding:36px 16px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:500px;">
+
+        <!-- ---------------------------------------------------------- brand -->
         <tr>
-          <td style="padding:0 0 20px 4px;">
-            <span style="font-size:16px;font-weight:600;letter-spacing:-0.01em;color:#18181b;">
-              CircuitDojo
-            </span>
+          <td style="padding:0 0 18px 2px;">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td style="padding-right:9px;vertical-align:middle;">
+                  <!-- The wordmark's own glyph: a junction dot on a wire. -->
+                  <img
+                    src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMiIgaGVpZ2h0PSIyMiIgdmlld0JveD0iMCAwIDIyIDIyIj48cGF0aCBkPSJNMSAxMWg2TTE1IDExaDYiIHN0cm9rZT0iIzE4MTgxYiIgc3Ryb2tlLXdpZHRoPSIxLjgiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjxjaXJjbGUgY3g9IjExIiBjeT0iMTEiIHI9IjMuNiIgZmlsbD0iIzAwNzFlMyIvPjwvc3ZnPg=="
+                    width="22"
+                    height="22"
+                    alt=""
+                    style="display:block;border:0;"
+                  />
+                </td>
+                <td style="vertical-align:middle;">
+                  <span style="font-size:16px;font-weight:600;letter-spacing:-0.01em;color:#18181b;">
+                    CircuitDojo
+                  </span>
+                </td>
+              </tr>
+            </table>
           </td>
         </tr>
 
+        <!-- ----------------------------------------------------------- card -->
         <tr>
           <td
-            style="background:#ffffff;border-radius:14px;padding:32px;border:1px solid rgba(9,9,11,0.07);"
+            style="background:#ffffff;border-radius:16px;border:1px solid rgba(9,9,11,0.07);padding:0;overflow:hidden;"
           >
-            <h1
-              style="margin:0 0 12px;font-size:21px;line-height:1.25;font-weight:600;letter-spacing:-0.02em;color:#18181b;"
-            >
-              One click and you are in
-            </h1>
-
-            <p style="margin:0 0 20px;font-size:14px;line-height:1.6;color:#52525b;">
-              Confirm <strong style="color:#18181b;font-weight:600;">{{ .Email }}</strong> and your progress will
-              follow you to any machine you sign in from: your place in the roadmap, and everything you have solved.
-            </p>
-
-            <!-- Bulletproof-ish button: a padded table cell rather than a
-                 styled <a>, because Outlook ignores padding on inline links. -->
-            <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 20px;">
+            <!-- Schematic band: the first circuit anyone draws here. -->
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
               <tr>
-                <td align="center" bgcolor="#0071e3" style="border-radius:10px;">
-                  <a
-                    href="{{ .ConfirmationURL }}"
-                    style="display:inline-block;padding:13px 26px;font-size:14px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px;"
-                  >
-                    Confirm my account
-                  </a>
+                <td align="center" style="background:#f7f7f8;padding:26px 24px 22px;border-bottom:1px solid rgba(9,9,11,0.06);">
+                  <img
+                    src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNjAiIGhlaWdodD0iOTAiIHZpZXdCb3g9IjAgMCAyNjAgOTAiPjxnIGZpbGw9Im5vbmUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PGcgc3Ryb2tlPSIjMGY3YTNkIiBzdHJva2Utd2lkdGg9IjIiPjxwYXRoIGQ9Ik0yNCA0NVYyNk0xNCAyNmgyMCIvPjxwYXRoIGQ9Ik0yNCA0NWg0NE0xMTIgNDVoMzhNMTc0IDQ1aDQ2Ii8+PHBhdGggZD0iTTIyMCA0NXYxOU0yMTAgNjRoMjBNMjE0IDY4aDEyTTIxNyA3Mmg2Ii8+PC9nPjxnIHN0cm9rZT0iIzhiMWExYSIgc3Ryb2tlLXdpZHRoPSIyIj48cGF0aCBkPSJNNjggNDVoNmw0LTggOCAxNiA4LTE2IDggMTYgNC04aDYiLz48cGF0aCBkPSJNMTUwIDMzdjI0bDI0LTEyeiIgZmlsbD0iIzhiMWExYSIgZmlsbC1vcGFjaXR5PSIwLjE0Ii8+PHBhdGggZD0iTTE3NCAzM3YyNCIvPjxnIHN0cm9rZS13aWR0aD0iMS41Ij48cGF0aCBkPSJNMTYwIDI3bDctN00xNjYgMjVsNy03Ii8+PHBhdGggZD0iTTE2NCAyMGgzLjV2My41TTE3MCAxOGgzLjV2My41Ii8+PC9nPjwvZz48dGV4dCB4PSI4OCIgeT0iNzAiIGZvbnQtZmFtaWx5PSJtb25vc3BhY2UiIGZvbnQtc2l6ZT0iOSIgZmlsbD0iIzcxNzE3YSIgdGV4dC1hbmNob3I9Im1pZGRsZSI+MzMwUjwvdGV4dD48dGV4dCB4PSIyNCIgeT0iMTciIGZvbnQtZmFtaWx5PSJtb25vc3BhY2UiIGZvbnQtc2l6ZT0iOSIgZmlsbD0iIzcxNzE3YSIgdGV4dC1hbmNob3I9Im1pZGRsZSI+KzVWPC90ZXh0PjwvZz48L3N2Zz4="
+                    width="260"
+                    height="90"
+                    alt="A supply, a resistor, an LED and a return to ground"
+                    style="display:block;border:0;max-width:100%;"
+                  />
                 </td>
               </tr>
             </table>
 
-            <p style="margin:0 0 6px;font-size:12px;line-height:1.6;color:#71717a;">
-              Or paste this into your browser:
-            </p>
-            <p style="margin:0 0 24px;font-size:11px;line-height:1.5;color:#a1a1aa;word-break:break-all;">
-              {{ .ConfirmationURL }}
-            </p>
-
-            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
               <tr>
-                <td style="border-top:1px solid rgba(9,9,11,0.07);padding-top:18px;">
-                  <p style="margin:0;font-size:12px;line-height:1.6;color:#71717a;">
-                    Nothing is lost while you decide. CircuitDojo works without an account, and anything you have
-                    already done comes with you when you confirm.
+                <td style="padding:28px 32px 32px;">
+                  <p
+                    style="margin:0 0 8px;font-size:11px;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:#a1a1aa;"
+                  >
+                    One step left
+                  </p>
+
+                  <h1
+                    style="margin:0 0 12px;font-size:23px;line-height:1.22;font-weight:600;letter-spacing:-0.025em;color:#18181b;"
+                  >
+                    Confirm your account and start designing
+                  </h1>
+
+                  <p style="margin:0 0 22px;font-size:14px;line-height:1.65;color:#52525b;">
+                    Confirm
+                    <strong style="color:#18181b;font-weight:600;">{{ .Email }}</strong>
+                    and your place in the roadmap follows you to any machine you sign in from, along with
+                    everything you have solved.
+                  </p>
+
+                  <!-- Bulletproof-ish button: a padded table cell rather than a
+                       styled <a>, because Outlook ignores padding on links. -->
+                  <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px;">
+                    <tr>
+                      <td align="center" bgcolor="#0071e3" style="border-radius:11px;">
+                        <a
+                          href="{{ .ConfirmationURL }}"
+                          style="display:inline-block;padding:14px 30px;font-size:14.5px;font-weight:600;letter-spacing:-0.01em;color:#ffffff;text-decoration:none;border-radius:11px;"
+                        >
+                          Confirm my account
+                        </a>
+                      </td>
+                    </tr>
+                  </table>
+
+                  <!-- What is behind the door. Three lines, matching the three
+                       kinds of unit the roadmap is built from. -->
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+                    style="margin:0 0 22px;border-top:1px solid rgba(9,9,11,0.07);padding-top:20px;">
+                    <tr>
+                      <td style="padding-top:18px;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                          <tr>
+                            <td width="26" style="vertical-align:top;padding-bottom:12px;">
+                              <span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#0071e3;"></span>
+                            </td>
+                            <td style="padding-bottom:12px;font-size:13px;line-height:1.5;color:#52525b;">
+                              <strong style="color:#18181b;font-weight:600;">36 circuits to draw</strong>
+                              &nbsp;on a real schematic editor, graded the way an engineer would.
+                            </td>
+                          </tr>
+                          <tr>
+                            <td width="26" style="vertical-align:top;padding-bottom:12px;">
+                              <span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#0f9488;"></span>
+                            </td>
+                            <td style="padding-bottom:12px;font-size:13px;line-height:1.5;color:#52525b;">
+                              <strong style="color:#18181b;font-weight:600;">70 numbers to work out</strong>,
+                              from Ohm's law to inductor ripple current.
+                            </td>
+                          </tr>
+                          <tr>
+                            <td width="26" style="vertical-align:top;">
+                              <span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#b45309;"></span>
+                            </td>
+                            <td style="font-size:13px;line-height:1.5;color:#52525b;">
+                              <strong style="color:#18181b;font-weight:600;">31 sheets to review</strong>,
+                              each with one real fault hidden in it.
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+                  </table>
+
+                  <p style="margin:0 0 6px;font-size:11.5px;line-height:1.6;color:#71717a;">
+                    Button not working? Paste this into your browser:
+                  </p>
+                  <p style="margin:0;font-size:11px;line-height:1.5;color:#a1a1aa;word-break:break-all;">
+                    {{ .ConfirmationURL }}
                   </p>
                 </td>
               </tr>
@@ -82,11 +168,21 @@
           </td>
         </tr>
 
+        <!-- --------------------------------------------------------- footer -->
         <tr>
-          <td style="padding:18px 4px 0;">
-            <p style="margin:0;font-size:11.5px;line-height:1.6;color:#a1a1aa;">
-              If you did not sign up for CircuitDojo, ignore this email and nothing will happen. The link expires on
-              its own.
+          <td style="padding:20px 6px 0;">
+            <!-- A ground symbol as the rule: the end of the sheet. -->
+            <img
+              src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0OCIgaGVpZ2h0PSIxNiIgdmlld0JveD0iMCAwIDQ4IDE2Ij48ZyBzdHJva2U9IiNhMWExYWEiIHN0cm9rZS13aWR0aD0iMS42IiBzdHJva2UtbGluZWNhcD0icm91bmQiPjxwYXRoIGQ9Ik0yNCAxdjRNMTQgNWgyME0xOCA5aDEyTTIxIDEzaDYiLz48L2c+PC9zdmc+"
+              width="48"
+              height="16"
+              alt=""
+              style="display:block;border:0;margin:0 auto 12px;"
+            />
+            <p style="margin:0;font-size:11.5px;line-height:1.65;color:#a1a1aa;text-align:center;">
+              You are getting this because someone signed up at CircuitDojo with this address.
+              <br />
+              If that was not you, ignore it: the link expires on its own and no account is created.
             </p>
           </td>
         </tr>

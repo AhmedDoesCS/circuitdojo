@@ -180,7 +180,10 @@ export default function App() {
     const evaluation = evaluateAttempt(schematic.doc, challenge);
     setOpenHints(false);
     setChecking(false);
-    if (!evaluation.empty) profile.recordAttempt(challenge, schematic.doc, evaluation);
+    if (!evaluation.empty) {
+      profile.recordAttempt(challenge, schematic.doc, evaluation);
+      profile.recordActivity({ unitId: challenge.templateId, kind: 'build', passed: evaluation.passed });
+    }
     /**
      * Unmet requirements get marked too, not just electrical faults: a
      * requirement failure is the one most likely to leave the learner hunting.
@@ -239,6 +242,10 @@ export default function App() {
           ? gradeAnalyse(work.unit, answer, work.params)
           : gradeInspect(work.fault, answer);
       setChecking(false);
+      // Every kind of unit lands in the history, not just the drawings.
+      if (!evaluation.empty) {
+        profile.recordActivity({ unitId: work.unitId, kind: work.kind, passed: evaluation.passed });
+      }
 
       if (evaluation.passed) {
         setResult(evaluation);
@@ -490,6 +497,7 @@ export default function App() {
         onCalibrate={() => beginTransition({ toView: 'calibrate' })}
         onOpenProfile={openProfile}
         user={profile.user}
+        identity={profile.identity}
         hasSession={hasSession}
         roadmap={profile.roadmap}
         level={profile.level}
@@ -574,6 +582,7 @@ export default function App() {
             onToggleFocus={toggleFocus}
             onOpenProfile={() => openProfile('progress')}
             user={profile.user}
+            identity={profile.identity}
           />
 
           {widgets.properties && (
@@ -780,7 +789,7 @@ export default function App() {
       />
 
       {profile.justConfirmed && (
-        <WelcomeToast user={profile.user} onDone={profile.clearJustConfirmed} />
+        <WelcomeToast user={profile.user} identity={profile.identity} onDone={profile.clearJustConfirmed} />
       )}
 
       <IrisTransition run={Boolean(iris)} onMidpoint={applyTransition} onComplete={() => setIris(null)} />
