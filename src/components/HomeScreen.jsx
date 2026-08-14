@@ -100,9 +100,11 @@ export default function HomeScreen({
         },
         {
           id: 'map',
-          label: 'The roadmap',
-          hint: roadmap ? `Where you are in all ${roadmap.unitCount} units` : 'See the whole curriculum',
-          meta: roadmap ? `${roadmap.unitsDone}` : undefined,
+          label: 'Levels',
+          hint: roadmap
+            ? `Retrace ${roadmap.unitsDone} cleared, and see what is ahead`
+            : 'The whole path, behind you and ahead',
+          meta: roadmap ? `${roadmap.unitsDone}/${roadmap.unitCount}` : undefined,
           onClick: onOpenMap,
         },
         {

@@ -327,7 +327,7 @@ UI       ResultsPanel, canvas markers, brief badge</code></pre>
         <pre data-label="src/App.jsx"><code><span class="c">// 1 · Overlays live ABOVE the view switch, so a transition cannot remount them.</span>
 <span class="k">return</span> (
   &lt;div <span class="f">className</span>=<span class="s">"relative h-full w-full overflow-hidden"</span>&gt;
-    {body}                                  <span class="c">/* calibrate | home | workspace */</span>
+    {body}                                  <span class="c">/* calibrate | invite | home | levels | workspace */</span>
     {view === <span class="s">'workspace'</span> &amp;&amp; introFor === challenge.id &amp;&amp; &lt;ChallengeIntro ... /&gt;}
     &lt;ProfileModal ... /&gt;
     &lt;IrisTransition <span class="f">run</span>={<span class="f">Boolean</span>(iris)} <span class="f">onMidpoint</span>={applyTransition} ... /&gt;

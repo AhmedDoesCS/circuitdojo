@@ -92,10 +92,15 @@ what is wrong is known by construction rather than by assertion.
 Each block ends in a **capstone** Build unit. Pass it cold and the whole block is complete, which is how you skip
 material you already know: by examination rather than by claim, so it cannot leave a silent gap.
 
-**The roadmap** menu option shows the whole curriculum: twelve stages, the one you are in open and the rest folded,
-every unit marked done, current or ahead. Anything already done can be sat again from there with fresh numbers, which
-costs nothing and un-completes nothing. It is a destination and not a gate: Start Designing still goes straight to a
-brief.
+**Levels** is the curriculum as a route you are travelling. Twelve stages ride one supply rail; each block taps off
+it. What you have cleared is live copper with current running along it, where you are is the live edge, and what is
+ahead is an unpopulated footprint: drawn on the board so the shape of the journey is legible, not offered, because
+the order is the curriculum. A capstone is a diamond rather than a circle, being the test point at the end of a run.
+
+Selecting a node and starting it are separate, which is what makes looking ahead worth doing: a locked unit says what
+kind of work it is, what that work involves and exactly how far away it is. Anything already cleared can be sat again
+with fresh numbers, which costs nothing and un-completes nothing. It is a destination and not a gate: Continue
+Challenge and Start Designing both go straight to work without coming through here.
 
 Your expertise band follows the stage you are in. Mastery still exists underneath, per concept, and still records what
 you have demonstrated by drawing; it no longer decides what you see next, and it is what practice mode will weight its

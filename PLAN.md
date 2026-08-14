@@ -300,15 +300,31 @@ question, where a 0.6 V diode drop came out as "600m V".
 A view of where you are and what is ahead. Deliberately last: it is the part
 people imagine first and need least.
 
-**Done.** `src/components/RoadmapMap.jsx`, behind its own menu option. Twelve
-stage sections, the current one open and the rest folded, each block listing its
-units with a glyph for what kind of work each is. A completed unit can be sat
-again from here, which costs nothing and un-completes nothing; what is ahead is
-shown but not offered, because the order is the curriculum.
+**Done.** `src/components/LevelsScreen.jsx`, behind its own menu option, entered
+through the iris like every other screen. A completed unit can be sat again from
+here, which costs nothing and un-completes nothing; what is ahead is shown but
+not offered, because the order is the curriculum.
 
 It was moved ahead of P3 once the roadmap reached 137 units: a curriculum that
 large is not legible one unit at a time, and P3 is a large enough piece that
 leaving it half-built would be worse than not starting it.
+
+**Rebuilt as Levels.** The first version was a modal of twelve collapsible
+sections. Everything in it was true and none of it was inspiring: it read as a
+checklist of things already learned, and a checklist looks backwards, which is
+the one direction a map should not. The rebuild takes the metaphor the app
+already owns and applies it to the curriculum itself: **the roadmap is a circuit
+being energised.** Cleared work is live copper with current running it, the
+frontier is the live edge, and what is ahead is an unpopulated footprint, drawn
+on the board and waiting. Twelve stages ride one supply rail across the top, and
+each block taps off it. A capstone is a diamond, because a capstone is the test
+point at the end of a run.
+
+Selecting is separated from starting, which is what buys the "look into the
+future" the screen exists for: a locked unit is not a dead row, it says what
+kind of work it is, what that work involves and exactly how far away it is. It
+also stays off the critical path: Continue Challenge and Start Designing both
+still go straight to work without coming through here.
 
 ### Where the remaining session goes
 

@@ -583,6 +583,40 @@ body {
   animation: solFade 0.34s ease-out both;
 }
 
+/* ---------------------------------------------------------------------------
+   The levels rail
+   ---------------------------------------------------------------------------
+   Current running the copper you have already energised. The packets ride on
+   top of a filled accent bar, so they are drawn in --on-accent rather than in
+   white: in dark mode the accent is the light colour and white packets would
+   disappear into it.
+
+   The animation distance equals the gradient's tile width, so the run loops
+   without a seam. It is deliberately slower than the ambient board's traffic:
+   this bar is content, and content that moves quickly is content nobody reads
+   the label of. */
+@keyframes railFlow {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 90px 0;
+  }
+}
+.rail-flow {
+  background-image: repeating-linear-gradient(
+    90deg,
+    transparent 0px,
+    transparent 46px,
+    rgb(var(--on-accent) / 0.5) 46px,
+    rgb(var(--on-accent) / 0.5) 60px,
+    transparent 60px,
+    transparent 90px
+  );
+  background-size: 90px 100%;
+  animation: railFlow 3.4s linear infinite;
+}
+
 /* Iris wipe: a circular mask that closes over the screen and opens again on the
    next challenge.
 

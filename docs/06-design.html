@@ -751,6 +751,74 @@
           </p>
         </div>
 
+        <h2 id="progress">Designing progress: a checklist looks backwards</h2>
+        <p>
+          The first version of the roadmap screen was a modal holding twelve collapsible sections of unit rows. Nothing
+          in it was wrong. Every unit was listed, every one was marked done, current or ahead, and the current stage
+          opened itself. It was also completely inert, and the reason is worth more than the fix:
+          <strong>a checklist is a record of the past, and progress is a feeling about the future.</strong>
+        </p>
+        <p>
+          A row with a tick beside it says "you did this". A hundred rows without ticks say "you have not done these".
+          Both are true and neither is a reason to carry on. The screen was answering "what have I learned", when the
+          only question anyone opens a curriculum map to ask is "where does this go, and how far in am I".
+        </p>
+
+        <h3>Find the metaphor the product already owns</h3>
+        <p>
+          The temptation at this point is to import a metaphor: a winding path with milestone flags, a skill tree, a
+          progress bar with a rocket on it. All three are somebody else's vocabulary, and pasting one on top of an
+          existing product is what makes an app feel like two apps.
+        </p>
+        <p>
+          This one is a schematic editor. It already draws copper, vias, footprints and current. So the roadmap became
+          <strong>a circuit being energised</strong>, and every state fell out of that one sentence without needing to be
+          invented:
+        </p>
+        <table>
+          <tr><th>State</th><th>Drawn as</th><th>Why it needs no legend</th></tr>
+          <tr><td>Cleared</td><td>Live copper, with current visibly running it</td><td>Energised means finished, which is what a circuit already means</td></tr>
+          <tr><td>Where you are</td><td>The live edge: the last powered node, breathing</td><td>Exactly one node does it, so it reads as a position</td></tr>
+          <tr><td>Ahead</td><td>An unpopulated footprint: dashed, drawn, unpowered</td><td>Visible so the shape of the journey is legible; obviously not yet a part</td></tr>
+          <tr><td>A capstone</td><td>A diamond rather than a circle</td><td>It is the test point at the end of a run, and it is worth more than it looks</td></tr>
+        </table>
+        <div class="note">
+          <strong>Transferable idea</strong>
+          <p>
+            Before reaching for a metaphor, list the nouns your product already draws. A metaphor built from those costs
+            nothing to explain, cannot clash with the rest of the interface, and is the difference between a theme and a
+            skin.
+          </p>
+        </div>
+
+        <h3>Separate selecting from starting</h3>
+        <p>
+          The old screen let you click a reachable unit to begin it, which sounds like the frictionless choice and is
+          why the locked ones had nothing to offer: an unclickable row is a dead row. Splitting the gesture in two -
+          click to select, a button in a detail panel to commit - buys the entire reason the screen exists.
+        </p>
+        <p>
+          A locked unit can now say what kind of work it is, what that work involves, and exactly how many units away it
+          is, and it can offer the one action that actually shortens the distance: going and doing the next one. The
+          gate has not moved. What has changed is that being early is now informative instead of insulting.
+        </p>
+        <div class="why">
+          <strong>Why the two channels never collide</strong>
+          <p>
+            Colour carries status: green for cleared, accent for where you are, dashed grey for ahead. Shape carries the
+            kind of work: a pen, a bar chart, a lens. Two meanings on the same channel is a chart nobody can read, so
+            they get one channel each and neither needs a key.
+          </p>
+        </div>
+
+        <h3>Do not put the map on the critical path</h3>
+        <p>
+          A map is a place to think, and thinking is optional. Continue Challenge still resumes the sheet you left open
+          and Start Designing still drops you straight onto the frontier, neither of them via this screen. If the only
+          route to work runs through the map, the map stops being a map and becomes a menu with a picture on it, and
+          people learn to click through it without looking.
+        </p>
+
         <h2 id="feedback">Feedback and emphasis</h2>
         <p>Emphasis is a budget. Spend it on what has consequences.</p>
         <table>
