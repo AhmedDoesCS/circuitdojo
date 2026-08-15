@@ -530,10 +530,10 @@ function SettingsTab({ settings, setSettings, onRecalibrate }) {
           className="flex w-full items-start gap-3 rounded-control bg-zinc-900/[0.06] px-4 py-3 text-left transition-colors hover:bg-zinc-900/[0.09]"
         >
           <span className="min-w-0 flex-1">
-            <span className="block text-[13.5px] font-medium text-zinc-900">Set my level again</span>
+            <span className="block text-[13.5px] font-medium text-zinc-900">Skip ahead, or move back</span>
             <span className="mt-0.5 block text-[12px] leading-relaxed text-zinc-600">
-              Placed too low or too high? Re-place yourself in one click, or tick concepts individually. Earned
-              mastery is never overwritten.
+              Starting further along is earned by drawing the hardest circuit you would be skipping, named before you
+              agree to it. Moving back is offered too, and says what it gives up.
             </span>
           </span>
           <span className="mt-1 shrink-0 text-zinc-400">→</span>

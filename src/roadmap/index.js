@@ -17,6 +17,7 @@
 
 import { getTemplate } from '../challenges/index.js';
 import { formatValue, nearestE24 } from '../schematic/units.js';
+import { firstStageForBand } from '../lib/level.js';
 
 /**
  * Every block ends in a capstone: the Build unit that demonstrates the block's
@@ -1894,6 +1895,60 @@ export function skipTarget(completed = []) {
   const capstone = capstoneOf(current.stage, current.block);
   if (!capstone || capstone.id === current.id) return null;
   return capstone;
+}
+
+/**
+ * Placement: what it would take to start at a given expertise band.
+ *
+ * Picking a band used to *claim* the concepts below it, which unlocked nothing
+ * once selection became a cursor into this array: a learner said they were a
+ * Junior Design Engineer, the app agreed, and then handed them the first LED
+ * again. A claim that changes nothing is worse than no claim, because it looks
+ * like it worked.
+ *
+ * So placement is an examination, which is the rule this file already runs on:
+ * a block ends in a capstone precisely so that skipping is demonstrated rather
+ * than asserted. Placement is that rule applied at range. The exam is the last
+ * capstone before the target, which is the hardest circuit being skipped over,
+ * and passing it signs off everything before the target: the curriculum is
+ * ordered, so demonstrating a later idea end to end is a claim on the earlier
+ * ones that the learner has actually paid for.
+ *
+ * Returns the target, the exam, and exactly which units a pass would grant, so
+ * the screen can say all three before anybody commits to anything.
+ */
+export function placementFor(band, completed = []) {
+  const targetStage = firstStageForBand(band, STAGE_COUNT);
+  const target = UNITS.find((u) => u.stage === targetStage) || UNITS[0];
+  const targetIndex = indexOfUnit(target.id);
+
+  const here = nextUnit(completed);
+  const hereIndex = here ? indexOfUnit(here.id) : UNITS.length;
+
+  // Already at or past it: there is nothing to skip and nothing to prove.
+  if (targetIndex <= hereIndex) {
+    return { band, targetStage, target, exam: null, grants: [], ahead: false, behind: targetIndex < hereIndex };
+  }
+
+  let exam = null;
+  for (let i = targetIndex - 1; i >= 0; i--) {
+    if (UNITS[i].capstone) {
+      exam = UNITS[i];
+      break;
+    }
+  }
+
+  return {
+    band,
+    targetStage,
+    target,
+    exam,
+    // Everything strictly before the target, so a pass lands the cursor exactly
+    // on it rather than somewhere in the tail of the previous block.
+    grants: UNITS.slice(0, targetIndex).map((u) => u.id),
+    ahead: true,
+    behind: false,
+  };
 }
 
 /**

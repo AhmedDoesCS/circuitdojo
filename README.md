@@ -107,6 +107,13 @@ Your expertise band follows the stage you are in. Mastery still exists underneat
 you have demonstrated by drawing; it no longer decides what you see next, and it is what practice mode will weight its
 projects by.
 
+**Skip ahead** starts you further along, by examination rather than on request. Pick the sentence that describes you
+and the screen names the stage it would put you at, how many units that skips, and the one circuit standing in the
+way: the last capstone before that stage, which is the hardest thing you would be stepping over. Draw it correctly and
+everything before the target is signed off for good and that is where you carry on from. Get it wrong and nothing
+moves, and the circuit is explained rather than marked. Asking for a band *behind* you is offered too, and says
+plainly that it gives up everything you have finished from there on.
+
 A challenge instance is a `(templateId, seed)` pair: the template hand-authors the topology so it always makes
 engineering sense, the seed randomises the numbers.
 

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase, isSupabaseConfigured, humanAuthError } from '../lib/supabase.js';
 import { localStore, DEFAULT_SETTINGS } from '../lib/storage.js';
 import { applyResult, emptyProgress } from '../lib/progress.js';
-import { UNITS, completeUnit, roadmapProgress } from '../roadmap/index.js';
+import { UNITS, completeUnit, indexOfUnit, roadmapProgress, unitById } from '../roadmap/index.js';
 import { conceptsOf, getTemplate } from '../challenges/index.js';
 import {
   HOLD,
@@ -117,6 +117,68 @@ export default function useProfile() {
               )
               .then(() => {});
           }
+        }
+        return next;
+      });
+    },
+    [user]
+  );
+
+  /**
+   * Move the cursor outright: placement, once it has been earned.
+   *
+   * Takes the whole list rather than one unit because that is what a placement
+   * grants, and because doing it as N calls to `completeRoadmapUnit` would fire
+   * N state updates and N round trips for one decision.
+   *
+   * It only ever adds. Somebody placing forward keeps whatever they had already
+   * done further up the roadmap, and re-running the same placement is a no-op
+   * rather than a second write.
+   */
+  const grantUnits = useCallback(
+    (unitIds) => {
+      setCompletedUnits((prev) => {
+        const done = new Set(prev || []);
+        for (const id of unitIds) if (unitById(id)) done.add(id);
+        const next = UNITS.filter((u) => done.has(u.id)).map((u) => u.id);
+        localStore.setRoadmap(next);
+
+        if (user && isSupabaseConfigured) {
+          const added = next.filter((id) => !(prev || []).includes(id));
+          if (added.length) {
+            supabase
+              .from('user_roadmap')
+              .upsert(
+                added.map((id) => ({ user_id: user.id, unit_id: id })),
+                { onConflict: 'user_id,unit_id', ignoreDuplicates: true }
+              )
+              .then(() => {});
+          }
+        }
+        return next;
+      });
+    },
+    [user]
+  );
+
+  /**
+   * Move the cursor *back*.
+   *
+   * Placing lower is the one operation here that destroys evidence, so it is
+   * separate from `grantUnits`, never happens as a side effect of anything, and
+   * the caller is expected to have asked first. The server rows go too, or the
+   * next sign-in would quietly restore what was just given up.
+   */
+  const revokeFrom = useCallback(
+    (unitId) => {
+      const from = indexOfUnit(unitId);
+      if (from < 0) return;
+      const dropped = UNITS.slice(from).map((u) => u.id);
+      setCompletedUnits((prev) => {
+        const next = (prev || []).filter((id) => !dropped.includes(id));
+        localStore.setRoadmap(next);
+        if (user && isSupabaseConfigured) {
+          supabase.from('user_roadmap').delete().eq('user_id', user.id).in('unit_id', dropped).then(() => {});
         }
         return next;
       });
@@ -647,6 +709,8 @@ export default function useProfile() {
     roadmap,
     completedUnits: completedUnits || [],
     completeRoadmapUnit,
+    grantUnits,
+    revokeFrom,
     signIn,
     signUp,
     signOut,

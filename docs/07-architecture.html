@@ -313,12 +313,41 @@ UI       ResultsPanel, canvas markers, brief badge</code></pre>
           <li>The UI can be honest: the home screen says how many concepts are claimed but unproven.</li>
           <li>"Too easy: go harder" is trivial to implement: claim the current level, draw from the band above.</li>
         </ul>
+        <div class="warn-box">
+          <strong>Where this model quietly stopped being true</strong>
+          <p>
+            All of the above was correct while selection was a weighted draw over concepts. Once the roadmap landed,
+            "what comes next" became a cursor into an ordered array, and a concept claim moved that cursor by exactly
+            zero. The placement screen carried on saying "the roadmap starts there" and delivering the first LED,
+            because nothing in it had changed and nothing in it was wired to the thing that had. <strong>A claim is
+            only meaningful against the system that reads it.</strong> When you replace that system, every claim in the
+            product is silently orphaned, and orphaned claims do not throw: they just stop meaning anything while
+            continuing to look like they work.
+          </p>
+        </div>
+        <p>Placement is now an examination against the system that actually decides:</p>
+        <pre data-label="src/roadmap/index.js"><code><span class="k">export function</span> <span class="f">placementFor</span>(band, completed) {
+  <span class="k">const</span> targetStage = <span class="f">firstStageForBand</span>(band, STAGE_COUNT);
+  <span class="k">const</span> target = UNITS.<span class="f">find</span>((u) =&gt; u.stage === targetStage);
+  <span class="c">// The last capstone before the target: the hardest thing being skipped.</span>
+  <span class="k">const</span> exam = ...;
+  <span class="c">// Everything strictly before the target, so a pass lands the cursor ON it.</span>
+  <span class="k">return</span> { targetStage, target, exam, grants: UNITS.<span class="f">slice</span>(<span class="n">0</span>, targetIndex).<span class="f">map</span>((u) =&gt; u.id) };
+}</code></pre>
+        <p>
+          Three details in that function are the whole difference between a placement that works and one that looks
+          like it does. It grants <em>strictly before</em> the target, so the cursor lands exactly on the stage that
+          was named rather than in the tail of the previous block. The exam is a capstone, because a capstone is the
+          block's idea end to end and the curriculum is ordered, so demonstrating a later one is a claim on the
+          earlier ones that has actually been paid for. And it returns the grant list rather than applying it, so the
+          screen can tell you what it costs before you agree to it.
+        </p>
         <div class="note">
           <strong>Transferable idea</strong>
           <p>
-            When a system must act on uncertain information, model the uncertainty explicitly rather than pretending the
-            value is known. A boolean beside the number turned a "we need an assessment test" problem into a five-line
-            change.
+            When you replace the system that decides something, grep for everything that used to influence the old one.
+            Those call sites do not break; they go quiet. A feature that has stopped working is reported in a day, and
+            a feature that has stopped <em>meaning</em> anything can sit in a product for months.
           </p>
         </div>
 

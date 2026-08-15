@@ -291,6 +291,25 @@ export function bandForStage(stage, stageCount) {
   return Math.min(LEVELS.length, Math.max(1, band));
 }
 
+/**
+ * The inverse: the first stage that reads as a given band.
+ *
+ * Placement asks "put me at Junior Design Engineer", and a band spans one or two
+ * stages, so the honest answer is the *earliest* of them. Landing someone in the
+ * middle of a band would skip material they never claimed to know.
+ *
+ * Solved by scanning rather than by algebra, because `bandForStage` clamps at
+ * both ends and an inverted formula would disagree with it at the edges. Twelve
+ * stages is not a loop worth optimising.
+ */
+export function firstStageForBand(band, stageCount) {
+  const want = Math.min(LEVELS.length, Math.max(1, band));
+  for (let stage = 1; stage <= stageCount; stage++) {
+    if (bandForStage(stage, stageCount) >= want) return stage;
+  }
+  return stageCount;
+}
+
 /** Concepts the learner is actively shaky on, the hint and selection targets. */
 export function shakyConcepts(mastery, limit = 6) {
   return Object.entries(mastery)

@@ -19,6 +19,7 @@ import Calibrate from './components/Calibrate.jsx';
 import AccountInvite from './components/AccountInvite.jsx';
 import IrisTransition from './components/IrisTransition.jsx';
 import WelcomeToast from './components/WelcomeToast.jsx';
+import Toast from './components/Toast.jsx';
 import { LogoMark } from './components/MenuShell.jsx';
 
 import useSchematic from './state/useSchematic.js';
@@ -81,7 +82,17 @@ export default function App() {
   const [challenge, setChallenge] = useState(() => {
     if (savedSession?.challengeId) {
       try {
-        return instantiateFromId(savedSession.challengeId);
+        const restored = instantiateFromId(savedSession.challengeId);
+        /**
+         * Which roadmap unit this sheet belongs to has to be restored too.
+         *
+         * A challenge id is `template#seed`, and the unit is a separate fact
+         * attached when the roadmap opens it. Without it a reload turned every
+         * sheet into an anonymous practice circuit: passing it advanced nothing,
+         * because the pass had nothing to advance. Refresh the page mid-unit,
+         * finish it, and the roadmap sat exactly where it was.
+         */
+        return savedSession.unitId ? { ...restored, unitId: savedSession.unitId } : restored;
       } catch {
         /* template renamed or removed: fall through to a fresh one */
       }
@@ -108,6 +119,28 @@ export default function App() {
   /** The active roadmap unit when it is not a drawing. Null for Build units. */
   const [work, setWork] = useState(null);
   const [tries, setTries] = useState(() => savedSession?.tries || 0);
+  /**
+   * A placement in flight: the band asked for, the circuit that proves it, and
+   * exactly what a pass grants.
+   *
+   * Stored with the sheet rather than in memory alone. The exam is a real
+   * circuit and people close tabs half way through real circuits; coming back to
+   * find the sheet exactly where you left it but the offer silently withdrawn is
+   * the same broken promise this whole change is about. It lapses the moment a
+   * different challenge is started, which is the same rule the sheet follows.
+   */
+  const [placement, setPlacement] = useState(() => savedSession?.placement || null);
+  const [placementDenied, setPlacementDenied] = useState(null);
+  /**
+   * The open sheet has already been passed.
+   *
+   * Without this the menu offered "Continue challenge" on a circuit that was
+   * finished, which is how somebody who had just been placed at stage 7 got
+   * dropped back into the stage 1 LED they had solved before starting. The sheet
+   * is left on the canvas, because the success overlay is drawn over it; it just
+   * stops counting as unfinished work.
+   */
+  const [solved, setSolved] = useState(() => Boolean(savedSession?.solved));
   // A failed check is two pieces of news. The verdict is held back until the
   // life has visibly been spent, so the cost lands before the diagnosis.
   const [pendingResult, setPendingResult] = useState(null);
@@ -162,8 +195,16 @@ export default function App() {
   // Persist the working sheet so a refresh never loses the learner's work.
   useEffect(() => {
     if (view !== 'workspace') return;
-    localStore.setSession({ challengeId: challenge.id, doc: schematic.doc, tries, solutionSeen });
-  }, [challenge.id, schematic.doc, view, tries, solutionSeen]);
+    localStore.setSession({
+      challengeId: challenge.id,
+      unitId: challenge.unitId || null,
+      doc: schematic.doc,
+      tries,
+      solutionSeen,
+      solved,
+      placement,
+    });
+  }, [challenge.id, challenge.unitId, schematic.doc, view, tries, solutionSeen, solved, placement]);
 
   // Editing invalidates the markers from the previous check.
   useEffect(() => {
@@ -200,9 +241,20 @@ export default function App() {
     if (evaluation.passed) {
       setResult(evaluation);
       setCelebrating(true);
+      // The sheet is finished, so the menu stops offering to resume it.
+      setSolved(true);
       // Advancing the curriculum is the only thing a pass has to do that a
       // random draw never did.
-      if (challenge.unitId) profile.completeRoadmapUnit(challenge.unitId);
+      if (challenge.unitId) {
+        if (placement && placement.examUnitId === challenge.unitId) {
+          // The placement was earned. Everything up to the target goes in one
+          // write, and the cursor lands exactly on the stage that was offered.
+          profile.grantUnits(placement.grants);
+          setPlacement(null);
+        } else {
+          profile.completeRoadmapUnit(challenge.unitId);
+        }
+      }
       return;
     }
     // An empty sheet is not an attempt: it is someone pressing the button
@@ -277,11 +329,22 @@ export default function App() {
     setLifeLost(null);
     setResult(pendingResult);
     setPendingResult(null);
+    /**
+     * A placement that ran out of lives is refused, and said so out loud.
+     *
+     * The reference circuit still opens: the point of the exercise was never to
+     * punish the guess, and somebody who aimed too high has just been shown
+     * exactly what they were missing.
+     */
+    if (outOfLives && placement && placement.examUnitId === challenge.unitId) {
+      setPlacementDenied({ targetStage: placement.targetStage, band: placement.band });
+      setPlacement(null);
+    }
     if (outOfLives && !solutionSeen) {
       setSolutionOpen(true);
       setSolutionSeen(true);
     }
-  }, [lifeLost, pendingResult, solutionSeen]);
+  }, [lifeLost, pendingResult, solutionSeen, placement, challenge.unitId]);
 
   /** Run a transition. The iris covers the screen before anything changes. */
   const beginTransition = useCallback((payload) => {
@@ -302,9 +365,14 @@ export default function App() {
       setPendingResult(null);
     }
     if (iris.next) {
+      // Starting something that is not the placement circuit abandons the
+      // placement. Resuming the exam itself keeps it alive, so closing the tab
+      // half way through a hard circuit does not cost the attempt.
+      if (placement && iris.next.unitId !== placement.examUnitId) setPlacement(null);
       setWork(null);
       setChallenge(iris.next);
       setResult(null);
+      setSolved(false);
       setHighlights([]);
       setTries(0);
       setSolutionOpen(false);
@@ -319,7 +387,7 @@ export default function App() {
     }
     if (iris.toView) setView(iris.toView);
     else if (iris.next) setView('workspace');
-  }, [iris, schematic, profile.settings.introAnimation]);
+  }, [iris, schematic, profile.settings.introAnimation, placement]);
 
   /**
    * The next thing to build.
@@ -427,7 +495,7 @@ export default function App() {
    * nothing existed, and the editor is restored from that same snapshot, so
    * the live document covers the reloaded case too.
    */
-  const hasSession = !isEmptyDocument(schematic.doc);
+  const hasSession = !isEmptyDocument(schematic.doc) && !solved;
 
   /**
    * Parts the brief asks for that are not on the sheet.
@@ -455,11 +523,35 @@ export default function App() {
     body = (
       <Calibrate
         mastery={profile.mastery}
+        completedUnits={profile.completedUnits}
         firstRun={!profile.settings.onboarded}
         onCancel={() => beginTransition({ toView: 'home' })}
-        onDone={({ level, conceptIds }) => {
+        onDone={({ level, conceptIds, placement: chosen }) => {
           const first = !profile.settings.onboarded;
+          // Concept claims still happen: they are what practice mode weights
+          // its projects by. They are no longer what decides where you start,
+          // which is the bug this whole screen was built on.
           profile.calibrate({ level, conceptIds });
+
+          /**
+           * Asking to start further along sends them to the circuit that
+           * proves it, rather than to the menu with a level they were handed.
+           */
+          if (chosen?.ahead && chosen.exam) {
+            setPlacement({
+              band: level,
+              examUnitId: chosen.exam.id,
+              targetStage: chosen.targetStage,
+              grants: chosen.grants,
+            });
+            setPlacementDenied(null);
+            openUnit(chosen.exam);
+            return;
+          }
+          // Asking to go back is the only branch that gives anything up, and
+          // the screen has already said so in plain words.
+          if (chosen?.behind) profile.revokeFrom(chosen.target.id);
+
           // First run has no menu behind it to wipe from, so it lands directly.
           // It also gets the account offer, which is placed here rather than
           // earlier because this is the first moment there is anything to lose.
@@ -790,6 +882,18 @@ export default function App() {
 
       {profile.justConfirmed && (
         <WelcomeToast user={profile.user} identity={profile.identity} onDone={profile.clearJustConfirmed} />
+      )}
+
+      {/* Refusing a placement has to be said, or the only evidence is a stage
+          number that did not change, which reads as the app having ignored the
+          request rather than having answered it. */}
+      {placementDenied && (
+        <Toast
+          tone="warn"
+          title={`Not placed at stage ${placementDenied.targetStage}`}
+          body="The placement circuit did not pass, so nothing moved. Carry on from where you are, or try a lower band."
+          onDone={() => setPlacementDenied(null)}
+        />
       )}
 
       <IrisTransition run={Boolean(iris)} onMidpoint={applyTransition} onComplete={() => setIris(null)} />

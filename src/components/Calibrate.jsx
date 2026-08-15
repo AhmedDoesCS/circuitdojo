@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import MenuShell, { LogoMark, MenuOption, at } from './MenuShell.jsx';
 import { CONCEPTS, DOMAINS } from '../challenges/concepts.js';
-import { EXPERIENCE_TIERS, HOLD, conceptsAtOrBelow, masteryOf } from '../lib/level.js';
+import { EXPERIENCE_TIERS, HOLD, LEVELS, conceptsAtOrBelow, masteryOf } from '../lib/level.js';
+import { placementFor, unitTitle } from '../roadmap/index.js';
 
 /**
  * Level placement: the answer to "I am not a beginner, do not waste my time".
@@ -36,10 +37,24 @@ import { EXPERIENCE_TIERS, HOLD, conceptsAtOrBelow, masteryOf } from '../lib/lev
  *  - The confirm step runs on the **brief's centred spine**, because by then
  *    there is one decision and no reason for a second column.
  */
-export default function Calibrate({ mastery, onDone, onCancel, firstRun = false }) {
+export default function Calibrate({ mastery, completedUnits = [], onDone, onCancel, firstRun = false }) {
   const [step, setStep] = useState('tier');
   const [tier, setTier] = useState(null);
   const [ticked, setTicked] = useState(() => new Set());
+
+  /**
+   * What the chosen band would actually cost.
+   *
+   * Computed here rather than announced by the caller, because this screen is
+   * where the promise is made and a promise it cannot see the terms of is how
+   * the old version ended up lying: it said "the roadmap starts there" and then
+   * moved nothing, because claiming concepts stopped meaning anything the day
+   * selection became a cursor into the curriculum.
+   */
+  const placement = useMemo(
+    () => (tier ? placementFor(tier.level, completedUnits) : null),
+    [tier, completedUnits]
+  );
 
   const grouped = useMemo(() => {
     const map = new Map();
@@ -56,7 +71,7 @@ export default function Calibrate({ mastery, onDone, onCancel, firstRun = false 
   };
 
   const finish = (conceptIds) => {
-    onDone({ level: tier?.level ?? 1, conceptIds });
+    onDone({ level: tier?.level ?? 1, conceptIds, placement });
   };
 
   /**
@@ -125,8 +140,8 @@ export default function Calibrate({ mastery, onDone, onCancel, firstRun = false 
                 className="animate-enter-up mt-[clamp(0.4rem,1.2vh,0.9rem)] max-w-[44ch] text-zinc-600 [@media(max-height:640px)]:hidden"
                 style={{ fontSize: 'clamp(0.82rem, min(1.05vw, 2vh), 1rem)', ...at(2.2) }}
               >
-                One click. No test. If you aim too high, the first challenge that catches you out puts you back, so
-                guess generously.
+                Pick the sentence that fits. Starting further along is earned by drawing one circuit rather than by
+                saying so, and you will be told exactly which one before you commit to anything.
               </p>
 
               {/* Six equal choices, so none is emphasised: this is a picker, not
@@ -154,19 +169,20 @@ export default function Calibrate({ mastery, onDone, onCancel, firstRun = false 
               <div className="panel animate-enter-right p-[clamp(1rem,1.9vw,1.7rem)]" style={at(4)}>
                 <p className="widget-title">How placement works</p>
                 <ol className="mt-3 space-y-3 text-[12.5px] leading-relaxed text-zinc-600">
-                  <Explainer n="1" title="You claim a level.">
-                    Everything below it is marked as already known, so you never see it as new material.
+                  <Explainer n="1" title="You pick where to start.">
+                    The next screen names the stage that band lands you on, and how many units it would skip.
                   </Explainer>
-                  <Explainer n="2" title="The roadmap starts there.">
-                    Twelve stages, each a few short arcs around one idea, in the order the idea is actually learned.
+                  <Explainer n="2" title="You draw one circuit.">
+                    The hardest one you would be skipping over. You are shown which before you agree to it.
                   </Explainer>
-                  <Explainer n="3" title="The work confirms it.">
-                    Pass and the claim becomes real mastery. Fail and that one concept comes back, on its own, without
-                    dragging the rest of your level down with it.
+                  <Explainer n="3" title="Passing moves you, for good.">
+                    Everything before that stage is signed off and stays that way. Failing moves nothing, and the
+                    circuit is explained rather than marked.
                   </Explainer>
                 </ol>
                 <p className="mt-4 rounded-control bg-zinc-900/[0.04] px-3 py-2 text-[11.5px] leading-relaxed text-zinc-600 [@media(max-height:700px)]:hidden">
-                  Already know a stretch of it? Pass the circuit that block ends on, cold, and the whole block is done.
+                  A level handed over on request is a gap you find out about six stages later. This costs one circuit
+                  and cannot leave one.
                 </p>
               </div>
             </aside>
@@ -219,31 +235,47 @@ export default function Calibrate({ mastery, onDone, onCancel, firstRun = false 
                 className="animate-enter-up mt-[clamp(0.5rem,1.4vh,1rem)] max-w-[54ch] leading-relaxed text-zinc-700"
                 style={{ fontSize: 'clamp(0.86rem, min(1.2vw, 2.2vh), 1.08rem)', ...at(2.6) }}
               >
-                {tier.blurb} {ticked.size} concept{ticked.size === 1 ? '' : 's'} below that level will be treated as
-                already known.
+                {tier.blurb}
               </p>
 
-              <nav className="mt-[clamp(0.9rem,2.6vh,1.9rem)] flex w-full max-w-[32rem] flex-col gap-2">
+              {/* The terms, before the button. Everything below is a statement
+                  of what will actually happen, which is the whole difference
+                  between this and the version that claimed and moved nothing. */}
+              <PlacementTerms placement={placement} ticked={ticked.size} delay={at(3.1)} />
+
+              <nav className="mt-[clamp(0.7rem,2.2vh,1.5rem)] flex w-full max-w-[32rem] flex-col gap-2">
                 <MenuOption
                   index="1"
                   emphasis="primary"
-                  label="Start designing"
-                  hint="Go straight to a challenge at this level"
-                  delay={at(3.6)}
+                  label={
+                    placement?.ahead
+                      ? 'Sit the placement circuit'
+                      : placement?.behind
+                        ? `Move back to stage ${placement.targetStage}`
+                        : 'Start designing'
+                  }
+                  hint={
+                    placement?.ahead
+                      ? `Pass it and stage ${placement.targetStage} is where you carry on from`
+                      : placement?.behind
+                        ? 'Gives up everything you have finished from there on'
+                        : 'Go straight to the next thing on the roadmap'
+                  }
+                  delay={at(3.9)}
                   onClick={() => finish([...ticked])}
                 />
                 <MenuOption
                   index="2"
                   label="Tune it concept by concept"
                   hint="Strong in one branch, new to another? Tick exactly what you hold"
-                  delay={at(4.4)}
+                  delay={at(4.6)}
                   onClick={() => setStep('concepts')}
                 />
                 <MenuOption
                   index="3"
                   label="Pick a different level"
                   hint="Back to the list"
-                  delay={at(5)}
+                  delay={at(5.2)}
                   onClick={() => setStep('tier')}
                 />
               </nav>
@@ -252,7 +284,9 @@ export default function Calibrate({ mastery, onDone, onCancel, firstRun = false 
 
           <footer className="shrink-0 text-center">
             <p className="animate-fade-in text-[11px] text-zinc-400 [@media(max-height:600px)]:hidden" style={at(7)}>
-              Claims are provisional, the first challenge that uses one settles it
+              {placement?.ahead
+                ? 'Fail it and nothing moves: you stay exactly where you are, and the circuit is explained'
+                : 'Nothing here is permanent'}
             </p>
           </footer>
         </div>
@@ -362,6 +396,70 @@ export default function Calibrate({ mastery, onDone, onCancel, firstRun = false 
         </footer>
       </div>
     </MenuShell>
+  );
+}
+
+/**
+ * What choosing this band actually does, said before the button that does it.
+ *
+ * Three outcomes, and the screen must not blur them:
+ *
+ *  - **Ahead.** There is material between here and there, so there is something
+ *    to demonstrate. It names the circuit, so nobody agrees to an exam they have
+ *    not been shown.
+ *  - **Level.** The band is where they already are. No exam, no ceremony.
+ *  - **Behind.** They have asked to go back, which is the only option here that
+ *    destroys anything, so it says so in the plainest words available.
+ */
+function PlacementTerms({ placement, ticked, delay }) {
+  if (!placement) return null;
+
+  if (placement.behind) {
+    return (
+      <div
+        className="animate-enter-up mt-[clamp(0.6rem,1.6vh,1.1rem)] w-full max-w-[38rem] rounded-control bg-warn/[0.10] px-4 py-3 text-left"
+        style={delay}
+      >
+        <p className="text-[12.5px] font-medium text-zinc-900">This is behind where you are.</p>
+        <p className="mt-1 text-[12px] leading-relaxed text-zinc-700">
+          Moving back to stage {placement.targetStage} gives up every unit you have finished from there on. Nothing
+          asks you to do this: going over old ground is free from the Levels screen and costs you nothing.
+        </p>
+      </div>
+    );
+  }
+
+  if (!placement.ahead) {
+    return (
+      <p
+        className="animate-enter-up mt-[clamp(0.5rem,1.4vh,1rem)] max-w-[54ch] text-[12.5px] leading-relaxed text-zinc-500"
+        style={delay}
+      >
+        That is where you already are, so there is nothing to skip. {ticked} concept{ticked === 1 ? '' : 's'} at or
+        below it are treated as known when practice mode weights its projects.
+      </p>
+    );
+  }
+
+  return (
+    <div
+      className="animate-enter-up mt-[clamp(0.6rem,1.6vh,1.1rem)] w-full max-w-[38rem] rounded-control bg-zinc-900/[0.04] px-4 py-3.5 text-left"
+      style={delay}
+    >
+      <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-zinc-400">One circuit stands in the way</p>
+      <p className="mt-1.5 text-[14px] font-semibold tracking-[-0.015em] text-zinc-900">
+        {unitTitle(placement.exam)}
+      </p>
+      <p className="mt-1.5 text-[12px] leading-relaxed text-zinc-600">
+        The hardest thing you would be skipping over: the circuit stage {placement.exam.stage} ends its{' '}
+        {placement.exam.blockName.toLowerCase()} block on. Draw it correctly and the{' '}
+        <strong className="font-medium text-zinc-900">{placement.grants.length} units</strong> before stage{' '}
+        {placement.targetStage} are signed off, and that is where you carry on from. Get it wrong and nothing moves.
+      </p>
+      <p className="mt-2 text-[11.5px] leading-relaxed text-zinc-500">
+        Demonstrated rather than claimed, because a level you were simply given is a gap you find out about later.
+      </p>
+    </div>
   );
 }
 

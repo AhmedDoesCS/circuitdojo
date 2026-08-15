@@ -108,9 +108,12 @@ export default function HomeScreen({
           onClick: onOpenMap,
         },
         {
+          // Not "Set my level": "Levels" is the screen next to it, and two
+          // entries a word apart that go to unrelated places is a menu that has
+          // to be read twice. This one is an action, so it is named as one.
           id: 'level',
-          label: 'Set my level',
-          hint: 'Skip ahead in one step',
+          label: 'Skip ahead',
+          hint: 'Start further along by drawing one circuit',
           onClick: onCalibrate,
         },
       ].filter(Boolean),

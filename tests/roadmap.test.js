@@ -19,9 +19,10 @@ import {
   roadmapProgress,
   unitTitle,
   unitStatus,
+  placementFor,
 } from '../src/roadmap/index.js';
 import { TEMPLATES, getTemplate } from '../src/challenges/index.js';
-import { computeLevel, bandForStage } from '../src/lib/level.js';
+import { computeLevel, bandForStage, firstStageForBand, LEVELS, EXPERIENCE_TIERS } from '../src/lib/level.js';
 
 test('every unit points at a template that exists', () => {
   const bad = UNITS.filter((u) => u.kind === 'build' && !getTemplate(u.templateId));
@@ -178,4 +179,94 @@ test('replaying a completed unit takes nothing away', () => {
   const again = completeUnit(done, UNITS[0].id);
   assert.equal(again.length, done.length, 'sitting it again completes nothing new and loses nothing');
   assert.equal(nextUnit(again).id, nextUnit(done).id, 'and leaves the cursor where it was');
+});
+
+// ---------------------------------------------------------------- placement
+//
+// Picking an experience tier used to claim concepts and nothing else. Once
+// selection became a cursor into UNITS, that claim stopped moving anybody: a
+// learner said they were past the fundamentals, the app agreed, and then handed
+// them the first LED again. These pin the behaviour that replaced it.
+
+test('every band maps to the first stage that reads as that band', () => {
+  for (let band = 1; band <= LEVELS.length; band++) {
+    const stage = firstStageForBand(band, STAGE_COUNT);
+    assert.equal(bandForStage(stage, STAGE_COUNT), band, `stage ${stage} does not read as band ${band}`);
+    if (stage > 1) {
+      assert.ok(
+        bandForStage(stage - 1, STAGE_COUNT) < band,
+        `stage ${stage} is not the FIRST stage of band ${band}`
+      );
+    }
+  }
+});
+
+test('every experience tier a learner can pick actually offers a placement', () => {
+  for (const tier of EXPERIENCE_TIERS) {
+    const p = placementFor(tier.level, []);
+    if (tier.level === 1) {
+      assert.equal(p.ahead, false, 'the beginner tier has nothing to skip');
+      continue;
+    }
+    assert.equal(p.ahead, true, `"${tier.label}" offers nothing to skip`);
+    assert.ok(p.exam, `"${tier.label}" has no circuit to prove it`);
+    assert.equal(p.exam.kind, 'build', 'a placement is demonstrated by drawing, not by answering');
+    assert.ok(p.exam.capstone, 'the exam must be a capstone: it is the idea end to end');
+    assert.ok(p.grants.length > 0, `"${tier.label}" would move nobody`);
+  }
+});
+
+test('passing the placement lands the cursor exactly on the stage offered', () => {
+  for (let band = 2; band <= LEVELS.length; band++) {
+    const p = placementFor(band, []);
+    // This is the whole promise: grant what it says it grants, and the next
+    // thing to do is the target. Not "somewhere in the previous block".
+    const after = nextUnit(p.grants);
+    assert.equal(after.id, p.target.id, `band ${band} landed on ${after.id}, not ${p.target.id}`);
+    assert.equal(after.stage, p.targetStage);
+    assert.equal(bandForStage(after.stage, STAGE_COUNT), band, 'and the level shown afterwards is the one asked for');
+  }
+});
+
+test('the exam is the hardest thing being skipped, and is inside the skipped range', () => {
+  for (let band = 2; band <= LEVELS.length; band++) {
+    const p = placementFor(band, []);
+    const examAt = indexOfUnit(p.exam.id);
+    const targetAt = indexOfUnit(p.target.id);
+    assert.ok(examAt < targetAt, 'the exam must be material being skipped, not material ahead');
+    assert.ok(p.grants.includes(p.exam.id), 'passing the exam must also complete the exam');
+    // Nothing between the exam and the target is a capstone, or a harder
+    // demonstration was available and went unused.
+    for (let i = examAt + 1; i < targetAt; i++) {
+      assert.equal(UNITS[i].capstone, false, `${UNITS[i].id} is a later capstone than the exam`);
+    }
+  }
+});
+
+test('asking for where you already are is not an exam', () => {
+  const done = UNITS.filter((u) => u.stage < 4).map((u) => u.id);
+  const here = placementFor(bandForStage(4, STAGE_COUNT), done);
+  assert.equal(here.ahead, false, 'nothing to skip');
+  assert.equal(here.behind, false, 'and nothing to give up');
+  assert.equal(here.exam, null);
+});
+
+test('asking for a band behind you is reported as a loss, never as a skip', () => {
+  const done = UNITS.filter((u) => u.stage <= 8).map((u) => u.id);
+  const back = placementFor(1, done);
+  assert.equal(back.behind, true);
+  assert.equal(back.ahead, false);
+  assert.equal(back.exam, null, 'there is nothing to prove by going backwards');
+  assert.equal(back.grants.length, 0, 'and nothing is granted');
+});
+
+test('a placement never takes anything away from someone already further on', () => {
+  // Finished all of stage 1 and, separately, a chunk of stage 6 already.
+  const done = [
+    ...UNITS.filter((u) => u.stage === 1).map((u) => u.id),
+    ...UNITS.filter((u) => u.stage === 6).slice(0, 3).map((u) => u.id),
+  ];
+  const p = placementFor(3, done);
+  const merged = UNITS.filter((u) => new Set([...done, ...p.grants]).has(u.id)).map((u) => u.id);
+  for (const id of done) assert.ok(merged.includes(id), `${id} was lost by placing forward`);
 });
