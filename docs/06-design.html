@@ -751,6 +751,40 @@
           </p>
         </div>
 
+        <h2 id="overflow">The overlap that a locked viewport cannot show you</h2>
+        <p>
+          The placement screen printed its eyebrow text on top of the wordmark. The cause is worth a section, because
+          the CSS involved is the CSS every one of these menus is built from.
+        </p>
+        <pre data-label="the bug"><code><span class="c">/* header / body / footer bands, body sized by the row */</span>
+&lt;main <span class="f">className</span>=<span class="s">"grid min-h-0 flex-1 content-center ..."</span>&gt;
+  &lt;section&gt;<span class="c">/* 595px of content */</span>&lt;/section&gt;   <span class="c">/* row is 521px */</span></code></pre>
+        <p>
+          <code>content-center</code> centres the grid's tracks in the container. When a track is <em>taller</em> than
+          the container it still centres it, which means the overflow is split evenly and bleeds out of
+          <strong>both</strong> ends: 37px over the header above and 37px under the footer below. And because a menu
+          shell is deliberately <code>overflow-hidden</code> with nothing scrollable, there is no scrollbar to notice
+          and no clipping edge to see. The layout does not fail. It draws on the furniture.
+        </p>
+        <p>The fix is two rules and a decision about what gives:</p>
+        <pre data-label="the fix"><code>&lt;main <span class="f">className</span>=<span class="s">"grid min-h-0 flex-1 items-center ..."</span>&gt;
+  &lt;section <span class="f">className</span>=<span class="s">"flex max-h-full min-h-0 flex-col justify-center"</span>&gt;
+    &lt;p <span class="f">className</span>=<span class="s">"shrink-0"</span>&gt;...&lt;/p&gt;          <span class="c">/* headings never compress */</span>
+    &lt;nav <span class="f">className</span>=<span class="s">"min-h-0 overflow-y-auto"</span>&gt;   <span class="c">/* the list is what gives */</span></code></pre>
+        <ul>
+          <li><code>items-center</code> aligns each item within its track instead of centring the track's contents, so an item is stretched or aligned inside the space rather than overflowing symmetrically.</li>
+          <li><code>max-h-full min-h-0</code> caps the column at the row and lets it actually shrink. Without <code>min-h-0</code> a flex child refuses to go below its content size, which is what makes overflow rules look ignored.</li>
+          <li>One child is nominated as the flexible one. Everything else is <code>shrink-0</code>. If something has to give at 1366×600, it should be the sixth option in a list, not the heading that says what the list is.</li>
+        </ul>
+        <div class="note">
+          <strong>Transferable idea</strong>
+          <p>
+            Measure, do not look. <code>getBoundingClientRect()</code> on the header and the first line of the body
+            told the whole story in one number: the gap between them was <strong>-18px</strong>. A screenshot at one
+            window size can hide this entirely, because whether it overlaps depends on how tall the viewport is.
+          </p>
+        </div>
+
         <h2 id="identity">Identity: the email address is not a name</h2>
         <p>
           The profile had a display name from the start, and a fallback for when it was empty: the local part of the

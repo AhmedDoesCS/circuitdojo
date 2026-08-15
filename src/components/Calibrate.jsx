@@ -118,35 +118,51 @@ export default function Calibrate({ mastery, completedUnits = [], onDone, onCanc
             )}
           </header>
 
+          {/*
+            `items-center` rather than `content-center`, and every column capped
+            at the row's height.
+
+            The old version centred the grid *content* and let a column that did
+            not fit bleed out of both ends: at 1280x720 this section was 74px
+            taller than its row, so it hung 37px over the header and the eyebrow
+            printed on top of the wordmark. A menu shell is `overflow-hidden`, so
+            the overflow had nowhere to go and nothing to scroll: it simply drew
+            on the furniture. Nothing here may be taller than the space it is in.
+          */}
           <main
-            className="grid min-h-0 flex-1 content-center gap-x-[clamp(1.75rem,4vw,4.5rem)] gap-y-[clamp(1rem,2.5vh,2rem)]
+            className="grid min-h-0 flex-1 items-center gap-x-[clamp(1.75rem,4vw,4.5rem)] gap-y-[clamp(1rem,2.5vh,2rem)]
               lg:grid-cols-[minmax(0,1.35fr)_minmax(0,0.85fr)]"
           >
-            <section className="flex min-w-0 flex-col justify-center">
-              <p className="widget-title animate-enter-up" style={at(1)}>
+            <section className="flex max-h-full min-h-0 min-w-0 flex-col justify-center">
+              <p className="widget-title animate-enter-up shrink-0" style={at(1)}>
                 {firstRun ? 'Before we start' : 'Placement'}
               </p>
 
               <h1
-                className="animate-intro-title mt-1.5 font-semibold leading-[1] tracking-[-0.035em] text-zinc-900"
-                style={{ fontSize: 'clamp(1.8rem, min(4.6vw, 7.5vh), 3.6rem)', ...at(1.5) }}
+                className="animate-intro-title mt-1.5 shrink-0 font-semibold leading-[1] tracking-[-0.035em] text-zinc-900"
+                style={{ fontSize: 'clamp(1.5rem, min(4vw, 5.9vh), 3rem)', ...at(1.5) }}
               >
                 Where are you
                 <br />
                 <span className="text-zinc-400">starting from?</span>
               </h1>
 
+              {/* Wider than it looks: at 44ch this wrapped to three lines and
+                  cost 81px of a column that was already over budget. */}
               <p
-                className="animate-enter-up mt-[clamp(0.4rem,1.2vh,0.9rem)] max-w-[44ch] text-zinc-600 [@media(max-height:640px)]:hidden"
-                style={{ fontSize: 'clamp(0.82rem, min(1.05vw, 2vh), 1rem)', ...at(2.2) }}
+                className="animate-enter-up mt-[clamp(0.35rem,1vh,0.75rem)] max-w-[62ch] shrink-0 text-zinc-600 [@media(max-height:700px)]:hidden"
+                style={{ fontSize: 'clamp(0.8rem, min(1vw, 1.9vh), 0.95rem)', ...at(2.2) }}
               >
-                Pick the sentence that fits. Starting further along is earned by drawing one circuit rather than by
-                saying so, and you will be told exactly which one before you commit to anything.
+                Starting further along is earned by drawing one circuit rather than by saying so, and you are told
+                exactly which one before you commit to anything.
               </p>
 
               {/* Six equal choices, so none is emphasised: this is a picker, not
-                  a menu with a primary. The index doubles as the digit key. */}
-              <nav className="mt-[clamp(0.7rem,2.2vh,1.5rem)] flex w-full max-w-[34rem] flex-col gap-2">
+                  a menu with a primary. The index doubles as the digit key.
+                  This is the flexible part of the column: if anything has to
+                  give at a short window, it is the list, and it scrolls rather
+                  than pushing the last two options off the screen. */}
+              <nav className="mt-[clamp(0.6rem,1.8vh,1.2rem)] flex w-full min-h-0 max-w-[34rem] flex-col gap-[clamp(0.3rem,0.85vh,0.5rem)] overflow-y-auto">
                 {EXPERIENCE_TIERS.map((option, i) => (
                   <MenuOption
                     key={option.id}
@@ -165,8 +181,11 @@ export default function Calibrate({ mastery, completedUnits = [], onDone, onCanc
               </nav>
             </section>
 
-            <aside className="hidden min-w-0 lg:flex lg:flex-col lg:justify-center">
-              <div className="panel animate-enter-right p-[clamp(1rem,1.9vw,1.7rem)]" style={at(4)}>
+            <aside className="hidden max-h-full min-h-0 min-w-0 lg:flex lg:flex-col lg:justify-center">
+              <div
+                className="panel animate-enter-right min-h-0 overflow-y-auto p-[clamp(1rem,1.9vw,1.7rem)]"
+                style={at(4)}
+              >
                 <p className="widget-title">How placement works</p>
                 <ol className="mt-3 space-y-3 text-[12.5px] leading-relaxed text-zinc-600">
                   <Explainer n="1" title="You pick where to start.">

@@ -227,6 +227,15 @@ export default function useProfile() {
    * from the address bar immediately so a refresh does not replay the greeting.
    */
   const [justConfirmed, setJustConfirmed] = useState(false);
+  /**
+   * A session that has just been established *by an action on this screen*.
+   *
+   * Deliberately not "user went from null to set": that also happens on every
+   * page load with a stored session, and firing a scene transition every time
+   * somebody opens the app would be a bug wearing a feature's clothes. Only the
+   * sign-in and sign-up calls raise this.
+   */
+  const [justSignedIn, setJustSignedIn] = useState(false);
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const url = new URL(window.location.href);
@@ -591,6 +600,7 @@ export default function useProfile() {
       return { pending: true, data };
     }
     setPendingEmail(null);
+    if (data.session?.user) setJustSignedIn(true);
     if (migrateGuestProgress && data.session?.user) {
       const snapshot = localStore.snapshot();
       const rows = [
@@ -646,6 +656,7 @@ export default function useProfile() {
       return { error: human };
     }
     setPendingEmail(null);
+    setJustSignedIn(true);
     return { data };
   }, []);
 
@@ -678,6 +689,7 @@ export default function useProfile() {
   const clearAuthError = useCallback(() => setAuthError(null), []);
   const clearPending = useCallback(() => setPendingEmail(null), []);
   const clearJustConfirmed = useCallback(() => setJustConfirmed(false), []);
+  const clearJustSignedIn = useCallback(() => setJustSignedIn(false), []);
 
   const signOut = useCallback(async () => {
     if (!isSupabaseConfigured) return;
@@ -718,6 +730,8 @@ export default function useProfile() {
     pendingEmail,
     clearPending,
     justConfirmed,
+    justSignedIn,
+    clearJustSignedIn,
     clearJustConfirmed,
     authError,
     clearAuthError,

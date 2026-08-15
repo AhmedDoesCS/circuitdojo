@@ -20,8 +20,19 @@ export default function AuthPanel({ profile, onDone, compact = false }) {
   // Seeded from whatever this browser already calls them, so a guest who has
   // named themselves is not asked a second time.
   const [name, setName] = useState(() => profile.identity?.name || '');
+  const [confirm, setConfirm] = useState('');
   const [show, setShow] = useState(false);
   const [resent, setResent] = useState(false);
+  /**
+   * Which fields the person has actually finished with.
+   *
+   * Validation shown before somebody has typed anything is an accusation. Each
+   * rule only speaks once its field has been left, or once the form has been
+   * submitted, which is the same rule every serious sign-up form follows.
+   */
+  const [touched, setTouched] = useState({});
+  const [capsLock, setCapsLock] = useState(false);
+  const touch = (field) => setTouched((t) => ({ ...t, [field]: true }));
 
   const { user, supabaseEnabled, authError, busy, pendingEmail } = profile;
 
@@ -122,13 +133,31 @@ export default function AuthPanel({ profile, onDone, compact = false }) {
   }
 
   // ------------------------------------------------------------- the form
+  const signup = mode === 'signup';
+  const rules = passwordRules(password);
+  const strong = rules.every((r) => r.ok);
+  const emailLooksReal = EMAIL.test(email.trim());
+  const matches = password.length > 0 && password === confirm;
+  /**
+   * Everything that has to be true before the button does anything.
+   *
+   * Checked here rather than left to the server, because the round trip for
+   * "password should be at least 6 characters" costs a second and comes back as
+   * a sentence written by somebody else's API.
+   */
+  const ready = signup ? Boolean(name.trim()) && emailLooksReal && strong && matches : Boolean(email && password);
+
   const submit = async (event) => {
     event.preventDefault();
-    const result =
-      mode === 'signin'
-        ? await profile.signIn(email, password)
-        : await profile.signUp(email, password, { name });
+    if (signup && !ready) {
+      setTouched({ name: true, email: true, password: true, confirm: true });
+      return;
+    }
+    const result = signup
+      ? await profile.signUp(email.trim(), password, { name })
+      : await profile.signIn(email.trim(), password);
     setPassword('');
+    setConfirm('');
     // A pending confirmation is not a finish: the panel switches to telling
     // them to go and read their email, and the caller stays where it is.
     if (!result.error && !result.pending) onDone?.();
@@ -148,9 +177,8 @@ export default function AuthPanel({ profile, onDone, compact = false }) {
           somebody by the left half of their email address for the rest of the
           time they use the app. One field, before the credentials, so it reads
           as an introduction rather than as another thing to fill in. */}
-      {mode === 'signup' && (
-        <label className="block">
-          <span className="mb-1 block text-[11.5px] font-medium text-zinc-500">What should we call you?</span>
+      {signup && (
+        <Field label="What should we call you?" error={touched.name && !name.trim() ? 'Tell us a name to use.' : null}>
           <input
             className="field w-full"
             type="text"
@@ -159,41 +187,48 @@ export default function AuthPanel({ profile, onDone, compact = false }) {
             placeholder="Your name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            required
+            onBlur={() => touch('name')}
           />
-        </label>
+        </Field>
       )}
 
-      <label className="block">
-        <span className="mb-1 block text-[11.5px] font-medium text-zinc-500">Email</span>
+      <Field
+        label="Email"
+        error={signup && touched.email && email && !emailLooksReal ? 'That does not look like an email address.' : null}
+      >
         <input
           className="field w-full"
           type="email"
           autoComplete="email"
+          inputMode="email"
           placeholder="you@example.com"
           value={email}
           onChange={(e) => {
             setEmail(e.target.value);
             profile.clearAuthError?.();
           }}
+          onBlur={() => touch('email')}
           required
         />
-      </label>
+      </Field>
 
-      <label className="block">
-        <span className="mb-1 block text-[11.5px] font-medium text-zinc-500">Password</span>
+      <Field label="Password">
         <div className="relative">
           <input
             className="field w-full pr-16"
             type={show ? 'text' : 'password'}
-            autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-            placeholder={mode === 'signup' ? 'at least 6 characters' : 'your password'}
+            autoComplete={signup ? 'new-password' : 'current-password'}
+            placeholder={signup ? 'at least 8 characters' : 'your password'}
             value={password}
             onChange={(e) => {
               setPassword(e.target.value);
               profile.clearAuthError?.();
             }}
-            minLength={6}
+            onBlur={() => touch('password')}
+            // Caps lock is the single commonest cause of "my password is
+            // right and it will not let me in", and the field hides the
+            // evidence by design.
+            onKeyUp={(e) => setCapsLock(e.getModifierState?.('CapsLock') || false)}
             required
           />
           {/* Typing a password you cannot see, into a field that will reject it
@@ -207,7 +242,58 @@ export default function AuthPanel({ profile, onDone, compact = false }) {
             {show ? 'Hide' : 'Show'}
           </button>
         </div>
-      </label>
+      </Field>
+
+      {capsLock && (
+        <p className="-mt-1 flex items-center gap-1.5 text-[11.5px] text-warn">
+          <AlertIcon />
+          Caps lock is on.
+        </p>
+      )}
+
+      {/* The requirements, live, rather than a rejection after the fact. Shown
+          only while it matters: once every rule is met the list collapses to a
+          single line instead of sitting there being satisfied at you. */}
+      {signup && password.length > 0 && (
+        <div className="rounded-control bg-zinc-900/[0.04] px-3 py-2">
+          {strong ? (
+            <p className="flex items-center gap-1.5 text-[11.5px] font-medium text-good">
+              <TickIcon />
+              Strong enough.
+            </p>
+          ) : (
+            <ul className="grid grid-cols-2 gap-x-3 gap-y-1">
+              {rules.map((rule) => (
+                <li
+                  key={rule.label}
+                  className={`flex items-center gap-1.5 text-[11px] ${rule.ok ? 'text-good' : 'text-zinc-500'}`}
+                >
+                  {rule.ok ? <TickIcon /> : <DotIcon />}
+                  {rule.label}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {signup && (
+        <Field
+          label="Confirm password"
+          error={touched.confirm && confirm && !matches ? 'The two passwords do not match.' : null}
+        >
+          <input
+            className="field w-full"
+            type={show ? 'text' : 'password'}
+            autoComplete="new-password"
+            placeholder="type it again"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            onBlur={() => touch('confirm')}
+            required
+          />
+        </Field>
+      )}
 
       {authError && (
         <p className="flex items-start gap-1.5 text-[12.5px] leading-relaxed text-bad">
@@ -216,22 +302,70 @@ export default function AuthPanel({ profile, onDone, compact = false }) {
         </p>
       )}
 
-      <button className="btn-primary w-full" disabled={busy}>
-        {busy ? 'Just a moment...' : mode === 'signin' ? 'Sign in' : 'Create account'}
+      {/* Disabled rather than allowed-and-rejected: everything it is waiting on
+          is on screen and already marked, so a dead button is never a mystery. */}
+      <button className="btn-primary w-full" disabled={busy || (signup && !ready)}>
+        {busy ? 'Just a moment...' : signup ? 'Create account' : 'Sign in'}
       </button>
 
       <button
         type="button"
         className="btn-ghost w-full text-[12.5px]"
         onClick={() => {
-          setMode(mode === 'signin' ? 'signup' : 'signin');
+          setMode(signup ? 'signin' : 'signup');
+          setTouched({});
+          setConfirm('');
           profile.clearAuthError?.();
         }}
       >
-        {mode === 'signin' ? 'No account yet? Create one' : 'Already have an account? Sign in'}
+        {signup ? 'Already have an account? Sign in' : 'No account yet? Create one'}
       </button>
     </form>
   );
+}
+
+/**
+ * Deliberately stricter than Supabase's own six-character floor.
+ *
+ * Not a character-class obstacle course: length is what actually resists a
+ * guess, and rules demanding a symbol mostly produce "Password1!". Eight
+ * characters, something that is not a letter, and a check against the handful
+ * of strings that turn up at the top of every breach list.
+ */
+const COMMON = ['password', '12345678', 'qwerty', 'letmein', 'iloveyou', 'admin123', 'circuitdojo', '11111111'];
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+function passwordRules(password) {
+  const lower = password.toLowerCase();
+  return [
+    { label: 'At least 8 characters', ok: password.length >= 8 },
+    { label: 'A letter', ok: /[a-z]/i.test(password) },
+    { label: 'A number or symbol', ok: /[^a-z]/i.test(password) },
+    { label: 'Not a common password', ok: password.length > 0 && !COMMON.some((c) => lower.includes(c)) },
+  ];
+}
+
+/** A labelled field with room for one message underneath it. */
+function Field({ label, error, children }) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-[11.5px] font-medium text-zinc-500">{label}</span>
+      {children}
+      {error && <span className="mt-1 block text-[11.5px] text-bad">{error}</span>}
+    </label>
+  );
+}
+
+function TickIcon() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true" className="shrink-0">
+      <path d="M2.5 6.4 L4.8 8.7 L9.5 3.3" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function DotIcon() {
+  return <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-zinc-900/20" aria-hidden="true" />;
 }
 
 function MailIcon() {

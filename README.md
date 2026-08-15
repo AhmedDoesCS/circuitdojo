@@ -29,6 +29,7 @@ accounts, see **[SETUP.md](SETUP.md)**.
 | **Guided hints** | Three-step escalation after a failed check: where to look → the principle → the fix. |
 | **Profile** | A statistics dashboard: stage bars, a twelve-week activity calendar, work by kind, strength by branch. |
 | **Identity** | A name, pronouns, a description, and a mark: 24 schematic symbols × 12 colours × 3 platings, over one of four drawn backdrops. Your email address is never used as your name. |
+| **First run** | An introduction, then one decision: account or guest. Placement comes after, because "where should we start you" is a fair question once you know what you are being started on. |
 
 ---
 

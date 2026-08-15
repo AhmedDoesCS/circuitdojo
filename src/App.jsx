@@ -16,7 +16,7 @@ import LifeLostOverlay from './components/LifeLostOverlay.jsx';
 import HomeScreen from './components/HomeScreen.jsx';
 import LevelsScreen from './components/LevelsScreen.jsx';
 import Calibrate from './components/Calibrate.jsx';
-import AccountInvite from './components/AccountInvite.jsx';
+import Welcome from './components/Welcome.jsx';
 import IrisTransition from './components/IrisTransition.jsx';
 import WelcomeToast from './components/WelcomeToast.jsx';
 import Toast from './components/Toast.jsx';
@@ -77,7 +77,15 @@ export default function App() {
   const profile = useProfile();
 
   const savedSession = useMemo(() => localStore.getSession(), []);
-  const [view, setView] = useState(() => (profile.settings.onboarded ? 'home' : 'calibrate'));
+  /**
+   * First run starts at the front door, not at the placement picker.
+   *
+   * Placement asks six questions about your own experience, which is a form
+   * standing where an introduction belongs. Welcome says what this is and asks
+   * for one decision; placement is the screen after it, when "where should we
+   * start you" is a fair question.
+   */
+  const [view, setView] = useState(() => (profile.settings.onboarded ? 'home' : 'welcome'));
 
   const [challenge, setChallenge] = useState(() => {
     if (savedSession?.challengeId) {
@@ -151,9 +159,9 @@ export default function App() {
   const highlightTimer = useRef(null);
   const restoreWidgets = useRef(DEFAULT_WIDGETS);
 
-  // First run places the learner before anything else happens.
+  // First run goes through the front door before anything else happens.
   useEffect(() => {
-    if (!profile.settings.onboarded) setView('calibrate');
+    if (!profile.settings.onboarded) setView('welcome');
   }, [profile.settings.onboarded]);
 
   /**
@@ -352,6 +360,34 @@ export default function App() {
     setIris(payload);
   }, []);
 
+  /**
+   * Signing in is a scene change, so it gets the scene change.
+   *
+   * Arriving at an account used to be a silent swap: the same menu, now with a
+   * name in the corner. Everywhere else in this app that you cross into a
+   * different context, the iris closes over it, which is what tells you the
+   * change was deliberate rather than a glitch.
+   *
+   * Keyed on a flag the sign-in and sign-up calls raise, not on the user going
+   * from null to set: that also happens on every page load with a stored
+   * session, and a wipe on every cold start would be a bug in a costume.
+   */
+  const { justSignedIn, clearJustSignedIn } = profile;
+  useEffect(() => {
+    if (!justSignedIn) return;
+    clearJustSignedIn();
+    setProfileOpen(false);
+    // Onboarding runs its own sequence and is mid-flow: it does not want a wipe
+    // dropped into the middle of it.
+    if (!profile.settings.onboarded) return;
+    /**
+     * Signing in from the middle of a sheet gets the wipe but not the trip
+     * home. The acknowledgement is the point; throwing away the circuit
+     * somebody was drawing to deliver it is not.
+     */
+    beginTransition(view === 'workspace' ? {} : { toView: 'home' });
+  }, [justSignedIn, clearJustSignedIn, beginTransition, profile.settings.onboarded, view]);
+
   /** Applied at the midpoint of the wipe, while the screen is fully covered. */
   const applyTransition = useCallback(() => {
     if (!iris) return;
@@ -519,7 +555,17 @@ export default function App() {
   // ------------------------------------------------------------------ views
   let body = null;
 
-  if (view === 'calibrate') {
+  if (view === 'welcome') {
+    body = (
+      <Welcome
+        profile={profile}
+        // Both doors lead to the same next room. Placement is the second step
+        // either way: it is about the curriculum, not about the account.
+        onGuest={() => beginTransition({ toView: 'calibrate' })}
+        onAuthed={() => beginTransition({ toView: 'calibrate' })}
+      />
+    );
+  } else if (view === 'calibrate') {
     body = (
       <Calibrate
         mastery={profile.mastery}
@@ -552,25 +598,11 @@ export default function App() {
           // the screen has already said so in plain words.
           if (chosen?.behind) profile.revokeFrom(chosen.target.id);
 
-          // First run has no menu behind it to wipe from, so it lands directly.
-          // It also gets the account offer, which is placed here rather than
-          // earlier because this is the first moment there is anything to lose.
-          // The offer only exists where accounts do. Deciding that here rather
-          // than inside the invite keeps the screen a pure render: a component
-          // that navigates away while rendering is a state update during
-          // another component's render, which React is right to complain about.
-          if (first && profile.supabaseEnabled) setView('invite');
-          else if (first) setView('home');
+          // The account decision has already been made at the front door, so
+          // placement is the last step either way and goes straight to the menu.
+          if (first) setView('home');
           else beginTransition({ toView: 'home' });
         }}
-      />
-    );
-  } else if (view === 'invite') {
-    body = (
-      <AccountInvite
-        profile={profile}
-        onSkip={() => setView('home')}
-        onDone={() => setView('home')}
       />
     );
   } else if (view === 'home') {

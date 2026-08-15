@@ -101,21 +101,44 @@ configure; it is in the migration.
 
 ### Make the confirmation email yours
 
+> **This one is not automatic, and nothing in this repository can do it for you.**
+> The template lives in your Supabase project, not in the app: it is stored in
+> their database and rendered on their servers when the mail goes out. The app
+> never sees it, so deploying, redeploying or rebuilding changes nothing. If your
+> confirmation email still looks generic, it is because this section has not been
+> done yet. It takes about a minute and only has to be done once.
+
 Out of the box the email is Supabase's: their wording, their sender address, and
 a link that goes through their domain. Two of those three you can fix from the
 dashboard in a minute. The third needs a domain of your own, and it is worth
 knowing which is which before you start.
 
-**The wording and the design.** Go to **Authentication → Emails → Templates →
-Confirm signup**. Replace the subject with:
+**The wording and the design.**
 
-```
-Confirm your CircuitDojo account
-```
+1. Open your project at [supabase.com/dashboard](https://supabase.com/dashboard).
+2. In the left sidebar, **Authentication**.
+3. In the Authentication sub-menu, **Emails** (on some versions it is
+   **Email Templates**).
+4. Choose the **Confirm signup** tab. There are several templates: magic link,
+   invite, password reset. The one used when somebody creates an account with an
+   email and password is *Confirm signup*, so it is the one to change.
+5. Set the **Subject heading** to:
 
-and paste the contents of `supabase/templates/confirm-signup.html` over the
-message body. That is a real email template: CircuitDojo's name, its type, its
-accent colour, and copy that says what the account is actually for. Save.
+   ```
+   Confirm your CircuitDojo account
+   ```
+
+6. Open `supabase/templates/confirm-signup.html` from this repository, select
+   **all** of it, and paste it over the entire contents of the **Message body**
+   box. Replace what is there, do not append to it: leaving the old body in place
+   gives you two emails stacked in one.
+7. **Save**. There is no publish step and no propagation delay.
+
+To check it worked, create an account with an address you can read. The email
+should have the wordmark, a schematic band showing +5V through a resistor and an
+LED to ground, and a blue "Confirm my account" button. If you see plain text and
+a bare link, step 6 did not save: the body box is easy to scroll past on a narrow
+window.
 
 **Where the link lands.** Already handled in the app. Sign-up asks Supabase to
 send people back to the address they signed up from, and arriving there shows a
