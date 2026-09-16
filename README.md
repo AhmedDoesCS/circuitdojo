@@ -75,17 +75,19 @@ Both passes always run: a circuit can be electrically clean and still fail the b
 
 ## The roadmap
 
-Twelve stages and 137 units, from one closed loop to designing for production. A stage is a handful of **blocks**, and
+Twelve stages and 146 units, from one closed loop to designing for production. A stage is a handful of **blocks**, and
 a block is a short arc of units around one idea, taken through analysis, real components, the canonical recipe and
 professional practice in the order that idea is actually learned. Progression is linear in sequence and deliberately
 not linear in subject.
 
-Not every unit is a drawing: 36 are, and 101 are not.
+Not every unit is a drawing: 36 are, and 110 are not.
 
 | Kind | You do | Graded by |
 | --- | --- | --- |
 | **Build** (36) | Draw a schematic to a specification | The netlist, the ERC and the requirement checks |
 | **Analyse** (70) | Work out a number and type it | The value, to a tolerance, with the working shown afterwards |
+| **Choose** (4) | Select a component and a reason | Both choices must meet the stated specification |
+| **Trace** (5) | Select every wire on a named net | Exact net membership, including separate ground branches |
 | **Inspect** (31) | Find the one fault on somebody else's sheet | Whether you clicked the item that is actually wrong |
 
 The faults are injected into the reference answers by seeded mutation and then put back through the real grader, so

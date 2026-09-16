@@ -738,3 +738,5 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+:root { --viz-choose: var(--viz-inspect); --viz-trace: var(--viz-analyse); }

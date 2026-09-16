@@ -1,3 +1,4 @@
+import { UNIT_COUNT } from '../roadmap/index.js';
 import React, { useState } from 'react';
 import MenuShell, { LogoMark, at } from './MenuShell.jsx';
 import AuthPanel from './AuthPanel.jsx';
@@ -81,7 +82,7 @@ export default function Welcome({ profile, onGuest, onAuthed }) {
             </p>
 
             <ul className="animate-enter-up mt-[clamp(0.7rem,2vh,1.4rem)] min-h-0 space-y-2 overflow-y-auto" style={at(2.7)}>
-              <Point n="137">units across twelve stages, from one closed loop to designing for production</Point>
+              <Point n={UNIT_COUNT}>units across twelve stages, from one closed loop to designing for production</Point>
               <Point n="59">industry-accurate symbols on a real grid-snapped editor</Point>
               <Point n="36">circuits to draw, each graded on the netlist, the rules and the brief</Point>
             </ul>

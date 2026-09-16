@@ -6,6 +6,73 @@ fundamentals are in place.
 
 ---
 
+## Implementation checkpoint: September 2026
+
+The earlier P2/P4 completion notes describe the first curriculum delivery, not
+completion of the expanded learning journey. The current delivery contains
+**146 exercises: 70 Analyse, 36 Build, 31 Inspect, 4 Choose and 5 Trace**.
+
+### Delivery order and acceptance criteria
+
+1. **Exercise foundations (first batch implemented).** Choose requires both a
+   candidate and a structured reason. Trace selects complete wire nets, supports
+   keyboard selection and shows the answer on the reference drawing. Candidate
+   order is seeded. Blank answers do not consume lives. Remaining extensions:
+   sourced datasheet extracts, current-path tracing and richer node selections.
+2. **Curriculum expansion (in progress).** Publish coherent stage batches with
+   stable IDs. Interleave all four strands in each learning block. Each exercise
+   needs an explicit objective, plausible wrong answers, explanatory feedback,
+   prerequisites, and an independently checked answer. Keep credited builds
+   credited when adding supporting lessons. Never create hundreds of nominally
+   different lessons by changing numbers alone.
+3. **Ranked practice (not started).** Build the recipe eligibility model, researched
+   interview/application banks, deterministic composition, composed reference
+   circuits, grading, placement, rating and persistent history. Unlock after stage
+   6. Every generated reference must pass; tests must also reject representative
+   wrong circuits. Five tiers, two attempts, recorded hint/reference use. A loss
+   recommends named roadmap lessons and never revokes roadmap completion.
+4. **Account readiness (separate follow-up).** Add password recovery, test account
+   isolation and interrupted sync, and verify confirmation flows. Cross-device
+   drafts and activity need an explicit data/conflict design before implementation.
+5. **Profile photo upload (pending requested customization).** Add image validation,
+   size limits, crop/preview, private ownership policies and replace/remove actions.
+   Retain schematic marks as an alternative.
+6. **Daily challenge (optional, not required for launch).** Shared daily seed,
+   eligibility rules and separate result history after practice generation is sound.
+
+### Curriculum allocation
+
+These are authoring targets, not claims of existing content. Adjust the mix by
+learning need, but keep the total above 500.
+
+| Stage | Target units | Expansion emphasis |
+| --- | ---: | --- |
+| 1 | 36 | Closed loops, units, polarity, current limits, resistor power |
+| 2 | 44 | Network reduction, loading, tolerances, real resistor selection |
+| 3 | 36 | Defined inputs, leakage, switch states, debounce |
+| 4 | 44 | Charge, transients, energy, decoupling and capacitor ratings |
+| 5 | 36 | Diode curves, rectification, reverse limits and clamps |
+| 6 | 48 | BJT/MOSFET drive, losses, flyback and safe load switching |
+| 7 | 44 | Supply budgets, dropout, thermal limits and sequencing |
+| 8 | 52 | Feedback, common-mode range, bandwidth, stability and saturation |
+| 9 | 44 | Sensor errors, references, ADC loading, filtering and noise |
+| 10 | 44 | Logic thresholds, bus timing, pull-ups and translation |
+| 11 | 48 | Switching converters, inductors, motor drive and current sensing |
+| 12 | 44 | Worst-case review, protection, derating and production constraints |
+| **Total** | **520** | **374 more authored exercises beyond this batch** |
+
+### Definition of a shippable batch
+
+- Correct, incorrect and incomplete answers tested; branched nets included.
+- New kinds supported by Levels, statistics, success and reference screens.
+- No curriculum fetch before Start; Continue remains independent of Levels.
+- Existing progress preserved, with earned build credit covering new support units.
+- Light/dark, narrow-screen and keyboard checks before release.
+- Manual and counts updated. Never label the entire curriculum finished merely
+  because every stage has at least one playable block.
+
+---
+
 ## 1. Why the current model does not work early on
 
 Selection today draws a template at random from a band around the learner's
@@ -122,7 +189,7 @@ outer shell so nothing already earned is thrown away; stages map onto bands.
 | 11 | Switching power and motion | 4 | Buck topology, H-bridge, isolation, current sensing |
 | 12 | Designing for production | 4 | Worst case, derating, protection, EMC, design review |
 
-Roughly 46 blocks, roughly 14 units per stage, **about 165 units total**.
+The expanded target is **520 authored units across twelve stages**. Parameter changes within one exercise do not count as new lessons.
 
 The 36 existing templates all survive as Build units, redistributed across
 stages. Around 130 units are new, of which the majority are the cheaper kinds.
@@ -277,7 +344,7 @@ can carry an Inspect unit. That was the gate on P2 and P4, and it is open.
 The learner's current position. Roughly 55 units, mostly Analyse and Inspect
 around the Build units that already exist.
 
-**Done.** Forty-two units across the four stages.
+**Baseline delivered.** Forty-two original units across the four stages. The expanded curriculum remains in progress.
 
 **P3. Practice mode.**
 Generator, banks, rating, tiers, unlock at stage 6.
@@ -285,7 +352,7 @@ Generator, banks, rating, tiers, unlock at stage 6.
 **P4. Content for stages 5 to 12.**
 The long tail, roughly 110 units. Sequenced so each stage ships complete.
 
-**Done.** Ninety-five units across the eight stages, for a roadmap of 137: 70
+**Baseline delivered; expansion pending.** Ninety-five units across the eight stages, for the original roadmap of 137: 70
 Analyse, 36 Build, 31 Inspect. Every one of the twenty-one blocks that already
 had a circuit now has the arithmetic in front of it and a review of it behind.
 

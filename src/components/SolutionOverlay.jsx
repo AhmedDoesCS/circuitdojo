@@ -20,6 +20,8 @@ const LANDSCAPE = 1.5;
  * anything, and wrong for a numeric question, where there is no circuit at all.
  */
 const VOICE = {
+  choose: { heading: 'How to choose this component', line: 'Compare every stated requirement before choosing.', retry: 'Try again', tab: 'Reference' },
+  trace: { heading: 'Follow the connected copper', line: 'A wire net stops at component terminals.', retry: 'Trace again', tab: 'Reference net' },
   build: {
     heading: 'Here is the circuit that answers it',
     line: 'Your sheet is untouched. Read this, then rebuild it yourself.',
@@ -60,6 +62,7 @@ export default function SolutionOverlay({
   result,
   kind = 'build',
   workings = [],
+  highlightedWires = [],
   /**
    * The drawing to show, when the caller already has one.
    *
@@ -82,8 +85,8 @@ export default function SolutionOverlay({
   const reference = given || derived;
   const heading = title || challenge?.title || '';
   const diff = useMemo(
-    () => (reference ? compareToSolution(doc, reference) : null),
-    [doc, reference]
+    () => (kind === 'build' && reference && doc ? compareToSolution(doc, reference) : null),
+    [doc, reference, kind]
   );
 
   /**
@@ -178,6 +181,8 @@ export default function SolutionOverlay({
             <div className={`grid gap-4 ${landscape ? '' : 'md:grid-cols-[minmax(0,1fr)_13.5rem]'}`}>
               <SolutionView
                 doc={reference}
+                selectedIds={highlightedWires}
+                wireLabels={kind === 'trace'}
                 title={heading}
                 // The title block already says REFERENCE; repeating it there
                 // just fills the corner with the same word twice.

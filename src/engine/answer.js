@@ -154,6 +154,8 @@ export function gradeInspect(fault, selectedId) {
 export function revealFor(work) {
   if (!work) return [];
 
+  if (work.kind === 'choose' || work.kind === 'trace') return [{ label: 'The reasoning', detail: work.unit.explanation }];
+
   if (work.kind === 'analyse') {
     const expected = work.unit.answer(work.params);
     return [

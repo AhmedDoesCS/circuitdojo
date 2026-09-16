@@ -42,6 +42,8 @@ export default function SolutionView({
    */
   selectable = false,
   selectedId = null,
+  selectedIds = [],
+  wireLabels = false,
   onSelect,
 }) {
   const svgRef = useRef(null);
@@ -186,6 +188,8 @@ export default function SolutionView({
           </g>
         ))}
 
+        {selectedIds.map((id) => <SelectionRing key={id} doc={doc} id={id} />)}
+        {wireLabels && wires.map((w, i) => <text key={w.id} x={(w.x1 + w.x2) / 2 + 8} y={(w.y1 + w.y2) / 2 - 8} fontSize="11" fill="var(--sch-label)" className="font-mono">W{i + 1}</text>)}
         {selectedId && <SelectionRing doc={doc} id={selectedId} />}
 
         {doc.labels.map((l) => (

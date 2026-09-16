@@ -42,6 +42,8 @@ function paletteFromTheme() {
  * so that copy would have been most of a beginner's first hour.
  */
 const VOICE = {
+  choose: { heading: 'Choice verified', line: (title) => title + ': the component and reasoning meet the brief.', next: 'Next unit', stay: 'Read it again' },
+  trace: { heading: 'Net traced', line: (title) => title + ': every selected wire belongs to the requested net.', next: 'Next unit', stay: 'Look again' },
   build: {
     heading: 'Circuit verified',
     line: (title) => `${title}: it meets the specification and passes the electrical rules check.`,

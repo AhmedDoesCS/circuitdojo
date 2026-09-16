@@ -26,11 +26,13 @@ import { HOLD, masteryOf } from '../lib/level.js';
  */
 
 const KIND_META = {
+  choose: { label: 'Selected', hint: 'Components chosen with a reason' },
+  trace: { label: 'Traced', hint: 'Electrical nets you identified' },
   build: { label: 'Drawn', hint: 'Schematics you captured to a specification' },
   analyse: { label: 'Worked out', hint: 'Numbers you calculated and got right' },
   inspect: { label: 'Reviewed', hint: "Faults you found on somebody else's sheet" },
 };
-const KIND_ORDER = ['build', 'analyse', 'inspect'];
+const KIND_ORDER = ['build', 'analyse', 'inspect', 'choose', 'trace'];
 
 export default function ProfileStats({ mastery, level, roadmap, completedUnits = [], activity = [] }) {
   const done = useMemo(() => new Set(completedUnits), [completedUnits]);

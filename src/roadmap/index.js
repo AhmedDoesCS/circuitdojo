@@ -15,6 +15,7 @@
  * array, which is both a better curriculum and a faster lookup.
  */
 
+import { FOUNDATION_EXTRAS } from './foundations-extra.js';
 import { getTemplate } from '../challenges/index.js';
 import { formatValue, nearestE24 } from '../schematic/units.js';
 import { firstStageForBand } from '../lib/level.js';
@@ -1771,6 +1772,14 @@ export const STAGES = [
   },
 ];
 
+// Existing IDs remain stable when new lessons are inserted.
+for (const stage of STAGES) {
+  for (const block of stage.blocks) {
+    block.units = block.units.flatMap((entry) => typeof entry !== 'string' ? [entry] :
+      [...FOUNDATION_EXTRAS.filter((u) => u.anchor === entry), entry]);
+  }
+}
+
 /** Practice mode opens once this stage is complete. */
 export const PRACTICE_UNLOCK_STAGE = 6;
 
@@ -1829,6 +1838,17 @@ export const UNITS = STAGES.flatMap((stage) =>
 
 const BY_ID = new Map(UNITS.map((u) => [u.id, u]));
 const INDEX_OF = new Map(UNITS.map((u, i) => [u.id, i]));
+
+export function creditExpandedBlocks(completed) {
+  if (completed === null) return null;
+  const done = new Set(completed);
+  for (const unit of UNITS) {
+    if (!unit.anchor) continue;
+    const build = UNITS.find((u) => u.kind === 'build' && u.templateId === unit.anchor);
+    if (build && done.has(build.id)) done.add(unit.id);
+  }
+  return UNITS.filter((u) => done.has(u.id)).map((u) => u.id);
+}
 
 export const UNIT_COUNT = UNITS.length;
 export const STAGE_COUNT = STAGES.length;

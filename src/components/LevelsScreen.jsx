@@ -48,6 +48,8 @@ import { STAGES, UNITS, STAGE_COUNT, unitById, unitTitle, indexOfUnit, roadmapPr
 
 /** What each kind of unit actually asks of you, in its own voice. */
 const KIND = {
+  choose: { name: 'Choose a part', line: 'Select a component and explain why it meets the requirements.', hue: 'var(--viz-choose)' },
+  trace: { name: 'Trace a net', line: 'Identify all wire segments on the requested electrical net.', hue: 'var(--viz-trace)' },
   build: {
     name: 'Draw it',
     line: 'A blank sheet and a specification. Graded on the netlist, the electrical rules and the brief.',
@@ -583,6 +585,8 @@ function StatusChip({ status }) {
 function KindGlyph({ kind }) {
   return (
     <svg width="12" height="12" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+      {kind === 'choose' && <path d="M2 7 L5 10 L12 3" stroke="currentColor" strokeWidth="1.5" />}
+      {kind === 'trace' && <path d="M2 11 V7 H7 V3 H12" stroke="currentColor" strokeWidth="1.5" />}
       {kind === 'build' && (
         <path
           d="M2 12 L3.6 8.4 L9.6 2.4 A1.6 1.6 0 0 1 11.9 4.7 L5.9 10.7 Z"

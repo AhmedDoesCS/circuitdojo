@@ -7,6 +7,7 @@
  * units have always had.
  */
 
+import { traceWires } from '../engine/selection-answer.js';
 import { instantiate, solutionDoc } from '../challenges/index.js';
 import { evaluateAttempt } from '../engine/evaluate.js';
 import { injectFault } from '../engine/mutate.js';
@@ -16,6 +17,19 @@ import { makeRng, randomSeed } from '../challenges/rng.js';
 export function instantiateUnit(unit, seed = randomSeed()) {
   if (!unit) return null;
 
+  if (unit.kind === 'choose') {
+    const rng = makeRng(seed);
+    return { kind: 'choose', unitId: unit.id, seed, unit, title: unit.title,
+      prompt: unit.prompt, options: rng.sample(unit.options, unit.options.length),
+      reasons: rng.sample(unit.reasons, unit.reasons.length) };
+  }
+  if (unit.kind === 'trace') {
+    const doc = solutionDoc(instantiate(unit.templateId, seed));
+    const expected = traceWires(doc, unit.netName);
+    if (!expected.length) throw new Error('Empty trace: ' + unit.id);
+    return { kind: 'trace', unitId: unit.id, seed, unit, title: unit.title,
+      prompt: unit.prompt, doc, reference: doc, expected };
+  }
   if (unit.kind === 'analyse') {
     const params = unit.params ? unit.params(makeRng(seed)) : {};
     return {

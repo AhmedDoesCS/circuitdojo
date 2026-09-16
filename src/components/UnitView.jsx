@@ -18,11 +18,15 @@ import { unitSymbol } from '../schematic/units.js';
  * would all be furniture for tools that do not apply here.
  */
 export default function UnitView({ unit, tries, maxTries, onCheck, onBack, result, checking }) {
+  const [reason, setReason] = useState('');
+  const [wires, setWires] = useState([]);
   const [value, setValue] = useState('');
   const [selected, setSelected] = useState(null);
   const inputRef = useRef(null);
 
   useEffect(() => {
+    setReason('');
+    setWires([]);
     setValue('');
     setSelected(null);
   }, [unit.unitId, unit.seed]);
@@ -31,8 +35,9 @@ export default function UnitView({ unit, tries, maxTries, onCheck, onBack, resul
     if (unit.kind === 'analyse') inputRef.current?.focus();
   }, [unit.kind, unit.unitId]);
 
-  const answered = unit.kind === 'analyse' ? value.trim() !== '' : Boolean(selected);
-  const submit = () => onCheck(unit.kind === 'analyse' ? value : selected);
+  const answered = unit.kind === 'analyse' ? value.trim() !== '' : unit.kind === 'choose' ? Boolean(selected && reason) : unit.kind === 'trace' ? wires.length > 0 : Boolean(selected);
+  const toggleWire = (id) => { if (id && unit.doc.wires.some((w) => w.id === id)) setWires((prev) => prev.includes(id) ? prev.filter((w) => w !== id) : [...prev, id]); };
+  const submit = () => onCheck(unit.kind === 'analyse' ? value : unit.kind === 'choose' ? { option: selected, reason } : unit.kind === 'trace' ? wires : selected);
 
   return (
     <MenuShell pad="tight">
@@ -50,13 +55,13 @@ export default function UnitView({ unit, tries, maxTries, onCheck, onBack, resul
 
           <div className="panel-pill animate-enter-up flex h-11 items-center gap-3 px-4" style={at(0.5)}>
             <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-accent">
-              {unit.kind === 'analyse' ? 'Analysis' : 'Review'}
+              {{ analyse: 'Analysis', inspect: 'Review', choose: 'Component selection', trace: 'Trace the net' }[unit.kind]}
             </span>
             <LivesMeter used={tries} total={maxTries} />
           </div>
         </header>
 
-        <main className="grid min-h-0 flex-1 content-center gap-[clamp(1rem,3vw,2.5rem)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <main className="grid min-h-0 flex-1 overflow-y-auto content-start gap-[clamp(1rem,3vw,2.5rem)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <section className="flex min-w-0 flex-col justify-center">
             <p
               className="animate-enter-up font-mono text-[11px] uppercase tracking-[0.14em] text-zinc-500"
@@ -77,6 +82,19 @@ export default function UnitView({ unit, tries, maxTries, onCheck, onBack, resul
               {unit.prompt}
             </p>
 
+            {unit.kind === 'choose' && (
+              <div className="mt-5 space-y-4">
+                <ChoiceGroup title="Select a component" choices={unit.options} value={selected} onChange={setSelected} name="component" />
+                <ChoiceGroup title="Explain your choice" choices={unit.reasons} value={reason} onChange={setReason} name="reason" />
+              </div>
+            )}
+            {unit.kind === 'trace' && (
+              <fieldset className="mt-4 flex flex-wrap gap-2">
+                <legend className="mb-2 text-sm">Select on the drawing or use the wire buttons.</legend>
+                {unit.doc.wires.map((wire, i) => <button key={wire.id} aria-pressed={wires.includes(wire.id)} onClick={() => toggleWire(wire.id)} className={wires.includes(wire.id) ? 'btn-primary px-3 py-2' : 'btn-quiet px-3 py-2'}>W{i + 1}</button>)}
+                <button className="btn-quiet px-3 py-2" onClick={() => setWires([])}>Clear selection</button>
+              </fieldset>
+            )}
             {unit.kind === 'analyse' ? (
               <form
                 className="animate-enter-up mt-6 flex items-center gap-2"
@@ -114,10 +132,10 @@ export default function UnitView({ unit, tries, maxTries, onCheck, onBack, resul
                   disabled={!answered || checking}
                   className="btn-primary h-11 rounded-control px-5 text-[14px]"
                 >
-                  {checking ? 'Checking...' : 'This is the fault'}
+                  {checking ? 'Checking...' : unit.kind === 'inspect' ? 'This is the fault' : 'Check answer'}
                 </button>
                 <span className="text-[12.5px] text-zinc-500">
-                  {selected ? 'One item selected.' : 'Click the item you think is wrong.'}
+                  {unit.kind === 'trace' ? wires.length + ' wires selected' : unit.kind === 'choose' ? 'Choose a part and a reason.' : selected ? 'One item selected.' : 'Click the item you think is wrong.'}
                 </span>
               </div>
             )}
@@ -147,9 +165,11 @@ export default function UnitView({ unit, tries, maxTries, onCheck, onBack, resul
               <SolutionView
                 doc={unit.doc}
                 animate={false}
-                selectable={unit.kind === 'inspect'}
+                selectable={unit.kind === 'inspect' || unit.kind === 'trace'}
+                selectedIds={wires}
+                wireLabels={unit.kind === 'trace'}
                 selectedId={selected}
-                onSelect={setSelected}
+                onSelect={unit.kind === 'trace' ? toggleWire : setSelected}
                 className="h-[min(56vh,30rem)]"
               />
             </section>
@@ -158,4 +178,13 @@ export default function UnitView({ unit, tries, maxTries, onCheck, onBack, resul
       </div>
     </MenuShell>
   );
+}
+
+function ChoiceGroup({ title, choices, value, onChange, name }) {
+  return <fieldset className="space-y-2"><legend className="mb-2 text-sm font-semibold">{title}</legend>
+    {choices.map((choice) => <label key={choice.id} className={'flex cursor-pointer gap-3 rounded-control p-3 text-sm ' + (value === choice.id ? 'bg-accent/10 ring-1 ring-accent' : 'bg-zinc-900/[0.04]')}>
+      <input type="radio" name={name} checked={value === choice.id} onChange={() => onChange(choice.id)} />
+      <span>{choice.label}</span>
+    </label>)}
+  </fieldset>;
 }

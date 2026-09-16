@@ -34,6 +34,7 @@ import { randomSeed } from './challenges/rng.js';
 import { skipTarget } from './roadmap/index.js';
 import { instantiateUnit } from './roadmap/instantiate.js';
 import UnitView from './components/UnitView.jsx';
+import { gradeChoose, gradeTrace } from './engine/selection-answer.js';
 import { gradeAnalyse, gradeInspect, revealFor } from './engine/answer.js';
 
 /**
@@ -299,6 +300,8 @@ export default function App() {
       const evaluation =
         work.kind === 'analyse'
           ? gradeAnalyse(work.unit, answer, work.params)
+          : work.kind === 'choose' ? gradeChoose(work.unit, answer)
+          : work.kind === 'trace' ? gradeTrace(work, answer)
           : gradeInspect(work.fault, answer);
       setChecking(false);
       // Every kind of unit lands in the history, not just the drawings.
@@ -870,6 +873,7 @@ export default function App() {
           challenge={work ? null : challenge}
           title={work ? work.title : challenge?.title}
           reference={work?.reference || null}
+          highlightedWires={work?.kind === 'trace' ? work.expected : []}
           doc={schematic.doc}
           result={result}
           kind={work?.kind || 'build'}

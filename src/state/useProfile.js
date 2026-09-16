@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase, isSupabaseConfigured, humanAuthError } from '../lib/supabase.js';
 import { localStore, DEFAULT_SETTINGS } from '../lib/storage.js';
 import { applyResult, emptyProgress } from '../lib/progress.js';
-import { UNITS, completeUnit, indexOfUnit, roadmapProgress, unitById } from '../roadmap/index.js';
+import { creditExpandedBlocks, UNITS, completeUnit, indexOfUnit, roadmapProgress, unitById } from '../roadmap/index.js';
 import { conceptsOf, getTemplate } from '../challenges/index.js';
 import {
   HOLD,
@@ -65,7 +65,7 @@ export default function useProfile() {
    * tracked, because practice mode weights by it, but it no longer decides what
    * comes next.
    */
-  const [completedUnits, setCompletedUnits] = useState(() => localStore.getRoadmap());
+  const [completedUnits, setCompletedUnits] = useState(() => creditExpandedBlocks(localStore.getRoadmap()));
   const roadmap = useMemo(() => roadmapProgress(completedUnits || []), [completedUnits]);
 
   /**
@@ -368,7 +368,7 @@ export default function useProfile() {
         .eq('user_id', user.id);
       if (cancelled) return;
       const merged = new Set([...(localStore.getRoadmap() || []), ...(units || []).map((u) => u.unit_id)]);
-      const ordered = UNITS.filter((u) => merged.has(u.id)).map((u) => u.id);
+      const ordered = creditExpandedBlocks([...merged]);
       setCompletedUnits(ordered);
       localStore.setRoadmap(ordered);
 
